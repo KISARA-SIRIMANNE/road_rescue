@@ -1,0 +1,47 @@
+name: road_rescue
+description: "A new Flutter project."
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Cupertino Icons
+  cupertino_icons: ^1.0.8
+
+  # Firebase
+  firebase_core: ^4.14.0
+  firebase_auth: ^6.7.0
+  cloud_firestore: ^6.10.0
+
+  # Lottie animations
+  lottie: ^3.5.1
+
+  # Video player
+  video_player: ^2.10.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Application assets
+  assets:
+    # Lottie animation
+    
+
+    # Onboarding video backgrounds
+    
+    - assets/pictures/tow_truck_3.png
+    - assets/pictures/roadrescue_onboarding_screen_2.png
+    - assets/pictures/roadrescue_onboarding_screen_3.png

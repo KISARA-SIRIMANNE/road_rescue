@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "758911680994",
+    "project_id": "road-rescue-38eff",
+    "storage_bucket": "road-rescue-38eff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:758911680994:android:70c1f8864f12a7432fb9bb",
+        "android_client_info": {
+          "package_name": "com.example.road_rescue"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqhYx6q32Faz_UA3ACZJhqGpC2V7QAGm4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
