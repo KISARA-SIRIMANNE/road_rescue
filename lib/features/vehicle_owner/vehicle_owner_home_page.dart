@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'request_assistance_page.dart';
 
 class VehicleOwnerHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -387,8 +388,13 @@ class _VehicleOwnerHomePageState
             height: 48,
             child: ElevatedButton(
               onPressed: () {
-                _showComingSoon(
-                  'Roadside assistance request will be available soon.',
+                Navigator.push(
+                context,
+                MaterialPageRoute(
+                builder: (context) => RequestAssistancePage(
+                  userData: widget.userData,
+                    ),
+                  ),
                 );
               },
               style: ElevatedButton.styleFrom(
