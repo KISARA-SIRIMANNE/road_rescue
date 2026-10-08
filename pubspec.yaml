@@ -32,6 +32,12 @@ dependencies:
   # Geolocator
   geolocator: ^14.1.1
 
+  # Open Google Maps / external navigation
+  url_launcher: ^6.3.2
+
+  firebase_storage: ^13.0.0
+  image_picker: ^1.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -43,11 +49,7 @@ flutter:
 
   # Application assets
   assets:
-    # Lottie animation
-    
-
-    # Onboarding video backgrounds
-    
+    # Onboarding images
     - assets/pictures/tow_truck_3.png
     - assets/pictures/roadrescue_onboarding_screen_2.png
     - assets/pictures/roadrescue_onboarding_screen_3.png

@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'provider_tracking_page.dart';
+import 'driver_job_status_page.dart';
 
 class AssistanceTrackingPage extends StatefulWidget {
   final String requestId;
@@ -66,6 +68,8 @@ class _AssistanceTrackingPageState
   bool _isLoading = true;
   bool _isTracking = false;
   bool _isCancelling = false;
+  bool _hasNavigatedToProviderTracking = false;
+  bool _hasnavigatedTodriverJobStatus = false;
 
   // ================================================================
   // ASSISTANCE REQUEST
@@ -130,66 +134,134 @@ class _AssistanceTrackingPageState
 
   void _startRequestListener() {
     _requestSubscription = _firestore
-        .collection('assistance_requests')
-        .doc(widget.requestId)
-        .snapshots()
-        .listen(
-      (DocumentSnapshot snapshot) {
-        if (!snapshot.exists) {
-          return;
+      .collection('assistance_requests')
+      .doc(widget.requestId)
+      .snapshots()
+      .listen(
+    (DocumentSnapshot snapshot) async {
+      if (!snapshot.exists) {
+        return;
+      }
+
+      final Map<String, dynamic> data =
+          snapshot.data() as Map<String, dynamic>;
+
+      final String status =
+          data['status']?.toString() ?? 'pending';
+
+      final String? providerName =
+          data['providerName']?.toString();
+
+      final dynamic providerLatitude =
+          data['providerLatitude'];
+
+      final dynamic providerLongitude =
+          data['providerLongitude'];
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _status = status;
+        _providerName = providerName;
+
+        if (providerLatitude is num &&
+            providerLongitude is num) {
+          _providerLatitude =
+              providerLatitude.toDouble();
+
+          _providerLongitude =
+              providerLongitude.toDouble();
+        } else {
+          _providerLatitude = null;
+          _providerLongitude = null;
         }
+      });
 
-        final Map<String, dynamic> data =
-            snapshot.data() as Map<String, dynamic>;
+      // ------------------------------------------------------------
+      // UPDATE PROVIDER MARKER
+      // ------------------------------------------------------------
 
-        final String status =
-            data['status']?.toString() ?? 'pending';
+      _updateProviderMarker();
 
-        final String? providerName =
-            data['providerName']?.toString();
+      // ------------------------------------------------------------
+      // CALCULATE DISTANCE
+      // ------------------------------------------------------------
 
-        final dynamic providerLatitude =
-            data['providerLatitude'];
+      _calculateDistance();
 
-        final dynamic providerLongitude =
-            data['providerLongitude'];
+      // ------------------------------------------------------------
+      // AUTOMATICALLY NAVIGATE TO PROVIDER TRACKING
+      // ------------------------------------------------------------
+
+      if (status == 'accepted' &&
+          !_hasNavigatedToProviderTracking) {
+        _hasNavigatedToProviderTracking = true;
+
+        // Stop the vehicle owner's GPS stream before
+        // moving to the provider tracking page.
+        await _positionSubscription?.cancel();
+
+        _positionSubscription = null;
 
         if (!mounted) {
           return;
         }
 
-        setState(() {
-          _status = status;
-          _providerName = providerName;
-
-          if (providerLatitude is num &&
-              providerLongitude is num) {
-            _providerLatitude =
-                providerLatitude.toDouble();
-
-            _providerLongitude =
-                providerLongitude.toDouble();
-          } else {
-            _providerLatitude = null;
-            _providerLongitude = null;
-          }
-        });
-
-        _updateProviderMarker();
-
-        _calculateDistance();
-      },
-      onError: (error) {
-        debugPrint(
-          'Assistance request listener error: $error',
-        );
-      },
-    );
+        _navigateToProviderTracking(data);
+      }
+    },
+    onError: (error) {
+      debugPrint(
+        'Assistance request listener error: $error',
+      );
+    },
+  );
   }
 
-  // ================================================================
-  // START LIVE TRACKING
-  // ================================================================
+  void _navigateToDriverJobStatus(
+  Map<String, dynamic> requestData,
+) {
+  if (!mounted) {
+    return;
+  }
+
+  Navigator.of(context).pushReplacement(
+    MaterialPageRoute(
+      builder: (context) =>
+          DriverJobStatusPage(
+        requestId: widget.requestId,
+        userData: widget.userData,
+        issue: widget.issue,
+      ),
+    ),
+  );
+}
+
+  void _navigateToProviderTracking(
+  Map<String, dynamic> requestData,
+) {
+  if (!mounted) return;
+
+  final String providerName =
+      requestData['providerName']?.toString() ??
+          'Roadside Provider';
+
+  Navigator.of(context).pushReplacement(
+    MaterialPageRoute(
+      builder: (context) =>
+          ProviderTrackingPage(
+        requestId: widget.requestId,
+        userData: widget.userData,
+        issue: widget.issue,
+        providerName: providerName,
+      ),
+    ),
+  );
+}
+
+ 
 
   Future<void> _startTracking() async {
     try {
@@ -602,7 +674,7 @@ class _AssistanceTrackingPageState
       builder: (context) {
         return AlertDialog(
           backgroundColor:
-              const Color(0xFF1A1D20),
+              const Color(0xFF11181C),
           title: const Text(
             'Cancel Request?',
             style: TextStyle(
@@ -671,7 +743,7 @@ class _AssistanceTrackingPageState
         behavior:
             SnackBarBehavior.floating,
         backgroundColor:
-            const Color(0xFF24282D),
+            const Color(0xFF151D21),
       ),
     );
   }
@@ -699,7 +771,7 @@ class _AssistanceTrackingPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
-          const Color(0xFF101214),
+          const Color(0xFF05090B),
       body: SafeArea(
         child: Column(
           children: [
@@ -738,7 +810,7 @@ class _AssistanceTrackingPageState
           const EdgeInsets.symmetric(
         horizontal: 8,
       ),
-      color: const Color(0xFF101214),
+      color: const Color(0xFF05090B),
       child: Row(
         children: [
           IconButton(
@@ -835,7 +907,7 @@ class _AssistanceTrackingPageState
         decoration:
             BoxDecoration(
           color: const Color(
-            0xFF191C20,
+            0xFF11181C,
           ),
           borderRadius:
               BorderRadius.circular(20),
@@ -900,7 +972,7 @@ class _AssistanceTrackingPageState
           decoration:
               BoxDecoration(
             color: const Color(
-              0xFF191C20,
+              0xFF11181C,
             ),
             borderRadius:
                 BorderRadius.circular(
@@ -932,7 +1004,7 @@ class _AssistanceTrackingPageState
       ),
       decoration:
           const BoxDecoration(
-        color: Color(0xFF191C20),
+        color: Color(0xFF11181C),
         borderRadius:
             BorderRadius.only(
           topLeft:
@@ -1040,7 +1112,7 @@ class _AssistanceTrackingPageState
             decoration:
                 BoxDecoration(
               color:
-                  const Color(0xFF101214),
+                  const Color(0xFF05090B),
               borderRadius:
                   BorderRadius.circular(
                 14,
@@ -1129,7 +1201,7 @@ class _AssistanceTrackingPageState
               decoration:
                   BoxDecoration(
                 color:
-                    const Color(0xFF101214),
+                    const Color(0xFF05090B),
                 borderRadius:
                     BorderRadius.circular(
                   14,
