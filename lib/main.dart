@@ -6,6 +6,9 @@ import 'features/onboarding/onboarding_screen_1.dart';
 import 'features/onboarding/onboarding_screen_2.dart';
 import 'features/onboarding/onboarding_screen_3.dart';
 
+
+
+
 Future<void> main() async {
   // Make sure Flutter is initialized before Firebase.
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,24 +36,25 @@ class RoadRescueApp extends StatelessWidget {
 
       title: 'RoadRescue',
 
-      // ==============================================================
+      // ============================================================== 
       // THEME
       // ==============================================================
 
       theme: ThemeData(
         useMaterial3: true,
 
-        scaffoldBackgroundColor:
-            const Color(0xFF101214),
+        scaffoldBackgroundColor: const Color(0xFF08090A),
 
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFF6E900),
           brightness: Brightness.dark,
+          surface: const Color(0xFF171C20),
+          outline: const Color(0xFF394149),
         ),
       ),
 
-      // ==============================================================
-      // ONBOARDING
+      // ============================================================== 
+      // TEMPORARY GOOGLE MAP TEST
       // ==============================================================
 
       home: const OnboardingPage(),
@@ -66,19 +70,15 @@ class OnboardingPage extends StatefulWidget {
   const OnboardingPage({super.key});
 
   @override
-  State<OnboardingPage> createState() =>
-      _OnboardingPageState();
+  State<OnboardingPage> createState() => _OnboardingPageState();
 }
 
-class _OnboardingPageState
-    extends State<OnboardingPage> {
-
+class _OnboardingPageState extends State<OnboardingPage> {
   // ================================================================
   // PAGE CONTROLLER
   // ================================================================
 
-  final PageController _pageController =
-      PageController();
+  final PageController _pageController = PageController();
 
   // ================================================================
   // DISPOSE
@@ -97,8 +97,7 @@ class _OnboardingPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF101214),
+      backgroundColor: const Color(0xFF08090A),
 
       body: PageView(
         controller: _pageController,

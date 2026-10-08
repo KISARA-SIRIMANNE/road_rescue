@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'request_assistance_page.dart';
 
 class VehicleOwnerHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -19,12 +20,12 @@ class _VehicleOwnerHomePageState
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF101214);
-  static const Color cardColor = Color(0xFF181B1E);
+  static const Color backgroundColor = Color(0xFF08090A);
+  static const Color cardColor = Color(0xFF171C20);
   static const Color yellowColor = Color(0xFFF6E900);
   static const Color whiteColor = Color(0xFFF5F7F8);
   static const Color greyColor = Color(0xFF929AA2);
-  static const Color borderColor = Color(0xFF30353A);
+  static const Color borderColor = Color(0xFF394149);
 
   // ============================================================
   // STATE
@@ -387,8 +388,13 @@ class _VehicleOwnerHomePageState
             height: 48,
             child: ElevatedButton(
               onPressed: () {
-                _showComingSoon(
-                  'Roadside assistance request will be available soon.',
+                Navigator.push(
+                context,
+                MaterialPageRoute(
+                builder: (context) => RequestAssistancePage(
+                  userData: widget.userData,
+                    ),
+                  ),
                 );
               },
               style: ElevatedButton.styleFrom(

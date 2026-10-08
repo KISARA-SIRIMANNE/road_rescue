@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../vehicle_owner/vehicle_owner_home_page.dart';
+import '../roadside_provider/roadside_provider_home_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -40,12 +41,12 @@ class _LoginScreenState extends State<LoginScreen> {
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF101214);
-  static const Color cardColor = Color(0xFF181B1E);
+  static const Color backgroundColor = Color(0xFF08090A);
+  static const Color cardColor = Color(0xFF171C20);
   static const Color yellowColor = Color(0xFFF6E900);
   static const Color whiteColor = Color(0xFFF5F7F8);
   static const Color greyColor = Color(0xFF929AA2);
-  static const Color borderColor = Color(0xFF30353A);
+  static const Color borderColor = Color(0xFF394149);
 
   // ============================================================
   // DISPOSE
@@ -174,11 +175,11 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => RoleHomePlaceholder(
-              role: role,
+            builder: (context) => RoadsideProviderHomePage(
               userData: userData,
             ),
-          ),
+          )
+         
         );
 
         return;
@@ -804,7 +805,7 @@ class RoleHomePlaceholder extends StatelessWidget {
 
     return Scaffold(
       backgroundColor:
-          const Color(0xFF101214),
+          const Color(0xFF08090A),
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -823,7 +824,7 @@ class RoleHomePlaceholder extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.check,
-                    color: Color(0xFF101214),
+                    color: Color(0xFF08090A),
                     size: 42,
                   ),
                 ),

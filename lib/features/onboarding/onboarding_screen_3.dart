@@ -9,7 +9,7 @@ class OnboardingScreen3 extends StatelessWidget {
   // COLORS
   // ================================================================
 
-  static const Color backgroundColor = Color(0xFF101214);
+  static const Color backgroundColor = Color(0xFF08090A);
   static const Color whiteColor = Color(0xFFF5F7F8);
   static const Color yellowColor = Color(0xFFF6E900);
   static const Color greyColor = Color(0xFF929AA2);
@@ -159,7 +159,7 @@ class OnboardingScreen3 extends StatelessWidget {
           child: const Text(
             '⚡',
             style: TextStyle(
-              color: Color(0xFF101214),
+              color: Color(0xFF08090A),
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
