@@ -54,10 +54,10 @@ class _RoadsideProviderHomePageState
   // ============================================================
 
   final Color _backgroundColor =
-      const Color(0xFF101214);
+      const Color(0xFF08090A);
 
   final Color _cardColor =
-      const Color(0xFF1A1D20);
+      const Color(0xFF171C20);
 
   final Color _yellowColor =
       const Color(0xFFF6E900);

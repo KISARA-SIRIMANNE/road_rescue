@@ -602,7 +602,7 @@ class _AssistanceTrackingPageState
       builder: (context) {
         return AlertDialog(
           backgroundColor:
-              const Color(0xFF1A1D20),
+              const Color(0xFF171C20),
           title: const Text(
             'Cancel Request?',
             style: TextStyle(
@@ -699,7 +699,7 @@ class _AssistanceTrackingPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
-          const Color(0xFF101214),
+          const Color(0xFF08090A),
       body: SafeArea(
         child: Column(
           children: [
@@ -738,7 +738,7 @@ class _AssistanceTrackingPageState
           const EdgeInsets.symmetric(
         horizontal: 8,
       ),
-      color: const Color(0xFF101214),
+      color: const Color(0xFF08090A),
       child: Row(
         children: [
           IconButton(
@@ -835,7 +835,7 @@ class _AssistanceTrackingPageState
         decoration:
             BoxDecoration(
           color: const Color(
-            0xFF191C20,
+            0xFF171C20,
           ),
           borderRadius:
               BorderRadius.circular(20),
@@ -900,7 +900,7 @@ class _AssistanceTrackingPageState
           decoration:
               BoxDecoration(
             color: const Color(
-              0xFF191C20,
+              0xFF171C20,
             ),
             borderRadius:
                 BorderRadius.circular(
@@ -932,7 +932,7 @@ class _AssistanceTrackingPageState
       ),
       decoration:
           const BoxDecoration(
-        color: Color(0xFF191C20),
+        color: Color(0xFF171C20),
         borderRadius:
             BorderRadius.only(
           topLeft:
@@ -1040,7 +1040,7 @@ class _AssistanceTrackingPageState
             decoration:
                 BoxDecoration(
               color:
-                  const Color(0xFF101214),
+                  const Color(0xFF08090A),
               borderRadius:
                   BorderRadius.circular(
                 14,
@@ -1129,7 +1129,7 @@ class _AssistanceTrackingPageState
               decoration:
                   BoxDecoration(
                 color:
-                    const Color(0xFF101214),
+                    const Color(0xFF08090A),
                 borderRadius:
                     BorderRadius.circular(
                   14,

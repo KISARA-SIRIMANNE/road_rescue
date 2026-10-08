@@ -43,11 +43,13 @@ class RoadRescueApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
 
-        scaffoldBackgroundColor: const Color(0xFF101214),
+        scaffoldBackgroundColor: const Color(0xFF08090A),
 
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFF6E900),
           brightness: Brightness.dark,
+          surface: const Color(0xFF171C20),
+          outline: const Color(0xFF394149),
         ),
       ),
 
@@ -95,7 +97,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101214),
+      backgroundColor: const Color(0xFF08090A),
 
       body: PageView(
         controller: _pageController,
