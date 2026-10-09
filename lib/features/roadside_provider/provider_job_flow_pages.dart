@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -264,7 +265,6 @@ class ProviderNavigationView extends StatelessWidget {
 
 class ProviderChatView extends StatefulWidget {
   final String requestId;
-  final String providerId;
   final String providerName;
   final Map<String, dynamic> requestData;
   final VoidCallback onBack;
@@ -274,7 +274,6 @@ class ProviderChatView extends StatefulWidget {
   const ProviderChatView({
     super.key,
     required this.requestId,
-    required this.providerId,
     required this.providerName,
     required this.requestData,
     required this.onBack,
@@ -300,6 +299,12 @@ class _ProviderChatViewState extends State<ProviderChatView> {
     final String message = _messageController.text.trim();
     if (message.isEmpty || _isSending) return;
 
+    final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUserId == null) {
+      widget.onError('Please sign in again to send messages.');
+      return;
+    }
+
     setState(() => _isSending = true);
     try {
       await FirebaseFirestore.instance
@@ -308,13 +313,17 @@ class _ProviderChatViewState extends State<ProviderChatView> {
           .collection('messages')
           .add({
             'text': message,
-            'senderId': widget.providerId,
+            'senderId': currentUserId,
             'senderName': widget.providerName,
             'createdAt': FieldValue.serverTimestamp(),
           });
       _messageController.clear();
     } on FirebaseException catch (error) {
-      widget.onError(error.message ?? 'Could not send your message.');
+      widget.onError(
+        error.code == 'permission-denied'
+            ? 'Chat access was denied. Deploy the Firestore chat rules and try again.'
+            : error.message ?? 'Could not send your message.',
+      );
     } catch (error) {
       widget.onError('Could not send your message: $error');
     } finally {
@@ -341,9 +350,15 @@ class _ProviderChatViewState extends State<ProviderChatView> {
               stream: messages.snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return const _EmptyState(
+                  final Object? error = snapshot.error;
+                  final bool permissionDenied =
+                      error is FirebaseException &&
+                      error.code == 'permission-denied';
+                  return _EmptyState(
                     icon: Icons.cloud_off_outlined,
-                    message: 'Could not load this conversation.',
+                    message: permissionDenied
+                        ? 'Chat access was denied. Deploy the Firestore chat rules to read this conversation.'
+                        : 'Could not load this conversation.',
                   );
                 }
                 if (!snapshot.hasData) {
@@ -363,7 +378,9 @@ class _ProviderChatViewState extends State<ProviderChatView> {
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final data = docs[index].data();
-                    final bool isMine = data['senderId'] == widget.providerId;
+                    final bool isMine =
+                        data['senderId'] ==
+                        FirebaseAuth.instance.currentUser?.uid;
                     return Align(
                       alignment: isMine
                           ? Alignment.centerRight
@@ -400,6 +417,7 @@ class _ProviderChatViewState extends State<ProviderChatView> {
               Expanded(
                 child: TextField(
                   controller: _messageController,
+                  maxLength: 2000,
                   textInputAction: TextInputAction.send,
                   onSubmitted: (_) => _sendMessage(),
                   style: const TextStyle(color: Colors.white),
