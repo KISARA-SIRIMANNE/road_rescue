@@ -7,10 +7,10 @@ class OnboardingScreen2 extends StatelessWidget {
   // COLORS
   // ================================================================
 
-  static const Color backgroundColor = Color(0xFF101214);
+  static const Color backgroundColor = Color(0xFF05090B);
   static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color yellowColor = Color(0xFFF6E900);
-  static const Color greyColor = Color(0xFF929AA2);
+  static const Color yellowColor = Color(0xFFFFD21F);
+  static const Color greyColor = Color(0xFFA5ADB3);
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +145,7 @@ class OnboardingScreen2 extends StatelessWidget {
           child: const Text(
             '⚡',
             style: TextStyle(
-              color: Color(0xFF101214),
+              color: Color(0xFF05090B),
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),

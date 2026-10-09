@@ -96,8 +96,47 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF24282D),
+        backgroundColor: const Color(0xFF151D21),
       ),
+    );
+  }
+
+  void _showRequestCreatedDialog(String issue) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF11181C),
+          title: const Text(
+            'Request Ready',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Your assistance request for "$issue" is ready to be submitted.',
+            style: const TextStyle(
+              color: Colors.white70,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  color: Color(0xFFF6E900),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -107,9 +146,9 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         widget.userData['name']?.toString() ?? 'Driver';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF101214),
+      backgroundColor: const Color(0xFF05090B),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF101214),
+        backgroundColor: const Color(0xFF05090B),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(
@@ -141,7 +180,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF191C20),
+                  color: const Color(0xFF11181C),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: Colors.white.withOpacity(0.06),
@@ -343,7 +382,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF191C20),
+              : const Color(0xFF11181C),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
@@ -360,7 +399,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFFF6E900)
-                    : const Color(0xFF24282D),
+                    : const Color(0xFF151D21),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(
@@ -437,7 +476,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         decoration: BoxDecoration(
           color: isSelected
               ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF191C20),
+              : const Color(0xFF11181C),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
@@ -456,7 +495,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFFF6E900)
-                        : const Color(0xFF24282D),
+                        : const Color(0xFF151D21),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Icon(
@@ -512,7 +551,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                     color: Colors.white38,
                   ),
                   filled: true,
-                  fillColor: const Color(0xFF101214),
+                  fillColor: const Color(0xFF10171B),
                   contentPadding: const EdgeInsets.all(16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
