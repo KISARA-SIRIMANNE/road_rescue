@@ -8,6 +8,11 @@ class InsuranceCompany {
   final String name;
 }
 
+class InsuranceCompanyNotConfigured extends StateError {
+  InsuranceCompanyNotConfigured()
+    : super('Your insurance company is not configured. Select it to continue.');
+}
+
 const List<InsuranceCompany> insuranceCompanies = [
   InsuranceCompany(
     'sri_lanka_insurance_general',
@@ -38,13 +43,22 @@ Future<String> loadCurrentInsuranceCompanyId() async {
     throw StateError('Your insurance session has expired.');
   }
 
-  final snapshot =
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-  final id = snapshot.data()?['insuranceCompanyId']?.toString();
-  if (!snapshot.exists || insuranceCompanyById(id) == null) {
+  final snapshot = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(user.uid)
+      .get();
+  if (!snapshot.exists) {
+    throw StateError('Your account information could not be found.');
+  }
+
+  final companyId = snapshot.data()?['insuranceCompanyId']?.toString();
+  if (companyId == null || companyId.trim().isEmpty) {
+    throw InsuranceCompanyNotConfigured();
+  }
+  if (insuranceCompanyById(companyId) == null) {
     throw StateError(
-      'Your insurance company is not configured. Contact an administrator.',
+      'Your insurance company setting is invalid. Contact an administrator.',
     );
   }
-  return id!;
+  return companyId;
 }

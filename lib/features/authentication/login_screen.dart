@@ -133,7 +133,12 @@ class _LoginScreenState extends State<LoginScreen> {
         'email': user.email,
       };
 
-      final String role = userData['role']?.toString() ?? '';
+      final Object? storedRole =
+          userData['role'] ??
+          userData['userRole'] ??
+          userData['accountType'] ??
+          userData['userType'];
+      final String role = _resolveRole(userData);
 
       // ----------------------------------------------------------
       // CHECK ROLE
@@ -164,9 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => RoadsideProviderHomePage(
-              userData: userData,
-            ),
+            builder: (context) => RoadsideProviderHomePage(userData: userData),
           ),
         );
 
@@ -188,11 +191,37 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      // A few accounts were created in Firebase Auth without a matching role
+      // in their Firestore profile. Let the signed-in user complete that
+      // missing profile field instead of immediately signing them out.
+      if (role.isEmpty) {
+        final selectedRole = await _chooseMissingAccountRole();
+        if (selectedRole == null || !mounted) return;
+
+        await _firestore.collection('users').doc(user.uid).set({
+          'uid': user.uid,
+          'email': user.email,
+          'role': selectedRole,
+        }, SetOptions(merge: true));
+
+        if (!mounted) return;
+        userData['role'] = selectedRole;
+        _navigateToRole(selectedRole, userData);
+        return;
+      }
+
       // ----------------------------------------------------------
       // UNKNOWN ROLE
       // ----------------------------------------------------------
 
-      _showError('Your account role is not recognized.');
+      final String roleLabel = storedRole?.toString().trim().isNotEmpty == true
+          ? storedRole.toString().trim()
+          : 'missing';
+      debugPrint(
+        'Login role not recognized: "$roleLabel"; '
+        'profile fields: ${userData.keys.join(', ')}',
+      );
+      _showError('Account role "$roleLabel" is not recognized.');
 
       await _auth.signOut();
     } on FirebaseAuthException catch (e) {
@@ -242,6 +271,158 @@ class _LoginScreenState extends State<LoginScreen> {
           _isLoading = false;
         });
       }
+    }
+  }
+
+  String _resolveRole(Map<String, dynamic> userData) {
+    final explicitRole = _normalizeRole(
+      userData['role'] ??
+          userData['userRole'] ??
+          userData['accountType'] ??
+          userData['userType'],
+    );
+
+    if (const {
+      'vehicle_owner',
+      'roadside_provider',
+      'insurance_provider',
+    }.contains(explicitRole)) {
+      return explicitRole;
+    }
+
+    // Older user documents may not have a role field. Use the profile fields
+    // written by registration to recover the corresponding app role.
+    if (_hasAnyField(userData, const {
+      'insuranceCompanyId',
+      'companyId',
+      'companyName',
+    })) {
+      return 'insurance_provider';
+    }
+    if (_hasAnyField(userData, const {
+      'workshopLocation',
+      'serviceArea',
+      'providerType',
+    })) {
+      return 'roadside_provider';
+    }
+    if (_hasAnyField(userData, const {
+      'vehicleType',
+      'vehicleNumber',
+      'vehiclePlate',
+      'contactNumber',
+    })) {
+      return 'vehicle_owner';
+    }
+
+    return explicitRole;
+  }
+
+  bool _hasAnyField(Map<String, dynamic> data, Set<String> fields) =>
+      fields.any(
+        (field) =>
+            data[field] != null && data[field].toString().trim().isNotEmpty,
+      );
+
+  Future<String?> _chooseMissingAccountRole() {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text(
+          'Complete your account',
+          style: TextStyle(color: whiteColor),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Choose the account type you selected when you registered.',
+              style: TextStyle(color: greyColor),
+            ),
+            const SizedBox(height: 12),
+            _roleChoice(dialogContext, 'Vehicle owner', 'vehicle_owner'),
+            _roleChoice(
+              dialogContext,
+              'Roadside assistance provider',
+              'roadside_provider',
+            ),
+            _roleChoice(
+              dialogContext,
+              'Insurance provider',
+              'insurance_provider',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _roleChoice(BuildContext context, String title, String role) {
+    return TextButton(
+      onPressed: () => Navigator.pop(context, role),
+      child: Text(title, style: const TextStyle(color: yellowColor)),
+    );
+  }
+
+  void _navigateToRole(String role, Map<String, dynamic> userData) {
+    final Widget page;
+    switch (role) {
+      case 'vehicle_owner':
+        page = VehicleOwnerHomePage(userData: userData);
+        break;
+      case 'roadside_provider':
+        page = RoadsideProviderHomePage(userData: userData);
+        break;
+      case 'insurance_provider':
+        page = const InsuranceDashboardPage();
+        break;
+      default:
+        return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => page),
+    );
+  }
+
+  String _normalizeRole(Object? rawRole) {
+    final role = rawRole?.toString().trim().toLowerCase().replaceAll(
+      RegExp(r'[\s-]+'),
+      '_',
+    );
+
+    switch (role) {
+      case 'vehicle_owner':
+      case 'vehicleowner':
+      case 'owner':
+      case 'customer':
+      case 'motorist':
+        return 'vehicle_owner';
+      case 'roadside_provider':
+      case 'roadside_assistance_provider':
+      case 'roadside_assistance':
+      case 'roadsideprovider':
+      case 'serviceprovider':
+      case 'service_provider':
+      case 'provider':
+      case 'mechanic':
+      case 'workshop':
+      case 'garage':
+      case 'towing_provider':
+        return 'roadside_provider';
+      case 'insurance_provider':
+      case 'insurancecompany':
+      case 'insurance_company':
+      case 'insurer':
+      case 'insurance_agent':
+      case 'insurance':
+        return 'insurance_provider';
+      default:
+        return role ?? '';
     }
   }
 
@@ -604,7 +785,7 @@ class _LoginScreenState extends State<LoginScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: yellowColor,
           foregroundColor: backgroundColor,
-          disabledBackgroundColor: yellowColor.withOpacity(0.5),
+          disabledBackgroundColor: yellowColor.withValues(alpha: 0.5),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -680,108 +861,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// TEMPORARY ROLE HOME PLACEHOLDER
-// ============================================================
-//
-// This is kept for the Roadside Assistance Provider and
-// Insurance Provider until we create their home pages.
-//
-// Vehicle owners are sent directly to:
-// VehicleOwnerHomePage
-// ============================================================
-
-class RoleHomePlaceholder extends StatelessWidget {
-  final String role;
-  final Map<String, dynamic> userData;
-
-  const RoleHomePlaceholder({
-    super.key,
-    required this.role,
-    required this.userData,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    String roleName;
-
-    switch (role) {
-      case 'roadside_provider':
-        roleName = 'Roadside Assistance Provider';
-        break;
-
-      case 'insurance_provider':
-        roleName = 'Insurance Provider';
-        break;
-
-      default:
-        roleName = 'User';
-    }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF101214),
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF6E900),
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Color(0xFF05090B),
-                    size: 42,
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                const Text(
-                  'Login Successful',
-                  style: TextStyle(
-                    color: Color(0xFFF5F7F8),
-                    fontSize: 27,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                Text(
-                  roleName,
-                  style: const TextStyle(
-                    color: Color(0xFFF6E900),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                const Text(
-                  'Your home page will be available here.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFA5ADB3),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

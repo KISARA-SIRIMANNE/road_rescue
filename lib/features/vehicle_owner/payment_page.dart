@@ -2,17 +2,14 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
 import 'review_rating_page.dart';
 
 class PaymentPage extends StatefulWidget {
   final String requestId;
   final double amount;
 
-  const PaymentPage({
-    super.key,
-    required this.requestId,
-    required this.amount,
-  });
+  const PaymentPage({super.key, required this.requestId, required this.amount});
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
@@ -23,17 +20,13 @@ class _PaymentPageState extends State<PaymentPage> {
 
   final _formKey = GlobalKey<FormState>();
 
-  final TextEditingController _cardHolderController =
-      TextEditingController();
+  final TextEditingController _cardHolderController = TextEditingController();
 
-  final TextEditingController _cardNumberController =
-      TextEditingController();
+  final TextEditingController _cardNumberController = TextEditingController();
 
-  final TextEditingController _expiryController =
-      TextEditingController();
+  final TextEditingController _expiryController = TextEditingController();
 
-  final TextEditingController _cvvController =
-      TextEditingController();
+  final TextEditingController _cvvController = TextEditingController();
 
   bool _isProcessing = false;
   bool _showCvv = false;
@@ -66,8 +59,7 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   String _maskCardNumber() {
-    final digits =
-        _cardNumberController.text.replaceAll(RegExp(r'\D'), '');
+    final digits = _cardNumberController.text.replaceAll(RegExp(r'\D'), '');
 
     if (digits.length < 4) {
       return '**** **** **** ****';
@@ -113,10 +105,7 @@ class _PaymentPageState extends State<PaymentPage> {
   String _generatePaymentReference() {
     final random = Random();
 
-    final randomNumber = List.generate(
-      8,
-      (_) => random.nextInt(10),
-    ).join();
+    final randomNumber = List.generate(8, (_) => random.nextInt(10)).join();
 
     return 'RR-$randomNumber';
   }
@@ -140,24 +129,21 @@ class _PaymentPageState extends State<PaymentPage> {
        * Card number and CVV are NOT stored in Firestore.
        */
 
-      await Future.delayed(
-        const Duration(seconds: 2),
-      );
+      await Future.delayed(const Duration(seconds: 2));
 
-      final String paymentReference =
-          _generatePaymentReference();
+      final String paymentReference = _generatePaymentReference();
 
       await _firestore
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'paymentStatus': 'paid',
-        'paymentMethod': 'card',
-        'paidAmount': widget.amount,
-        'paidAt': FieldValue.serverTimestamp(),
-        'paymentReference': paymentReference,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'paymentStatus': 'paid',
+            'paymentMethod': 'card',
+            'paidAmount': widget.amount,
+            'paidAt': FieldValue.serverTimestamp(),
+            'paymentReference': paymentReference,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (!mounted) return;
 
@@ -174,9 +160,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Payment failed. Please try again.\n$e',
-          ),
+          content: Text('Payment failed. Please try again.\n$e'),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -197,16 +181,10 @@ class _PaymentPageState extends State<PaymentPage> {
         centerTitle: true,
         title: const Text(
           'Payment',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: _isProcessing
               ? null
               : () {
@@ -218,12 +196,7 @@ class _PaymentPageState extends State<PaymentPage> {
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              20,
-              10,
-              20,
-              30,
-            ),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -244,10 +217,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
                 Text(
                   'Enter your card details to complete the payment.',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
                 ),
 
                 const SizedBox(height: 22),
@@ -257,11 +227,9 @@ class _PaymentPageState extends State<PaymentPage> {
                   label: 'Cardholder Name',
                   hint: 'John Doe',
                   icon: Icons.person_outline,
-                  textCapitalization:
-                      TextCapitalization.words,
+                  textCapitalization: TextCapitalization.words,
                   validator: (value) {
-                    if (value == null ||
-                        value.trim().isEmpty) {
+                    if (value == null || value.trim().isEmpty) {
                       return 'Please enter the cardholder name';
                     }
 
@@ -283,15 +251,12 @@ class _PaymentPageState extends State<PaymentPage> {
                   keyboardType: TextInputType.number,
                   maxLength: 19,
                   onChanged: (value) {
-                    final formatted =
-                        _formatCardNumber(value);
+                    final formatted = _formatCardNumber(value);
 
                     if (formatted != value) {
-                      _cardNumberController.value =
-                          TextEditingValue(
+                      _cardNumberController.value = TextEditingValue(
                         text: formatted,
-                        selection:
-                            TextSelection.collapsed(
+                        selection: TextSelection.collapsed(
                           offset: formatted.length,
                         ),
                       );
@@ -300,8 +265,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     setState(() {});
                   },
                   validator: (value) {
-                    final digits = (value ?? '')
-                        .replaceAll(RegExp(r'\D'), '');
+                    final digits = (value ?? '').replaceAll(RegExp(r'\D'), '');
 
                     if (digits.isEmpty) {
                       return 'Please enter your card number';
@@ -325,15 +289,10 @@ class _PaymentPageState extends State<PaymentPage> {
                         label: 'Expiry Date',
                         hint: 'MM/YY',
                         icon: Icons.calendar_month_outlined,
-                        keyboardType:
-                            TextInputType.number,
+                        keyboardType: TextInputType.number,
                         maxLength: 5,
                         onChanged: (value) {
-                          String digits =
-                              value.replaceAll(
-                            RegExp(r'\D'),
-                            '',
-                          );
+                          String digits = value.replaceAll(RegExp(r'\D'), '');
 
                           if (digits.length > 4) {
                             digits = digits.substring(0, 4);
@@ -347,20 +306,16 @@ class _PaymentPageState extends State<PaymentPage> {
                           }
 
                           if (formatted != value) {
-                            _expiryController.value =
-                                TextEditingValue(
+                            _expiryController.value = TextEditingValue(
                               text: formatted,
-                              selection:
-                                  TextSelection.collapsed(
-                                offset:
-                                    formatted.length,
+                              selection: TextSelection.collapsed(
+                                offset: formatted.length,
                               ),
                             );
                           }
                         },
                         validator: (value) {
-                          if (value == null ||
-                              value.isEmpty) {
+                          if (value == null || value.isEmpty) {
                             return 'Required';
                           }
 
@@ -381,15 +336,12 @@ class _PaymentPageState extends State<PaymentPage> {
                         label: 'CVV',
                         hint: '123',
                         icon: Icons.lock_outline,
-                        keyboardType:
-                            TextInputType.number,
+                        keyboardType: TextInputType.number,
                         maxLength: 4,
                         obscureText: !_showCvv,
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _showCvv
-                                ? Icons.visibility_off
-                                : Icons.visibility,
+                            _showCvv ? Icons.visibility_off : Icons.visibility,
                             color: Colors.grey.shade500,
                           ),
                           onPressed: () {
@@ -399,13 +351,11 @@ class _PaymentPageState extends State<PaymentPage> {
                           },
                         ),
                         validator: (value) {
-                          if (value == null ||
-                              value.isEmpty) {
+                          if (value == null || value.isEmpty) {
                             return 'Required';
                           }
 
-                          if (value.length < 3 ||
-                              value.length > 4) {
+                          if (value.length < 3 || value.length > 4) {
                             return 'Invalid CVV';
                           }
 
@@ -426,47 +376,36 @@ class _PaymentPageState extends State<PaymentPage> {
                   width: double.infinity,
                   height: 56,
                   child: ElevatedButton(
-                    onPressed:
-                        _isProcessing ? null : _processPayment,
+                    onPressed: _isProcessing ? null : _processPayment,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          const Color(0xFFFFD21F),
+                      backgroundColor: const Color(0xFFFFD21F),
                       foregroundColor: Colors.black,
-                      disabledBackgroundColor:
-                          Colors.grey.shade800,
-                      disabledForegroundColor:
-                          Colors.grey.shade500,
+                      disabledBackgroundColor: Colors.grey.shade800,
+                      disabledForegroundColor: Colors.grey.shade500,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                     ),
                     child: _isProcessing
                         ? const SizedBox(
                             width: 24,
                             height: 24,
-                            child:
-                                CircularProgressIndicator(
+                            child: CircularProgressIndicator(
                               strokeWidth: 2.5,
                               color: Colors.black,
                             ),
                           )
                         : Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.lock,
-                                size: 20,
-                              ),
+                              const Icon(Icons.lock, size: 20),
                               const SizedBox(width: 10),
                               Text(
                                 'Pay Rs. ${widget.amount.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontSize: 16,
-                                  fontWeight:
-                                      FontWeight.bold,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
@@ -479,10 +418,7 @@ class _PaymentPageState extends State<PaymentPage> {
                 Center(
                   child: Text(
                     'Demo payment • No real money will be charged',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                 ),
               ],
@@ -501,7 +437,7 @@ class _PaymentPageState extends State<PaymentPage> {
         color: const Color(0xFF11181C),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFFFD21F).withOpacity(0.25),
+          color: const Color(0xFFFFD21F).withValues(alpha: 0.25),
         ),
       ),
       child: Column(
@@ -516,10 +452,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
           Text(
             'Amount to Pay',
-            style: TextStyle(
-              color: Colors.grey.shade500,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
           ),
 
           const SizedBox(height: 5),
@@ -537,10 +470,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
           Text(
             'RoadRescue Assistance',
-            style: TextStyle(
-              color: Colors.grey.shade600,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
         ],
       ),
@@ -556,8 +486,7 @@ class _PaymentPageState extends State<PaymentPage> {
     int? maxLength,
     bool obscureText = false,
     Widget? suffixIcon,
-    TextCapitalization textCapitalization =
-        TextCapitalization.none,
+    TextCapitalization textCapitalization = TextCapitalization.none,
     Function(String)? onChanged,
     String? Function(String?)? validator,
   }) {
@@ -568,54 +497,34 @@ class _PaymentPageState extends State<PaymentPage> {
       obscureText: obscureText,
       onChanged: onChanged,
       textCapitalization: textCapitalization,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 15,
-      ),
+      style: const TextStyle(color: Colors.white, fontSize: 15),
       cursorColor: const Color(0xFFFFD21F),
       validator: validator,
       decoration: InputDecoration(
         counterText: '',
         labelText: label,
         hintText: hint,
-        labelStyle: TextStyle(
-          color: Colors.grey.shade500,
-        ),
-        hintStyle: TextStyle(
-          color: Colors.grey.shade700,
-        ),
-        prefixIcon: Icon(
-          icon,
-          color: const Color(0xFFFFD21F),
-        ),
+        labelStyle: TextStyle(color: Colors.grey.shade500),
+        hintStyle: TextStyle(color: Colors.grey.shade700),
+        prefixIcon: Icon(icon, color: const Color(0xFFFFD21F)),
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: const Color(0xFF10171B),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(
-            color: Colors.grey.shade800,
-          ),
+          borderSide: BorderSide(color: Colors.grey.shade800),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: Color(0xFFFFD21F),
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: Color(0xFFFFD21F), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: Colors.redAccent,
-          ),
+          borderSide: const BorderSide(color: Colors.redAccent),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: Colors.redAccent,
-            width: 1.5,
-          ),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
       ),
     );
@@ -627,26 +536,18 @@ class _PaymentPageState extends State<PaymentPage> {
       decoration: BoxDecoration(
         color: const Color(0xFF11181C),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: Colors.grey.shade800,
-        ),
+        border: Border.all(color: Colors.grey.shade800),
       ),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.shield_outlined,
-            color: Color(0xFFFFD21F),
-            size: 22,
-          ),
+          const Icon(Icons.shield_outlined, color: Color(0xFFFFD21F), size: 22),
 
           const SizedBox(width: 12),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Your payment information is protected',
@@ -683,19 +584,15 @@ class _PaymentPageState extends State<PaymentPage> {
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.green.withOpacity(0.15),
-                    border: Border.all(
-                      color: Colors.greenAccent,
-                      width: 2,
-                    ),
+                    color: Colors.green.withValues(alpha: 0.15),
+                    border: Border.all(color: Colors.greenAccent, width: 2),
                   ),
                   child: const Icon(
                     Icons.check_rounded,
@@ -735,8 +632,7 @@ class _PaymentPageState extends State<PaymentPage> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: const Color(0xFF11181C),
-                    borderRadius:
-                        BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: Column(
                     children: [
@@ -745,21 +641,14 @@ class _PaymentPageState extends State<PaymentPage> {
                         'Rs. ${widget.amount.toStringAsFixed(2)}',
                       ),
                       const SizedBox(height: 14),
-                      _successRow(
-                        'Payment Method',
-                        'Card',
-                      ),
+                      _successRow('Payment Method', 'Card'),
                       const SizedBox(height: 14),
-                      _successRow(
-                        'Card',
-                        _maskCardNumber(),
-                      ),
+                      _successRow('Card', _maskCardNumber()),
                       const SizedBox(height: 14),
                       _successRow(
                         'Status',
                         'PAID',
-                        valueColor:
-                            Colors.greenAccent,
+                        valueColor: Colors.greenAccent,
                       ),
                     ],
                   ),
@@ -768,48 +657,42 @@ class _PaymentPageState extends State<PaymentPage> {
                 const SizedBox(height: 30),
 
                 SizedBox(
-                   width: double.infinity,
-  height: 54,
-  child: ElevatedButton(
-    onPressed: () {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => ReviewRatingPage(
-            requestId: widget.requestId,
-            providerName: 'Roadside Assistance Provider',
-          ),
-        ),
-      );
-    },
-    style: ElevatedButton.styleFrom(
-      backgroundColor:
-          const Color(0xFFFFD21F),
-      foregroundColor: Colors.black,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.circular(15),
-      ),
-    ),
-    child: const Row(
-      mainAxisAlignment:
-          MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.star_rounded,
-          size: 21,
-        ),
-        SizedBox(width: 8),
-        Text(
-          'Rate Your Provider',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-          ),
-        ),
-      ],
-    ),
-  ),
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => ReviewRatingPage(
+                            requestId: widget.requestId,
+                            providerName: 'Roadside Assistance Provider',
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFD21F),
+                      foregroundColor: Colors.black,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.star_rounded, size: 21),
+                        SizedBox(width: 8),
+                        Text(
+                          'Rate Your Provider',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -819,21 +702,13 @@ class _PaymentPageState extends State<PaymentPage> {
     );
   }
 
-  Widget _successRow(
-    String title,
-    String value, {
-    Color? valueColor,
-  }) {
+  Widget _successRow(String title, String value, {Color? valueColor}) {
     return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           title,
-          style: TextStyle(
-            color: Colors.grey.shade500,
-            fontSize: 13,
-          ),
+          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
         ),
         Flexible(
           child: Text(

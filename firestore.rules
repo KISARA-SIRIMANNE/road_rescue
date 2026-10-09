@@ -21,9 +21,42 @@ service cloud.firestore {
       allow update: if request.auth != null
         && request.auth.uid == userId
         && (
-          resource.data.role != 'insurance_provider'
-          || request.resource.data.diff(resource.data).affectedKeys()
-              .hasNone(['insuranceCompanyId', 'companyName'])
+          (
+            !resource.data.keys().hasAny(['role'])
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['role', 'fcmToken', 'fcmTokenUpdatedAt'])
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['role'])
+              || request.resource.data.role in [
+                'vehicle_owner', 'roadside_provider', 'insurance_provider'
+              ]
+            )
+          )
+          ||
+          (
+            resource.data.keys().hasAny(['role'])
+            && request.resource.data.role == resource.data.role
+            && (
+              resource.data.role != 'insurance_provider'
+              || request.resource.data.diff(resource.data).affectedKeys()
+                  .hasNone(['insuranceCompanyId', 'companyName'])
+              || (
+                !resource.data.keys().hasAny(['insuranceCompanyId'])
+                && request.resource.data.keys().hasAll([
+                  'insuranceCompanyId', 'companyName'
+                ])
+                && request.resource.data.insuranceCompanyId in [
+                  'sri_lanka_insurance_general', 'ceylinco_general',
+                  'fairfirst', 'allianz_lanka', 'janashakthi',
+                  'peoples_insurance', 'hnb_general', 'lolc_general',
+                  'amana_takaful', 'continental_lanka'
+                ]
+                && request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['insuranceCompanyId', 'companyName'])
+              )
+            )
+          )
         );
 
       allow read: if request.auth != null
@@ -222,6 +255,39 @@ service cloud.firestore {
           && get(
             /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
           ).data.insuranceStatus == request.resource.data.status
+        )
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.role == 'roadside_provider'
+          && request.resource.data.type == 'assistance_request_update'
+          && request.resource.data.requestId is string
+          && request.resource.data.userId is string
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+          ).data.userId == request.resource.data.userId
+          && (
+            (
+              request.resource.data.status == 'accepted'
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.status == 'accepted'
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.providerId == request.auth.uid
+            )
+            || (
+              request.resource.data.status == 'declined'
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.status in ['pending', 'searching']
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.deniedBy is list
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.deniedBy.hasAny([request.auth.uid])
+            )
+          )
         )
       );
 

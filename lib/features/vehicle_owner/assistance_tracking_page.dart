@@ -1,12 +1,11 @@
 import 'dart:async';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-import '../roadside_provider/provider_job_flow_pages.dart';
+import 'provider_tracking_page.dart';
 
 class AssistanceTrackingPage extends StatefulWidget {
   final String requestId;
@@ -24,174 +23,94 @@ class AssistanceTrackingPage extends StatefulWidget {
   State<AssistanceTrackingPage> createState() => _AssistanceTrackingPageState();
 }
 
-class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
-  // ================================================================
-  // FIRESTORE
-  // ================================================================
-
+class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
+    with WidgetsBindingObserver {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-
-  // ================================================================
-  // GOOGLE MAP
-  // ================================================================
 
   GoogleMapController? _mapController;
 
-  // ================================================================
-  // LOCATION STREAMS
-  // ================================================================
-
-  // Vehicle owner's GPS stream.
   StreamSubscription<Position>? _positionSubscription;
-
-  // Firestore request listener.
-  //
-  // This listens to:
-  // assistance_requests/{requestId}
-  //
-  // It allows the vehicle owner to receive the roadside
-  // provider's location in real time.
-  StreamSubscription<DocumentSnapshot>? _requestSubscription;
-
-  // ================================================================
-  // VEHICLE OWNER LOCATION
-  // ================================================================
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _requestSubscription;
 
   Position? _currentPosition;
-
-  // ================================================================
-  // PAGE STATE
-  // ================================================================
 
   bool _isLoading = true;
   bool _isTracking = false;
   bool _isCancelling = false;
+  bool _hasNavigatedToProviderTracking = false;
 
   // ================================================================
   // ASSISTANCE REQUEST
   // ================================================================
+  bool _isWritingLocation = false;
+  bool _locationWriteFailed = false;
+  Position? _queuedPosition;
 
   String _status = 'pending';
-  Map<String, dynamic>? _requestData;
 
-  // ================================================================
-  // ROADSIDE PROVIDER LIVE LOCATION
-  // ================================================================
-
+  // Roadside provider's latest location.
   double? _providerLatitude;
   double? _providerLongitude;
-
-  // Distance from vehicle owner to provider.
-  double? _currentDistance;
-
-  // Previous distance.
-  //
-  // Used to determine whether the provider is getting
-  // closer or farther.
-  double? _previousDistance;
-
-  String _distanceStatus = 'Waiting for roadside assistance...';
-
   String? _providerName;
 
-  // ================================================================
-  // MAP MARKERS
-  // ================================================================
+  double? _currentDistance;
+  String _distanceStatus = 'Waiting for provider location';
 
   final Set<Marker> _markers = {};
-
-  // ================================================================
-  // DEFAULT MAP LOCATION
-  // ================================================================
-
-  static const LatLng _defaultLocation = LatLng(6.9271, 79.8612);
-
-  // ================================================================
-  // INIT STATE
-  // ================================================================
 
   @override
   void initState() {
     super.initState();
 
-    // Start listening for provider/request changes.
-    _startRequestListener();
-
-    // Start vehicle owner's live location tracking.
+    WidgetsBinding.instance.addObserver(this);
+    _listenToRequestStatus();
     _startTracking();
   }
 
-  // ================================================================
-  // LISTEN TO ASSISTANCE REQUEST
-  // ================================================================
+  void _navigateToProviderTracking(Map<String, dynamic> requestData) {
+    if (!mounted) return;
 
-  void _startRequestListener() {
-    _requestSubscription = _firestore
-        .collection('assistance_requests')
-        .doc(widget.requestId)
-        .snapshots()
-        .listen(
-          (DocumentSnapshot snapshot) {
-            if (!snapshot.exists) {
-              return;
-            }
+    final String providerName =
+        requestData['providerName']?.toString() ?? 'Roadside Provider';
 
-            final Map<String, dynamic> data =
-                snapshot.data() as Map<String, dynamic>;
-
-            final String status = data['status']?.toString() ?? 'pending';
-
-            final String? providerName = data['providerName']?.toString();
-
-            final dynamic providerLatitude = data['providerLatitude'];
-
-            final dynamic providerLongitude = data['providerLongitude'];
-
-            if (!mounted) {
-              return;
-            }
-
-            setState(() {
-              _status = status;
-              _requestData = data;
-              _providerName = providerName;
-
-              if (providerLatitude is num && providerLongitude is num) {
-                _providerLatitude = providerLatitude.toDouble();
-
-                _providerLongitude = providerLongitude.toDouble();
-              } else {
-                _providerLatitude = null;
-                _providerLongitude = null;
-              }
-            });
-
-            _updateProviderMarker();
-
-            _calculateDistance();
-          },
-          onError: (error) {
-            debugPrint('Assistance request listener error: $error');
-          },
-        );
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => ProviderTrackingPage(
+          requestId: widget.requestId,
+          userData: widget.userData,
+          issue: widget.issue,
+          providerName: providerName,
+        ),
+      ),
+    );
   }
 
-  // ================================================================
-  // START LIVE TRACKING
-  // ================================================================
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _positionSubscription?.cancel();
+      _positionSubscription = null;
+    } else if (state == AppLifecycleState.resumed &&
+        mounted &&
+        _status != 'cancelled' &&
+        _status != 'completed') {
+      _startTracking();
+    }
+  }
 
   Future<void> _startTracking() async {
     try {
       final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
+        if (!mounted) return;
+
         _showMessage('Location services are disabled.');
 
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+        setState(() {
+          _isLoading = false;
+        });
 
         return;
       }
@@ -204,26 +123,28 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+
         _showMessage('Location permission is required for live tracking.');
 
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+        setState(() {
+          _isLoading = false;
+        });
 
         return;
       }
 
-      // ------------------------------------------------------------
-      // GET INITIAL POSITION
-      // ------------------------------------------------------------
-
+      // Get initial position.
       final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
         ),
       );
+
+      if (!_isValidPosition(position)) {
+        throw StateError('Invalid GPS coordinates received.');
+      }
 
       if (!mounted) return;
 
@@ -233,23 +154,14 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
         _isTracking = true;
       });
 
-      // Add vehicle owner marker.
       _updateMarker(position);
 
-      // Update driver's location in Firestore.
       await _updateFirestoreLocation(position);
 
-      // Calculate distance to provider if available.
-      _calculateDistance();
-
-      // Move map camera.
       await _moveCamera(position);
 
-      // ------------------------------------------------------------
-      // START CONTINUOUS GPS UPDATES
-      // ------------------------------------------------------------
-
-      await _positionSubscription?.cancel();
+      // Start continuous GPS updates.
+      _positionSubscription?.cancel();
 
       const LocationSettings settings = LocationSettings(
         accuracy: LocationAccuracy.high,
@@ -258,29 +170,52 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
       _positionSubscription =
           Geolocator.getPositionStream(locationSettings: settings).listen(
-            (Position position) async {
-              if (!mounted) return;
+            (Position position) {
+              if (!mounted || !_isValidPosition(position)) return;
 
               setState(() {
                 _currentPosition = position;
               });
 
-              // Update vehicle owner marker.
               _updateMarker(position);
-
-              // Update vehicle owner location in Firestore.
-              await _updateFirestoreLocation(position);
-
-              // Recalculate distance to provider.
-              _calculateDistance();
+              _moveCamera(position);
+              _queueFirestoreLocationUpdate(position);
             },
-            onError: (error) {
-              debugPrint('Vehicle owner location stream error: $error');
+            onError: (Object error) {
+              debugPrint('Live location stream error: $error');
+              if (mounted) {
+                _showMessage(
+                  'Live location updates are temporarily unavailable.',
+                );
+              }
             },
           );
-    } catch (e) {
-      debugPrint('Unable to start live location tracking: $e');
+    } on TimeoutException {
+      if (!mounted) return;
 
+      setState(() {
+        _isLoading = false;
+        _isTracking = false;
+      });
+      _showMessage('Location request timed out. Check GPS and try again.');
+    } on LocationServiceDisabledException {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _isTracking = false;
+      });
+      _showMessage('Location services are disabled. Please enable GPS.');
+    } on PermissionDeniedException {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _isTracking = false;
+      });
+      _showMessage('Location permission is required for live tracking.');
+    } catch (e) {
+      debugPrint('Live location startup error: $e');
       if (!mounted) return;
 
       setState(() {
@@ -292,149 +227,121 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
     }
   }
 
+  bool _isValidPosition(Position position) {
+    return position.latitude.isFinite &&
+        position.longitude.isFinite &&
+        position.latitude >= -90 &&
+        position.latitude <= 90 &&
+        position.longitude >= -180 &&
+        position.longitude <= 180;
+  }
+
+  void _queueFirestoreLocationUpdate(Position position) {
+    _queuedPosition = position;
+    if (_isWritingLocation) return;
+    _flushFirestoreLocationUpdate();
+  }
+
+  Future<void> _flushFirestoreLocationUpdate() async {
+    final position = _queuedPosition;
+    if (position == null || _isWritingLocation) return;
+
+    _queuedPosition = null;
+    _isWritingLocation = true;
+    try {
+      await _updateFirestoreLocation(position);
+    } finally {
+      _isWritingLocation = false;
+      if (_queuedPosition != null && mounted) {
+        _flushFirestoreLocationUpdate();
+      }
+    }
+  }
+
   // ================================================================
-  // UPDATE FIRESTORE VEHICLE OWNER LOCATION
+  // UPDATE FIRESTORE LOCATION
   // ================================================================
 
   Future<void> _updateFirestoreLocation(Position position) async {
+    if (!_isValidPosition(position)) return;
+
     try {
       await _firestore
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
+            'userId': widget.userData['uid']?.toString(),
             'latitude': position.latitude,
             'longitude': position.longitude,
+            'accuracy': position.accuracy,
+            'locationTimestamp': Timestamp.fromDate(position.timestamp),
             'updatedAt': FieldValue.serverTimestamp(),
           });
+      _locationWriteFailed = false;
     } catch (e) {
       debugPrint('Failed to update live location: $e');
+      if (mounted && !_locationWriteFailed) {
+        _locationWriteFailed = true;
+        _showMessage(
+          'Location was detected, but could not be shared with the provider.',
+        );
+      }
     }
   }
 
   // ================================================================
-  // UPDATE VEHICLE OWNER MARKER
+  // UPDATE MAP MARKER
   // ================================================================
 
   void _updateMarker(Position position) {
-    final LatLng location = LatLng(position.latitude, position.longitude);
-
-    if (!mounted) {
-      return;
-    }
+    if (!mounted || !_isValidPosition(position)) return;
 
     setState(() {
-      // Remove only the vehicle owner's old marker.
-      //
-      // IMPORTANT:
-      // Do not clear the complete marker set because the
-      // provider marker also exists there.
-      _markers.remove(const MarkerId('vehicle_owner'));
-
+      _markers.removeWhere(
+        (marker) => marker.markerId.value == 'vehicle_owner',
+      );
       _markers.add(
         Marker(
           markerId: const MarkerId('vehicle_owner'),
-          position: location,
+          position: LatLng(position.latitude, position.longitude),
           infoWindow: const InfoWindow(
             title: 'Your Location',
             snippet: 'Live location',
           ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
         ),
       );
     });
-  }
 
-  // ================================================================
-  // UPDATE ROADSIDE PROVIDER MARKER
-  // ================================================================
+    _calculateDistance();
+  }
 
   void _updateProviderMarker() {
-    if (_providerLatitude == null || _providerLongitude == null) {
-      return;
-    }
-
-    final LatLng providerLocation = LatLng(
-      _providerLatitude!,
-      _providerLongitude!,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      // Remove old provider marker.
-      _markers.remove(const MarkerId('roadside_provider'));
-
-      // Add new provider marker.
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('roadside_provider'),
-          position: providerLocation,
-          infoWindow: InfoWindow(
-            title: _providerName?.isNotEmpty == true
-                ? _providerName!
-                : 'Roadside Assistance Provider',
-            snippet: 'Live provider location',
-          ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-        ),
-      );
-    });
-  }
-
-  // ================================================================
-  // CALCULATE DISTANCE TO PROVIDER
-  // ================================================================
-
-  void _calculateDistance() {
-    if (_currentPosition == null ||
+    if (!mounted ||
         _providerLatitude == null ||
         _providerLongitude == null) {
       return;
     }
 
-    final double distance = Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      _providerLatitude!,
-      _providerLongitude!,
-    );
-
-    if (!mounted) {
-      return;
-    }
-
     setState(() {
-      _previousDistance = _currentDistance;
-      _currentDistance = distance;
-
-      if (_previousDistance == null) {
-        _distanceStatus = 'Provider location received';
-      } else if (distance < _previousDistance! - 5) {
-        _distanceStatus = 'Provider is getting closer';
-      } else if (distance > _previousDistance! + 5) {
-        _distanceStatus = 'Provider is getting farther';
-      } else {
-        _distanceStatus = 'Provider distance is stable';
-      }
+      _markers.removeWhere(
+        (marker) => marker.markerId.value == 'roadside_provider',
+      );
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('roadside_provider'),
+          position: LatLng(_providerLatitude!, _providerLongitude!),
+          infoWindow: InfoWindow(
+            title: _providerName ?? 'Roadside Provider',
+            snippet: 'Provider live location',
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueYellow,
+          ),
+        ),
+      );
     });
-  }
 
-  // ================================================================
-  // FORMAT DISTANCE
-  // ================================================================
-
-  String _formatDistance(double? distance) {
-    if (distance == null) {
-      return '--';
-    }
-
-    if (distance < 1000) {
-      return '${distance.toStringAsFixed(0)} m';
-    }
-
-    return '${(distance / 1000).toStringAsFixed(2)} km';
+    _calculateDistance();
   }
 
   // ================================================================
@@ -466,14 +373,105 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
     }
   }
 
+  void _listenToRequestStatus() {
+    _requestSubscription = _firestore
+        .collection('assistance_requests')
+        .doc(widget.requestId)
+        .snapshots()
+        .listen(
+      (snapshot) async {
+        final data = snapshot.data();
+        final status = data?['status']?.toString();
+
+        if (!snapshot.exists || data == null || status == null || status.isEmpty) {
+          return;
+        }
+        if (!mounted) return;
+
+        final latitude = data['providerLatitude'];
+        final longitude = data['providerLongitude'];
+
+        setState(() {
+          _status = status;
+          _providerName = data['providerName']?.toString();
+
+          if (latitude is num && longitude is num) {
+            _providerLatitude = latitude.toDouble();
+            _providerLongitude = longitude.toDouble();
+          } else {
+            _providerLatitude = null;
+            _providerLongitude = null;
+          }
+        });
+
+        if (_providerLatitude != null && _providerLongitude != null) {
+          _updateProviderMarker();
+        } else {
+          _calculateDistance();
+        }
+
+        if (status == 'cancelled' || status == 'completed') {
+          await _stopTracking();
+        } else if (status == 'accepted' &&
+            !_hasNavigatedToProviderTracking) {
+          _hasNavigatedToProviderTracking = true;
+          await _stopTracking();
+          if (mounted) _navigateToProviderTracking(data);
+        }
+      },
+      onError: (Object error) {
+        debugPrint('Request status listener error: $error');
+      },
+    );
+  }
+
+  void _calculateDistance() {
+    final currentPosition = _currentPosition;
+    final providerLatitude = _providerLatitude;
+    final providerLongitude = _providerLongitude;
+
+    if (currentPosition == null ||
+        providerLatitude == null ||
+        providerLongitude == null) {
+      if (mounted) {
+        setState(() {
+          _currentDistance = null;
+          _distanceStatus = 'Waiting for provider location';
+        });
+      }
+      return;
+    }
+
+    final double distanceMeters = Geolocator.distanceBetween(
+      currentPosition.latitude,
+      currentPosition.longitude,
+      providerLatitude,
+      providerLongitude,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _currentDistance = distanceMeters;
+      _distanceStatus = distanceMeters < 1000
+          ? '${distanceMeters.round()} m away'
+          : '${(distanceMeters / 1000).toStringAsFixed(1)} km away';
+    });
+  }
+
+  String _formatDistance(double distanceInMeters) {
+    if (distanceInMeters < 1000) {
+      return '${distanceInMeters.round()} m';
+    }
+    return '${(distanceInMeters / 1000).toStringAsFixed(1)} km';
+  }
+
   // ================================================================
   // CANCEL REQUEST
   // ================================================================
 
   Future<void> _cancelRequest() async {
     if (_isCancelling) return;
-
-    if (!mounted) return;
 
     setState(() {
       _isCancelling = true;
@@ -494,8 +492,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
       Navigator.pop(context);
     } catch (e) {
-      debugPrint('Error cancelling request: $e');
-
       if (!mounted) return;
 
       setState(() {
@@ -531,7 +527,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF171C20),
+          backgroundColor: const Color(0xFF11181C),
           title: const Text(
             'Cancel Request?',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -580,7 +576,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF24282D),
+        backgroundColor: const Color(0xFF151D21),
       ),
     );
   }
@@ -591,10 +587,9 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _positionSubscription?.cancel();
-
     _requestSubscription?.cancel();
-
     _mapController?.dispose();
 
     super.dispose();
@@ -607,7 +602,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08090A),
+      backgroundColor: const Color(0xFF05090B),
       body: SafeArea(
         child: Column(
           children: [
@@ -642,7 +637,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      color: const Color(0xFF08090A),
+      color: const Color(0xFF05090B),
       child: Row(
         children: [
           IconButton(
@@ -670,14 +665,12 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   // ================================================================
 
   Widget _buildMap() {
-    LatLng location = _defaultLocation;
-
-    if (_currentPosition != null) {
-      location = LatLng(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-      );
+    final position = _currentPosition;
+    if (position == null) {
+      return const ColoredBox(color: Color(0xFF101214));
     }
+
+    final location = LatLng(position.latitude, position.longitude);
 
     return GoogleMap(
       initialCameraPosition: CameraPosition(target: location, zoom: 17),
@@ -698,7 +691,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   Widget _buildLoading() {
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.black.withValues(alpha: 0.45),
         child: const Center(
           child: CircularProgressIndicator(color: Color(0xFFF6E900)),
         ),
@@ -717,7 +710,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF171C20),
+          color: const Color(0xFF11181C),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -731,9 +724,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
                 shape: BoxShape.circle,
               ),
             ),
-
             const SizedBox(width: 7),
-
             Text(
               _isTracking ? 'LIVE LOCATION' : 'LOCATION OFF',
               style: TextStyle(
@@ -749,7 +740,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   }
 
   // ================================================================
-  // MY LOCATION BUTTON
+  // MY LOCATION
   // ================================================================
 
   Widget _buildMyLocationButton() {
@@ -766,7 +757,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: const Color(0xFF171C20),
+            color: const Color(0xFF11181C),
             borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
@@ -787,7 +778,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: const BoxDecoration(
-        color: Color(0xFF171C20),
+        color: Color(0xFF11181C),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(26),
           topRight: Radius.circular(26),
@@ -796,10 +787,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ----------------------------------------------------------
-          // HANDLE
-          // ----------------------------------------------------------
-
           Center(
             child: Container(
               width: 40,
@@ -813,16 +800,13 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
           const SizedBox(height: 18),
 
-          // ----------------------------------------------------------
-          // ASSISTANCE STATUS
-          // ----------------------------------------------------------
           Row(
             children: [
               Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withOpacity(0.12),
+                  color: const Color(0xFFF6E900).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
@@ -846,9 +830,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-
                     const SizedBox(height: 4),
-
                     Text(
                       _getStatusText(),
                       style: const TextStyle(
@@ -864,14 +846,11 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
           const SizedBox(height: 16),
 
-          // ----------------------------------------------------------
-          // ISSUE
-          // ----------------------------------------------------------
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF08090A),
+              color: const Color(0xFF05090B),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -907,9 +886,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
           const SizedBox(height: 14),
 
-          // ----------------------------------------------------------
-          // DRIVER LOCATION SHARING
-          // ----------------------------------------------------------
           const Row(
             children: [
               Icon(
@@ -917,9 +893,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
                 color: Colors.greenAccent,
                 size: 18,
               ),
-
               SizedBox(width: 7),
-
               Expanded(
                 child: Text(
                   'Your live location is being shared with RoadRescue.',
@@ -930,135 +904,8 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
           ),
 
           // ----------------------------------------------------------
-          // PROVIDER LIVE LOCATION
-          // ----------------------------------------------------------
-          if (_providerLatitude != null && _providerLongitude != null) ...[
-            const SizedBox(height: 14),
-
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF08090A),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: const Icon(
-                          Icons.support_agent,
-                          color: Colors.redAccent,
-                          size: 21,
-                        ),
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _providerName?.isNotEmpty == true
-                                  ? _providerName!
-                                  : 'Roadside Assistance Provider',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-
-                            const SizedBox(height: 3),
-
-                            const Text(
-                              'Live location',
-                              style: TextStyle(
-                                color: Colors.white54,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.route_rounded,
-                        color: Color(0xFFF6E900),
-                        size: 19,
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      Text(
-                        _formatDistance(_currentDistance),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-
-                      const SizedBox(width: 10),
-
-                      Expanded(
-                        child: Text(
-                          _distanceStatus,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            color: Colors.white54,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-
           const SizedBox(height: 18),
 
-          if ((_status == 'accepted' || _status == 'in_progress') &&
-              _requestData?['providerId']?.toString().isNotEmpty == true) ...[
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: _openProviderChat,
-                icon: const Icon(Icons.chat_bubble_outline_rounded),
-                label: const Text('Chat with provider'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF6E900),
-                  side: const BorderSide(color: Color(0xFF394149)),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-
-          // ----------------------------------------------------------
-          // CANCEL BUTTON
-          // ----------------------------------------------------------
           SizedBox(
             width: double.infinity,
             height: 50,
@@ -1090,40 +937,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       ),
     );
   }
-
-  void _openProviderChat() {
-    final Map<String, dynamic>? requestData = _requestData;
-    if (requestData == null || FirebaseAuth.instance.currentUser == null) {
-      _showMessage('Could not identify your account for chat.');
-      return;
-    }
-
-    final String providerId = requestData['providerId']?.toString() ?? '';
-    if (providerId.isEmpty) {
-      _showMessage('The provider is not available for chat yet.');
-      return;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (context) => Scaffold(
-          backgroundColor: const Color(0xFF08090A),
-          body: SafeArea(
-            child: ProviderChatView(
-              requestId: widget.requestId,
-              providerName: widget.userData['name']?.toString() ?? 'Customer',
-              requestData: requestData,
-              chatTitle: 'Chat with provider',
-              onBack: () => Navigator.pop(context),
-              onError: _showMessage,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   // ================================================================
   // STATUS TEXT
   // ================================================================
@@ -1131,8 +944,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   String _getStatusText() {
     switch (_status) {
       case 'pending':
-        return 'Searching for a roadside provider...';
-
       case 'searching':
         return 'Searching for a roadside provider...';
 
