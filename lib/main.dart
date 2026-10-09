@@ -6,9 +6,6 @@ import 'features/onboarding/onboarding_screen_1.dart';
 import 'features/onboarding/onboarding_screen_2.dart';
 import 'features/onboarding/onboarding_screen_3.dart';
 
-
-
-
 Future<void> main() async {
   // Make sure Flutter is initialized before Firebase.
   WidgetsFlutterBinding.ensureInitialized();
