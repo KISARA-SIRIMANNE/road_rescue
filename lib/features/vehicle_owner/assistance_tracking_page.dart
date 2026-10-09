@@ -96,12 +96,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   // ================================================================
   // MAP MARKERS
   // ================================================================
-  String? _providerName;
-  double? _providerLatitude;
-  double? _providerLongitude;
-  double _currentDistance = 0;
-  String _distanceStatus = 'Waiting for provider location';
-
   final Set<Marker> _markers = {};
 
   // ================================================================
@@ -171,13 +165,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
             });
 
             _updateProviderMarker();
-  void _navigateToDriverJobStatus(
-  Map<String, dynamic> requestData,
-) {
-  if (!mounted) {
-    return;
-  }
-
             _calculateDistance();
           },
           onError: (error) {
@@ -476,82 +463,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
     }
   }
 
-  void _listenToRequestStatus() {
-    _requestSubscription = _firestore
-        .collection('assistance_requests')
-        .doc(widget.requestId)
-        .snapshots()
-        .listen(
-          (snapshot) {
-            final data = snapshot.data();
-            final status = data?['status']?.toString();
-            if (!mounted || status == null || status.isEmpty) return;
-
-            setState(() {
-              _status = status;
-              _providerName = data?['providerName']?.toString();
-              final providerLatitude = data?['providerLatitude'];
-              final providerLongitude = data?['providerLongitude'];
-
-              if (providerLatitude is num && providerLongitude is num) {
-                _providerLatitude = providerLatitude.toDouble();
-                _providerLongitude = providerLongitude.toDouble();
-              } else {
-                _providerLatitude = null;
-                _providerLongitude = null;
-              }
-            });
-
-            _calculateDistance();
-
-            if (status == 'cancelled' || status == 'completed') {
-              _stopTracking();
-            }
-          },
-          onError: (Object error) {
-            debugPrint('Request status listener error: $error');
-          },
-        );
-  }
-
-  void _calculateDistance() {
-    if (_currentPosition == null ||
-        _providerLatitude == null ||
-        _providerLongitude == null) {
-      if (mounted) {
-        setState(() {
-          _currentDistance = 0;
-          _distanceStatus = 'Waiting for provider location';
-        });
-      }
-      return;
-    }
-
-    final distanceMeters = Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      _providerLatitude!,
-      _providerLongitude!,
-    );
-
-    final double roundedDistance = distanceMeters;
-    if (mounted) {
-      setState(() {
-        _currentDistance = roundedDistance;
-        _distanceStatus = roundedDistance < 1000
-            ? '${roundedDistance.round()} m away'
-            : '${(roundedDistance / 1000).toStringAsFixed(1)} km away';
-      });
-    }
-  }
-
-  String _formatDistance(double distanceInMeters) {
-    if (distanceInMeters < 1000) {
-      return '${distanceInMeters.round()} m';
-    }
-    return '${(distanceInMeters / 1000).toStringAsFixed(1)} km';
-  }
-
   // ================================================================
   // CANCEL REQUEST
   // ================================================================
@@ -617,7 +528,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF171C20),
           backgroundColor: const Color(0xFF1A1D20),
           title: const Text(
             'Cancel Request?',
@@ -694,7 +604,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08090A),
       backgroundColor: const Color(0xFF101214),
       body: SafeArea(
         child: Column(

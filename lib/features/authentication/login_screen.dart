@@ -164,9 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => RoadsideProviderHomePage(
-              userData: userData,
-            ),
+            builder: (context) => RoadsideProviderHomePage(userData: userData),
           ),
         );
 
@@ -773,11 +771,7 @@ class RoleHomePlaceholder extends StatelessWidget {
                 const Text(
                   'Your home page will be available here.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFA5ADB3),
-                    fontSize: 14,
-                  ),
-                  style: TextStyle(color: Color(0xFF929AA2), fontSize: 14),
+                  style: TextStyle(color: Color(0xFFA5ADB3), fontSize: 14),
                 ),
               ],
             ),
