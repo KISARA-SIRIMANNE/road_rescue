@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'claim_details_verification_page.dart';
@@ -39,15 +40,15 @@ class _InsuranceClaimHistoryPageState extends State<InsuranceClaimHistoryPage> {
   // DESIGN SYSTEM
   // ============================================================
 
-  static const Color bg = Color(0xFF070B0D);
-  static const Color card = Color(0xFF11181D);
-  static const Color cardSecondary = Color(0xFF1B252C);
+  static const Color bg = RoadRescueColors.background;
+  static const Color card = RoadRescueColors.surface;
+  static const Color cardSecondary = RoadRescueColors.surface;
 
-  static const Color yellow = Color(0xFFFFD21C);
-  static const Color white = Color(0xFFF5F7F8);
-  static const Color muted = Color(0xFF9BA6AF);
-  static const Color mutedDark = Color(0xFF68747D);
-  static const Color border = Color(0xFF29353D);
+  static const Color yellow = RoadRescueColors.accent;
+  static const Color white = RoadRescueColors.foreground;
+  static const Color muted = RoadRescueColors.muted;
+  static const Color mutedDark = RoadRescueColors.mutedDark;
+  static const Color border = RoadRescueColors.border;
 
   static const Color pending = Color(0xFFFFB020);
   static const Color underReview = Color(0xFF2697FF);

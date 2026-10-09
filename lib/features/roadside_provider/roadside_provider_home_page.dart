@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'provider_directions_page.dart';
@@ -86,11 +87,11 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // COLORS
   // ============================================================
 
-  final Color _backgroundColor = const Color(0xFF05090B);
+  final Color _backgroundColor = RoadRescueColors.background;
 
-  final Color _cardColor = const Color(0xFF11181C);
+  final Color _cardColor = RoadRescueColors.surface;
 
-  final Color _yellowColor = const Color(0xFFFFD21F);
+  final Color _yellowColor = RoadRescueColors.accent;
 
   // ============================================================
   // PROVIDER DATA
@@ -1217,40 +1218,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         });
       });
 
-      // ==========================================================
-      // STEP 3:
-      // Set this as the provider's active request
-      // ==========================================================
-
-      _activeRequestId = requestDocument.id;
-
-      debugPrint('========================================');
-
-      debugPrint('REQUEST ACCEPTED');
-
-      debugPrint('Request ID: $_activeRequestId');
-
-      debugPrint('Provider Latitude: $providerLatitude');
-
-      debugPrint('Provider Longitude: $providerLongitude');
-
-      debugPrint('========================================');
-
-      // ==========================================================
-      // STEP 4:
-      // Immediately update with the newest GPS position
-      // if one is available.
-      // ==========================================================
-
-      if (_currentPosition != null) {
-        await _updateAcceptedRequestLocation(_currentPosition!);
-      }
-
-      // ==========================================================
-      // STEP 5:
-      // Remove request from the incoming list
-      // ==========================================================
-
       final bool driverNotified = await _createRequestDecisionNotification(
         userId: requestOwnerId,
         requestId: requestDocument.id,
@@ -1856,7 +1823,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 24,
             height: 24,
             child: CircularProgressIndicator(
-              color: Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               strokeWidth: 2,
             ),
           ),
@@ -2174,7 +2141,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
           borderRadius: BorderRadius.circular(18),
         ),
         child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
+          child: CircularProgressIndicator(color: RoadRescueColors.accent),
         ),
       );
     }
@@ -2250,7 +2217,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             )
           else if (_isLoadingRequests)
             const Center(
-              child: CircularProgressIndicator(color: Color(0xFFF6E900)),
+              child: CircularProgressIndicator(color: RoadRescueColors.accent),
             )
           else if (_incomingRequests.isEmpty)
             _buildEmptyRequests()
@@ -2874,7 +2841,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                     title: 'Denied',
                     value: _hasLoadedDeniedStatistics
                         ? _deniedRequests.toString()
-                        : 'â€”',
+                        : '—',
                   ),
                 ),
               ],
@@ -3321,7 +3288,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                     ),
                     const SizedBox(width: 7),
                     Text(
-                      '$_assignedJobs total jobs  â€¢  $_activeJobs active',
+                      '$_assignedJobs total jobs  •  $_activeJobs active',
                       style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 12,
@@ -3836,7 +3803,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }

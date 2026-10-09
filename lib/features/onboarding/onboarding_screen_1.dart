@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 class OnboardingScreen1 extends StatelessWidget {
   const OnboardingScreen1({super.key});
@@ -7,10 +8,10 @@ class OnboardingScreen1 extends StatelessWidget {
   // COLORS
   // ================================================================
 
-  static const Color backgroundColor = Color(0xFF05090B);
-  static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color yellowColor = Color(0xFFFFD21F);
-  static const Color greyColor = Color(0xFFA5ADB3);
+  static const Color backgroundColor = RoadRescueColors.background;
+  static const Color whiteColor = RoadRescueColors.foreground;
+  static const Color yellowColor = RoadRescueColors.accent;
+  static const Color greyColor = RoadRescueColors.muted;
 
   @override
   Widget build(BuildContext context) {
@@ -123,7 +124,7 @@ class OnboardingScreen1 extends StatelessWidget {
           child: const Text(
             '⚡',
             style: TextStyle(
-              color: Color(0xFF05090B),
+              color: RoadRescueColors.background,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import 'login_screen.dart';
 import '../../services/insurance_company.dart';
@@ -56,12 +57,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF05090B);
-  static const Color cardColor = Color(0xFF11181C);
-  static const Color yellowColor = Color(0xFFFFD21F);
-  static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color greyColor = Color(0xFFA5ADB3);
-  static const Color borderColor = Color(0xFF263036);
+  static const Color backgroundColor = RoadRescueColors.background;
+  static const Color cardColor = RoadRescueColors.surface;
+  static const Color yellowColor = RoadRescueColors.accent;
+  static const Color whiteColor = RoadRescueColors.foreground;
+  static const Color greyColor = RoadRescueColors.muted;
+  static const Color borderColor = RoadRescueColors.border;
 
   // ============================================================
   // DISPOSE

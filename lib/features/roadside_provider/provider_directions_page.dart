@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -584,7 +585,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
               Polyline(
                 polylineId: const PolylineId('provider_to_driver_route'),
                 points: points,
-                color: const Color(0xFFF6E900),
+                color: RoadRescueColors.accent,
                 width: 6,
                 jointType: JointType.round,
                 startCap: Cap.roundCap,
@@ -733,7 +734,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -783,7 +784,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      color: const Color(0xFF05090B),
+      color: RoadRescueColors.background,
       child: Row(
         children: [
           IconButton(
@@ -930,7 +931,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
         ),
         child: const Icon(
           Icons.my_location_rounded,
-          color: Color(0xFFF6E900),
+          color: RoadRescueColors.accent,
           size: 23,
         ),
       ),
@@ -949,7 +950,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: const BoxDecoration(
-        color: Color(0xFF151A1E),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
@@ -965,12 +966,12 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+                  color: RoadRescueColors.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.directions_car_filled_rounded,
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   size: 24,
                 ),
               ),
@@ -1103,7 +1104,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
               ),
 
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF6E900),
+                backgroundColor: RoadRescueColors.accent,
                 foregroundColor: Colors.black,
                 disabledBackgroundColor: Colors.white10,
                 disabledForegroundColor: Colors.white30,
@@ -1185,12 +1186,12 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF05090B),
+        color: RoadRescueColors.background,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          Icon(icon, color: const Color(0xFFF6E900), size: 22),
+          Icon(icon, color: RoadRescueColors.accent, size: 22),
 
           const SizedBox(width: 10),
 
@@ -1236,7 +1237,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }

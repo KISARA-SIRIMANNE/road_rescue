@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'insurance_claims_page.dart';
@@ -49,19 +50,19 @@ class _InsuranceDashboardPageState extends State<InsuranceDashboardPage> {
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF0B0E10);
+  static const Color backgroundColor = RoadRescueColors.background;
 
-  static const Color cardColor = Color(0xFF151A1E);
+  static const Color cardColor = RoadRescueColors.surface;
 
-  static const Color yellowColor = Color(0xFFF6E900);
+  static const Color yellowColor = RoadRescueColors.accent;
 
-  static const Color whiteColor = Color(0xFFF5F7F8);
+  static const Color whiteColor = RoadRescueColors.foreground;
 
-  static const Color greyColor = Color(0xFF929AA2);
+  static const Color greyColor = RoadRescueColors.muted;
 
-  static const Color mutedColor = Color(0xFF70777E);
+  static const Color mutedColor = RoadRescueColors.mutedDark;
 
-  static const Color borderColor = Color(0xFF2A3137);
+  static const Color borderColor = RoadRescueColors.border;
 
   static const Color greenColor = Color(0xFF20D98A);
 
@@ -2236,7 +2237,7 @@ class _InsuranceDashboardPageState extends State<InsuranceDashboardPage> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: cardColor,
           selectedItemColor: yellowColor,
-          unselectedItemColor: Color(0xFF70777E),
+          unselectedItemColor: RoadRescueColors.mutedDark,
           selectedFontSize: 9,
           unselectedFontSize: 9,
           elevation: 0,

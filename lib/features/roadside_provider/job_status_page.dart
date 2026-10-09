@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import 'roadside_provider_home_page.dart';
 
@@ -20,48 +21,26 @@ class JobStatusPage extends StatefulWidget {
 }
 
 class _JobStatusPageState extends State<JobStatusPage> {
-  // ============================================================
-  // FIREBASE
-  // ============================================================
-
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   StreamSubscription<DocumentSnapshot>? _jobSubscription;
 
-  // ============================================================
-  // CONTROLLERS
-  // ============================================================
-
   final TextEditingController _amountController = TextEditingController();
 
-  // ============================================================
-  // STATE
-  // ============================================================
-
   String _status = 'accepted';
-
   String _driverName = 'Vehicle Owner';
-
   String _vehicleType = 'Vehicle';
-
   String _issueType = 'Assistance';
-
   String _paymentStatus = 'not_applicable';
 
   double? _jobAmount;
 
   bool _isUpdating = false;
-
   bool _isLoading = true;
-
-  // ============================================================
-  // INIT
-  // ============================================================
 
   @override
   void initState() {
     super.initState();
-
     _listenToJob();
   }
 
@@ -75,53 +54,44 @@ class _JobStatusPageState extends State<JobStatusPage> {
         .doc(widget.requestId)
         .snapshots()
         .listen(
-          (DocumentSnapshot snapshot) {
-            if (!mounted) {
-              return;
-            }
+      (DocumentSnapshot snapshot) {
+        if (!mounted || !snapshot.exists) {
+          return;
+        }
 
-            if (!snapshot.exists) {
-              return;
-            }
+        final Map<String, dynamic> data =
+            snapshot.data() as Map<String, dynamic>;
 
-            final Map<String, dynamic> data =
-                snapshot.data() as Map<String, dynamic>;
+        final dynamic amount = data['jobAmount'];
 
-            final dynamic amount = data['jobAmount'];
+        if (amount is num) {
+          _jobAmount = amount.toDouble();
 
-            if (amount is num) {
-              _jobAmount = amount.toDouble();
+          if (_amountController.text.isEmpty) {
+            _amountController.text = _jobAmount!.toStringAsFixed(2);
+          }
+        }
 
-              if (_amountController.text.isEmpty) {
-                _amountController.text = _jobAmount!.toStringAsFixed(2);
-              }
-            }
+        setState(() {
+          _status = data['status']?.toString() ?? 'accepted';
+          _driverName = data['userName']?.toString() ?? 'Vehicle Owner';
+          _vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
+          _issueType = data['issueType']?.toString() ?? 'Assistance';
+          _paymentStatus =
+              data['paymentStatus']?.toString() ?? 'not_applicable';
+          _isLoading = false;
+        });
+      },
+      onError: (error) {
+        debugPrint('Job listener error: $error');
 
-            setState(() {
-              _status = data['status']?.toString() ?? 'accepted';
-
-              _driverName = data['userName']?.toString() ?? 'Vehicle Owner';
-
-              _vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
-
-              _issueType = data['issueType']?.toString() ?? 'Assistance';
-
-              _paymentStatus =
-                  data['paymentStatus']?.toString() ?? 'not_applicable';
-
-              _isLoading = false;
-            });
-          },
-          onError: (error) {
-            debugPrint('Job listener error: $error');
-
-            if (mounted) {
-              setState(() {
-                _isLoading = false;
-              });
-            }
-          },
-        );
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      },
+    );
   }
 
   // ============================================================
@@ -157,10 +127,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
 
       if (newStatus == 'completed') {
         updateData['completedAt'] = FieldValue.serverTimestamp();
-
-        // Payment becomes available after the service is completed.
         updateData['paymentStatus'] = 'pending';
-
         updateData['paymentUpdatedAt'] = FieldValue.serverTimestamp();
       }
 
@@ -213,11 +180,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-            'jobAmount': amount,
-            'paymentStatus': _paymentStatus == 'paid' ? 'paid' : 'pending',
-            'paymentUpdatedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+        'jobAmount': amount,
+        'paymentStatus': _paymentStatus == 'paid' ? 'paid' : 'pending',
+        'paymentUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
       if (!mounted) {
         return;
@@ -260,14 +227,21 @@ class _JobStatusPageState extends State<JobStatusPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF11181C),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Confirm Payment',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: Text(
-            'Have you actually received the payment of ${_formatAmount(_jobAmount!)} from the customer?',
-            style: const TextStyle(color: Colors.white70, height: 1.5),
+            'Have you actually received the payment of '
+            '${_formatAmount(_jobAmount!)} from the customer?',
+            style: const TextStyle(
+              color: Colors.white70,
+              height: 1.5,
+            ),
           ),
           actions: [
             TextButton(
@@ -284,7 +258,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 Navigator.pop(context, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF6E900),
+                backgroundColor: RoadRescueColors.accent,
                 foregroundColor: Colors.black,
               ),
               child: const Text('Yes, Received'),
@@ -303,11 +277,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-            'paymentStatus': 'paid',
-            'paymentReceivedAt': FieldValue.serverTimestamp(),
-            'paymentUpdatedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
+        'paymentStatus': 'paid',
+        'paymentReceivedAt': FieldValue.serverTimestamp(),
+        'paymentUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
 
       if (!mounted) {
         return;
@@ -507,7 +481,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -516,7 +490,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFFF6E900),
+                        color: RoadRescueColors.accent,
                       ),
                     )
                   : SingleChildScrollView(
@@ -578,7 +552,10 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 SizedBox(height: 2),
                 Text(
                   'Manage your current assistance job',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -597,7 +574,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -606,12 +583,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+              color: RoadRescueColors.accent.withOpacity(0.12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.person_rounded,
-              color: Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               size: 27,
             ),
           ),
@@ -631,7 +608,10 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 const SizedBox(height: 4),
                 Text(
                   '$_vehicleType • $_issueType',
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                  ),
                 ),
               ],
             ),
@@ -650,7 +630,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -659,12 +639,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+              color: RoadRescueColors.accent.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _statusIcon(),
-              color: const Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               size: 31,
             ),
           ),
@@ -737,7 +717,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -751,7 +731,9 @@ class _JobStatusPageState extends State<JobStatusPage> {
                   width: 27,
                   height: 27,
                   decoration: BoxDecoration(
-                    color: completed ? const Color(0xFFF6E900) : Colors.white10,
+                    color: completed
+                        ? RoadRescueColors.accent
+                        : Colors.white10,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -767,7 +749,8 @@ class _JobStatusPageState extends State<JobStatusPage> {
                   style: TextStyle(
                     color: completed ? Colors.white : Colors.white30,
                     fontSize: 8,
-                    fontWeight: completed ? FontWeight.w600 : FontWeight.normal,
+                    fontWeight:
+                        completed ? FontWeight.w600 : FontWeight.normal,
                   ),
                 ),
               ],
@@ -818,10 +801,13 @@ class _JobStatusPageState extends State<JobStatusPage> {
               ),
         label: Text(
           _isUpdating ? 'Updating...' : _nextButtonText(),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF6E900),
+          backgroundColor: RoadRescueColors.accent,
           foregroundColor: Colors.black,
           disabledBackgroundColor: Colors.white10,
           disabledForegroundColor: Colors.white30,
@@ -843,14 +829,20 @@ class _JobStatusPageState extends State<JobStatusPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF11181C),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Complete Job?',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           content: const Text(
             'Are you sure the roadside assistance service has been completed?',
-            style: TextStyle(color: Colors.white70, height: 1.5),
+            style: TextStyle(
+              color: Colors.white70,
+              height: 1.5,
+            ),
           ),
           actions: [
             TextButton(
@@ -867,7 +859,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 Navigator.pop(context, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF6E900),
+                backgroundColor: RoadRescueColors.accent,
                 foregroundColor: Colors.black,
               ),
               child: const Text('Complete'),
@@ -893,12 +885,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: completed
-              ? const Color(0xFFF6E900).withValues(alpha: 0.18)
-              : Colors.white.withValues(alpha: 0.04),
+              ? RoadRescueColors.accent.withOpacity(0.18)
+              : Colors.white.withOpacity(0.04),
         ),
       ),
       child: Column(
@@ -910,12 +902,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withValues(alpha: 0.10),
+                  color: RoadRescueColors.accent.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
                   Icons.account_balance_wallet_outlined,
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   size: 22,
                 ),
               ),
@@ -935,7 +927,10 @@ class _JobStatusPageState extends State<JobStatusPage> {
                     SizedBox(height: 3),
                     Text(
                       'Service payment',
-                      style: TextStyle(color: Colors.white38, fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -943,9 +938,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
               _buildPaymentStatusBadge(),
             ],
           ),
-
           const SizedBox(height: 18),
-
           if (!completed)
             const Text(
               'Payment details become available after the job is completed.',
@@ -958,11 +951,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
           else ...[
             const Text(
               'Job Amount',
-              style: TextStyle(color: Colors.white54, fontSize: 10),
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10,
+              ),
             ),
-
             const SizedBox(height: 8),
-
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(
@@ -975,16 +969,14 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 hintText: 'Enter service amount',
                 hintStyle: const TextStyle(color: Colors.white24),
                 filled: true,
-                fillColor: const Color(0xFF10171B),
+                fillColor: RoadRescueColors.elevatedSurface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
                 ),
               ),
             ),
-
             const SizedBox(height: 10),
-
             SizedBox(
               width: double.infinity,
               height: 44,
@@ -1000,9 +992,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 child: const Text('Save Amount'),
               ),
             ),
-
             const SizedBox(height: 12),
-
             if (_paymentStatus == 'pending')
               SizedBox(
                 width: double.infinity,
@@ -1021,7 +1011,6 @@ class _JobStatusPageState extends State<JobStatusPage> {
                   ),
                 ),
               ),
-
             if (_paymentStatus == 'paid') ...[
               Container(
                 width: double.infinity,
@@ -1041,7 +1030,8 @@ class _JobStatusPageState extends State<JobStatusPage> {
                     Expanded(
                       child: Text(
                         _jobAmount != null
-                            ? 'Payment received: ${_formatAmount(_jobAmount!)}'
+                            ? 'Payment received: '
+                                '${_formatAmount(_jobAmount!)}'
                             : 'Payment received',
                         style: const TextStyle(
                           color: Colors.greenAccent,
@@ -1053,21 +1043,25 @@ class _JobStatusPageState extends State<JobStatusPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 14),
-
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton.icon(
                   onPressed: _goToProviderDashboard,
-                  icon: const Icon(Icons.dashboard_rounded, size: 20),
+                  icon: const Icon(
+                    Icons.dashboard_rounded,
+                    size: 20,
+                  ),
                   label: const Text(
                     'Back to Provider Dashboard',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF6E900),
+                    backgroundColor: RoadRescueColors.accent,
                     foregroundColor: Colors.black,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -1108,7 +1102,10 @@ class _JobStatusPageState extends State<JobStatusPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: textColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
@@ -1137,7 +1134,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }
@@ -1150,7 +1147,6 @@ class _JobStatusPageState extends State<JobStatusPage> {
   void dispose() {
     _jobSubscription?.cancel();
     _amountController.dispose();
-
     super.dispose();
   }
 }
