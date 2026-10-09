@@ -3,6 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../services/insurance_company.dart';
+
 class ClaimDetailsVerificationPage extends StatefulWidget {
   final String claimId;
 
@@ -85,6 +87,11 @@ class _ClaimDetailsVerificationPageState
         throw Exception(
           'This roadside assistance request is not marked as an insurance claim.',
         );
+      }
+
+      final providerCompanyId = await loadCurrentInsuranceCompanyId();
+      if (data['insuranceCompanyId'] != providerCompanyId) {
+        throw Exception('You do not have access to this insurance claim.');
       }
 
       if (!mounted) return;

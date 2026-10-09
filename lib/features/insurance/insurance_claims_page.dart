@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'claim_details_verification_page.dart';
 import 'insurance_claim_history_page.dart';
+import '../../services/insurance_company.dart';
 
 class InsuranceClaimsPage extends StatefulWidget {
   const InsuranceClaimsPage({super.key});
@@ -70,6 +71,10 @@ class _InsuranceClaimsPageState extends State<InsuranceClaimsPage> {
       final snap = await _firestore
           .collection('assistance_requests')
           .where('insuranceClaim', isEqualTo: true)
+          .where(
+            'insuranceCompanyId',
+            isEqualTo: await loadCurrentInsuranceCompanyId(),
+          )
           .get();
 
       final data = snap.docs.map((d) {

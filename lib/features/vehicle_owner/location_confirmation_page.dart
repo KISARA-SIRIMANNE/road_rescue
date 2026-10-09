@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'assistance_tracking_page.dart';
+import '../../services/insurance_company.dart';
 
 class LocationConfirmationPage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -38,14 +39,12 @@ class _LocationConfirmationPageState
   // Insurance claim details
   bool _isInsuranceClaim = false;
 
-  final TextEditingController _insuranceCompanyController =
-      TextEditingController();
-
   final TextEditingController _policyNumberController =
       TextEditingController();
 
   final TextEditingController _insuranceDescriptionController =
       TextEditingController();
+  String? _selectedInsuranceCompanyId;
 
   bool _isLocationServiceEnabled = true;
   bool _hasLocationPermission = false;
@@ -59,6 +58,8 @@ class _LocationConfirmationPageState
   @override
   void initState() {
     super.initState();
+    _selectedInsuranceCompanyId =
+        widget.userData['_selectedInsuranceCompanyId']?.toString();
     _initializeLocation();
   }
 
@@ -327,9 +328,9 @@ class _LocationConfirmationPageState
     // --------------------------------------------------------------
 
     if (_isInsuranceClaim) {
-      if (_insuranceCompanyController.text.trim().isEmpty) {
+      if (insuranceCompanyById(_selectedInsuranceCompanyId) == null) {
         _showMessage(
-          'Please enter your insurance company.',
+          'Please select your insurance company.',
         );
         return;
       }
@@ -442,8 +443,11 @@ class _LocationConfirmationPageState
 
         'insuranceClaim': _isInsuranceClaim,
 
+        'insuranceCompanyId': _isInsuranceClaim
+            ? _selectedInsuranceCompanyId
+            : '',
         'insuranceCompany': _isInsuranceClaim
-            ? _insuranceCompanyController.text.trim()
+            ? insuranceCompanyById(_selectedInsuranceCompanyId)!.name
             : '',
 
         'policyNumber': _isInsuranceClaim
@@ -469,13 +473,16 @@ class _LocationConfirmationPageState
 
       if (_isInsuranceClaim) {
         try {
-          final QuerySnapshot<Map<String, dynamic>>
-              insuranceUsers =
+          final QuerySnapshot<Map<String, dynamic>> insuranceUsers =
               await _firestore
                   .collection('users')
                   .where(
                     'role',
                     isEqualTo: 'insurance_provider',
+                  )
+                  .where(
+                    'insuranceCompanyId',
+                    isEqualTo: _selectedInsuranceCompanyId,
                   )
                   .get();
 
@@ -629,7 +636,6 @@ class _LocationConfirmationPageState
   void dispose() {
     _positionSubscription?.cancel();
 
-    _insuranceCompanyController.dispose();
     _policyNumberController.dispose();
     _insuranceDescriptionController.dispose();
 
@@ -682,6 +688,9 @@ class _LocationConfirmationPageState
   Widget _buildTopBar() {
     return Container(
       height: 64,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 8,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF101214),
       child: Row(
@@ -791,6 +800,8 @@ class _LocationConfirmationPageState
 
     return Positioned.fill(
       child: Container(
+        color: const Color(0xFF101214)
+            .withOpacity(0.90),
         color: const Color(0xFF101214).withOpacity(0.90),
         padding: const EdgeInsets.all(24),
         child: Center(
@@ -995,6 +1006,34 @@ class _LocationConfirmationPageState
           ),
           if (_isInsuranceClaim) ...[
             const SizedBox(height: 18),
+
+            DropdownButtonFormField<String>(
+              value: _selectedInsuranceCompanyId,
+              isExpanded: true,
+              dropdownColor: const Color(0xFF191C20),
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                labelText: 'Insurance Company',
+                labelStyle: TextStyle(color: Colors.white70),
+                prefixIcon: Icon(
+                  Icons.business_outlined,
+                  color: Color(0xFFF6E900),
+                ),
+              ),
+              hint: const Text('Select insurance company'),
+              items: insuranceCompanies
+                  .map(
+                    (company) => DropdownMenuItem(
+                      value: company.id,
+                      child: Text(company.name),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedInsuranceCompanyId = value;
+                });
+              },
             _buildInsuranceTextField(
               controller: _insuranceCompanyController,
               label: 'Insurance Company',

@@ -43,6 +43,8 @@ android {
     }
 }
 
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 // Required for Core Library Desugaring
 dependencies {
     coreLibraryDesugaring(

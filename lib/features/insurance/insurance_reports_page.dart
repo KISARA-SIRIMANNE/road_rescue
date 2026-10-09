@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../services/insurance_company.dart';
+
 class InsuranceReportsPage extends StatefulWidget {
   const InsuranceReportsPage({super.key});
 
@@ -32,8 +34,6 @@ class _InsuranceReportsPageState extends State<InsuranceReportsPage> {
   static const Color _surface = Color(0xFF11181D);
   static const Color _surfaceLight = Color(0xFF172127);
   static const Color _surfaceSecondary = Color(0xFF1B252C);
-  static const Color _field = Color(0xFF0D1317);
-
   static const Color _yellow = Color(0xFFFFD21C);
   static const Color _white = Color(0xFFF5F7F8);
   static const Color _muted = Color(0xFF9BA6AF);
@@ -68,6 +68,10 @@ class _InsuranceReportsPageState extends State<InsuranceReportsPage> {
       final QuerySnapshot snapshot = await _firestore
           .collection('assistance_requests')
           .where('insuranceClaim', isEqualTo: true)
+          .where(
+            'insuranceCompanyId',
+            isEqualTo: await loadCurrentInsuranceCompanyId(),
+          )
           .get();
 
       int pending = 0;
