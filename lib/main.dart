@@ -5,21 +5,14 @@ import 'firebase_options.dart';
 import 'features/onboarding/onboarding_screen_1.dart';
 import 'features/onboarding/onboarding_screen_2.dart';
 import 'features/onboarding/onboarding_screen_3.dart';
-origin/feature/insurance
 import 'services/notification_service.dart';
-
-
-
-testing
 
 Future<void> main() async {
   // Make sure Flutter is initialized before Firebase.
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase.
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await NotificationService.instance.initialize();
 
@@ -47,10 +40,9 @@ class RoadRescueApp extends StatelessWidget {
 
       title: 'RoadRescue',
 
-      // ============================================================== 
+      // ==============================================================
       // THEME
       // ==============================================================
-
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
@@ -111,9 +103,7 @@ class RoadRescueApp extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
-            side: BorderSide(
-              color: Colors.white.withValues(alpha: 0.07),
-            ),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -130,15 +120,11 @@ class RoadRescueApp extends StatelessWidget {
           labelStyle: const TextStyle(color: _secondaryTextColor),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.07),
-            ),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
-            borderSide: BorderSide(
-              color: Colors.white.withValues(alpha: 0.07),
-            ),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.07)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(18),
@@ -239,10 +225,6 @@ class RoadRescueApp extends StatelessWidget {
           ),
         ),
       ),
-
-      // ============================================================== 
-      // TEMPORARY GOOGLE MAP TEST
-      // ==============================================================
 
       home: const OnboardingPage(),
     );

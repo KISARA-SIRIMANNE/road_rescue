@@ -21,18 +21,15 @@ class ProviderDirectionsPage extends StatefulWidget {
   });
 
   @override
-  State<ProviderDirectionsPage> createState() =>
-      _ProviderDirectionsPageState();
+  State<ProviderDirectionsPage> createState() => _ProviderDirectionsPageState();
 }
 
-class _ProviderDirectionsPageState
-    extends State<ProviderDirectionsPage> {
+class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
   // ============================================================
   // FIREBASE
   // ============================================================
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ============================================================
   // MAP
@@ -48,11 +45,9 @@ class _ProviderDirectionsPageState
   // STREAMS
   // ============================================================
 
-  StreamSubscription<Position>?
-      _positionSubscription;
+  StreamSubscription<Position>? _positionSubscription;
 
-  StreamSubscription<DocumentSnapshot>?
-      _requestSubscription;
+  StreamSubscription<DocumentSnapshot>? _requestSubscription;
 
   // ============================================================
   // LOCATIONS
@@ -74,8 +69,6 @@ class _ProviderDirectionsPageState
 
   String _issueType = 'Assistance';
 
-  String _requestStatus = 'accepted';
-
   // ============================================================
   // ROUTE DATA
   // ============================================================
@@ -85,8 +78,6 @@ class _ProviderDirectionsPageState
   int? _routeDurationMinutes;
 
   bool _isCalculatingRoute = false;
-
-  bool _isLoading = true;
 
   bool _isOpeningDirections = false;
 
@@ -105,15 +96,13 @@ class _ProviderDirectionsPageState
   //
   // ============================================================
 
-  static const String _routesApiKey =
-      'PASTE_YOUR_ROUTES_API_KEY_HERE';
+  static const String _routesApiKey = 'PASTE_YOUR_ROUTES_API_KEY_HERE';
 
   // ============================================================
   // DEFAULT MAP LOCATION
   // ============================================================
 
-  static const LatLng _defaultLocation =
-      LatLng(7.2906, 80.6337);
+  static const LatLng _defaultLocation = LatLng(7.2906, 80.6337);
 
   // ============================================================
   // INIT
@@ -138,105 +127,70 @@ class _ProviderDirectionsPageState
         .doc(widget.requestId)
         .snapshots()
         .listen(
-      (DocumentSnapshot snapshot) {
-        if (!snapshot.exists) {
-          return;
-        }
+          (DocumentSnapshot snapshot) {
+            if (!snapshot.exists) {
+              return;
+            }
 
-        final Map<String, dynamic> data =
-            snapshot.data()
-                as Map<String, dynamic>;
+            final Map<String, dynamic> data =
+                snapshot.data() as Map<String, dynamic>;
 
-        // --------------------------------------------------------
-        // DRIVER LOCATION
-        // --------------------------------------------------------
+            // --------------------------------------------------------
+            // DRIVER LOCATION
+            // --------------------------------------------------------
 
-        final dynamic latitude =
-            data['latitude'];
+            final dynamic latitude = data['latitude'];
 
-        final dynamic longitude =
-            data['longitude'];
+            final dynamic longitude = data['longitude'];
 
-        if (latitude is num &&
-            longitude is num) {
-          _driverLatitude =
-              latitude.toDouble();
+            if (latitude is num && longitude is num) {
+              _driverLatitude = latitude.toDouble();
 
-          _driverLongitude =
-              longitude.toDouble();
-        }
+              _driverLongitude = longitude.toDouble();
+            }
 
-        // --------------------------------------------------------
-        // DRIVER INFORMATION
-        // --------------------------------------------------------
+            // --------------------------------------------------------
+            // DRIVER INFORMATION
+            // --------------------------------------------------------
 
-        _driverName =
-            data['userName']?.toString() ??
-                'Vehicle Owner';
+            _driverName = data['userName']?.toString() ?? 'Vehicle Owner';
 
-        _vehicleType =
-            data['vehicleType']?.toString() ??
-                'Vehicle';
+            _vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
 
-        _issueType =
-            data['issueType']?.toString() ??
-                'Assistance';
+            _issueType = data['issueType']?.toString() ?? 'Assistance';
 
-        _requestStatus =
-            data['status']?.toString() ??
-                'accepted';
+            _updateMarkers();
 
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-
-        _updateMarkers();
-
-        _calculateRouteIfPossible();
-      },
-      onError: (error) {
-        debugPrint(
-          'Request listener error: $error',
+            _calculateRouteIfPossible();
+          },
+          onError: (error) {
+            debugPrint('Request listener error: $error');
+          },
         );
-      },
-    );
   }
 
   // ============================================================
   // PROVIDER LOCATION TRACKING
   // ============================================================
 
-  Future<void>
-      _startProviderLocationTracking() async {
-    final bool serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+  Future<void> _startProviderLocationTracking() async {
+    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
-      debugPrint(
-        'Location services are disabled.',
-      );
+      debugPrint('Location services are disabled.');
 
       return;
     }
 
-    LocationPermission permission =
-        await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
 
-    if (permission ==
-        LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
     }
 
-    if (permission ==
-            LocationPermission.denied ||
-        permission ==
-            LocationPermission.deniedForever) {
-      debugPrint(
-        'Location permission denied.',
-      );
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      debugPrint('Location permission denied.');
 
       return;
     }
@@ -246,10 +200,8 @@ class _ProviderDirectionsPageState
       // GET CURRENT PROVIDER LOCATION
       // ----------------------------------------------------------
 
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
       );
@@ -268,37 +220,30 @@ class _ProviderDirectionsPageState
       // CONTINUE TRACKING PROVIDER
       // ----------------------------------------------------------
 
-      const LocationSettings settings =
-          LocationSettings(
+      const LocationSettings settings = LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 20,
       );
 
       _positionSubscription =
-          Geolocator.getPositionStream(
-        locationSettings: settings,
-      ).listen(
-        (Position position) async {
-          _providerPosition = position;
+          Geolocator.getPositionStream(locationSettings: settings).listen(
+            (Position position) async {
+              _providerPosition = position;
 
-          if (mounted) {
-            setState(() {});
-          }
+              if (mounted) {
+                setState(() {});
+              }
 
-          _updateMarkers();
+              _updateMarkers();
 
-          await _calculateRouteIfPossible();
-        },
-        onError: (error) {
-          debugPrint(
-            'Provider location stream error: $error',
+              await _calculateRouteIfPossible();
+            },
+            onError: (error) {
+              debugPrint('Provider location stream error: $error');
+            },
           );
-        },
-      );
     } catch (e) {
-      debugPrint(
-        'Error getting provider location: $e',
-      );
+      debugPrint('Error getting provider location: $e');
     }
   }
 
@@ -316,20 +261,16 @@ class _ProviderDirectionsPageState
     if (_providerPosition != null) {
       newMarkers.add(
         Marker(
-          markerId:
-              const MarkerId('provider'),
+          markerId: const MarkerId('provider'),
           position: LatLng(
             _providerPosition!.latitude,
             _providerPosition!.longitude,
           ),
-          infoWindow:
-              const InfoWindow(
+          infoWindow: const InfoWindow(
             title: 'Your Location',
-            snippet:
-                'Roadside Assistance Provider',
+            snippet: 'Roadside Assistance Provider',
           ),
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(
+          icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueYellow,
           ),
         ),
@@ -340,26 +281,16 @@ class _ProviderDirectionsPageState
     // DRIVER MARKER
     // ----------------------------------------------------------
 
-    if (_driverLatitude != null &&
-        _driverLongitude != null) {
+    if (_driverLatitude != null && _driverLongitude != null) {
       newMarkers.add(
         Marker(
-          markerId:
-              const MarkerId('driver'),
-          position: LatLng(
-            _driverLatitude!,
-            _driverLongitude!,
-          ),
-          infoWindow:
-              InfoWindow(
+          markerId: const MarkerId('driver'),
+          position: LatLng(_driverLatitude!, _driverLongitude!),
+          infoWindow: InfoWindow(
             title: _driverName,
-            snippet:
-                '$_vehicleType • $_issueType',
+            snippet: '$_vehicleType • $_issueType',
           ),
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueRed,
-          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
     }
@@ -384,11 +315,8 @@ class _ProviderDirectionsPageState
     // DRIVER LOCATION REQUIRED
     // ----------------------------------------------------------
 
-    if (_driverLatitude == null ||
-        _driverLongitude == null) {
-      _showMessage(
-        'Vehicle owner location is not available yet.',
-      );
+    if (_driverLatitude == null || _driverLongitude == null) {
+      _showMessage('Vehicle owner location is not available yet.');
 
       return;
     }
@@ -417,67 +345,40 @@ class _ProviderDirectionsPageState
             '${_providerPosition!.latitude},'
             '${_providerPosition!.longitude}';
 
-        googleMapsUri = Uri.https(
-          'www.google.com',
-          '/maps/dir/',
-          {
-            'api': '1',
-            'origin': origin,
-            'destination': destination,
-            'travelmode': 'driving',
-          },
-        );
+        googleMapsUri = Uri.https('www.google.com', '/maps/dir/', {
+          'api': '1',
+          'origin': origin,
+          'destination': destination,
+          'travelmode': 'driving',
+        });
       }
-
       // --------------------------------------------------------
       // PROVIDER LOCATION NOT AVAILABLE
       // --------------------------------------------------------
-
       else {
-        googleMapsUri = Uri.https(
-          'www.google.com',
-          '/maps/dir/',
-          {
-            'api': '1',
-            'destination': destination,
-            'travelmode': 'driving',
-          },
-        );
+        googleMapsUri = Uri.https('www.google.com', '/maps/dir/', {
+          'api': '1',
+          'destination': destination,
+          'travelmode': 'driving',
+        });
       }
 
-      debugPrint(
-        'Opening Google Maps:',
-      );
+      debugPrint('Opening Google Maps:');
 
-      debugPrint(
-        googleMapsUri.toString(),
-      );
+      debugPrint(googleMapsUri.toString());
 
-      final bool canLaunch =
-          await canLaunchUrl(
-        googleMapsUri,
-      );
+      final bool canLaunch = await canLaunchUrl(googleMapsUri);
 
       if (!canLaunch) {
-        throw Exception(
-          'Google Maps could not be opened.',
-        );
+        throw Exception('Google Maps could not be opened.');
       }
 
-      await launchUrl(
-        googleMapsUri,
-        mode:
-            LaunchMode.externalApplication,
-      );
+      await launchUrl(googleMapsUri, mode: LaunchMode.externalApplication);
     } catch (e) {
-      debugPrint(
-        'Error opening Google Maps: $e',
-      );
+      debugPrint('Error opening Google Maps: $e');
 
       if (mounted) {
-        _showMessage(
-          'Could not open Google Maps.',
-        );
+        _showMessage('Could not open Google Maps.');
       }
     } finally {
       if (mounted) {
@@ -495,8 +396,7 @@ class _ProviderDirectionsPageState
   void _openJobStatusPage() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) =>
-            JobStatusPage(
+        builder: (context) => JobStatusPage(
           requestId: widget.requestId,
           userData: widget.userData,
         ),
@@ -508,19 +408,15 @@ class _ProviderDirectionsPageState
   // CALCULATE ROUTE IF POSSIBLE
   // ============================================================
 
-  Future<void>
-      _calculateRouteIfPossible() async {
+  Future<void> _calculateRouteIfPossible() async {
     if (_providerPosition == null ||
         _driverLatitude == null ||
         _driverLongitude == null) {
       return;
     }
 
-    if (_routesApiKey ==
-        'PASTE_YOUR_ROUTES_API_KEY_HERE') {
-      debugPrint(
-        'Routes API key has not been configured.',
-      );
+    if (_routesApiKey == 'PASTE_YOUR_ROUTES_API_KEY_HERE') {
+      debugPrint('Routes API key has not been configured.');
 
       return;
     }
@@ -552,36 +448,28 @@ class _ProviderDirectionsPageState
     });
 
     try {
-      final HttpClient client =
-          HttpClient();
+      final HttpClient client = HttpClient();
 
       final Uri uri = Uri.parse(
         'https://routes.googleapis.com/'
         'directions/v2:computeRoutes',
       );
 
-      final HttpClientRequest request =
-          await client.postUrl(uri);
+      final HttpClientRequest request = await client.postUrl(uri);
 
       // ----------------------------------------------------------
       // HEADERS
       // ----------------------------------------------------------
 
-      request.headers.set(
-        'Content-Type',
-        'application/json',
-      );
+      request.headers.set('Content-Type', 'application/json');
 
-      request.headers.set(
-        'X-Goog-Api-Key',
-        _routesApiKey,
-      );
+      request.headers.set('X-Goog-Api-Key', _routesApiKey);
 
       request.headers.set(
         'X-Goog-FieldMask',
         'routes.duration,'
-        'routes.distanceMeters,'
-        'routes.polyline',
+            'routes.distanceMeters,'
+            'routes.polyline',
       );
 
       // ----------------------------------------------------------
@@ -592,47 +480,34 @@ class _ProviderDirectionsPageState
         'origin': {
           'location': {
             'latLng': {
-              'latitude':
-                  _providerPosition!.latitude,
-              'longitude':
-                  _providerPosition!.longitude,
+              'latitude': _providerPosition!.latitude,
+              'longitude': _providerPosition!.longitude,
             },
           },
         },
         'destination': {
           'location': {
             'latLng': {
-              'latitude':
-                  _driverLatitude!,
-              'longitude':
-                  _driverLongitude!,
+              'latitude': _driverLatitude!,
+              'longitude': _driverLongitude!,
             },
           },
         },
         'travelMode': 'DRIVE',
-        'routingPreference':
-            'TRAFFIC_AWARE',
-        'polylineQuality':
-            'OVERVIEW',
-        'polylineEncoding':
-            'ENCODED_POLYLINE',
+        'routingPreference': 'TRAFFIC_AWARE',
+        'polylineQuality': 'OVERVIEW',
+        'polylineEncoding': 'ENCODED_POLYLINE',
       };
 
-      request.write(
-        jsonEncode(body),
-      );
+      request.write(jsonEncode(body));
 
       // ----------------------------------------------------------
       // RESPONSE
       // ----------------------------------------------------------
 
-      final HttpClientResponse response =
-          await request.close();
+      final HttpClientResponse response = await request.close();
 
-      final String responseBody =
-          await response
-              .transform(utf8.decoder)
-              .join();
+      final String responseBody = await response.transform(utf8.decoder).join();
 
       client.close();
 
@@ -642,96 +517,62 @@ class _ProviderDirectionsPageState
       );
 
       if (response.statusCode != 200) {
-        debugPrint(
-          'Routes API error: $responseBody',
-        );
+        debugPrint('Routes API error: $responseBody');
 
         return;
       }
 
       final Map<String, dynamic> result =
-          jsonDecode(responseBody)
-              as Map<String, dynamic>;
+          jsonDecode(responseBody) as Map<String, dynamic>;
 
-      final List<dynamic>? routes =
-          result['routes']
-              as List<dynamic>?;
+      final List<dynamic>? routes = result['routes'] as List<dynamic>?;
 
-      if (routes == null ||
-          routes.isEmpty) {
-        debugPrint(
-          'Routes API returned no routes.',
-        );
+      if (routes == null || routes.isEmpty) {
+        debugPrint('Routes API returned no routes.');
 
         return;
       }
 
-      final Map<String, dynamic> route =
-          routes.first
-              as Map<String, dynamic>;
+      final Map<String, dynamic> route = routes.first as Map<String, dynamic>;
 
       // ----------------------------------------------------------
       // DISTANCE
       // ----------------------------------------------------------
 
-      final dynamic distanceValue =
-          route['distanceMeters'];
+      final dynamic distanceValue = route['distanceMeters'];
 
       if (distanceValue is num) {
-        _routeDistanceKm =
-            distanceValue.toDouble() /
-                1000;
+        _routeDistanceKm = distanceValue.toDouble() / 1000;
       }
 
       // ----------------------------------------------------------
       // DURATION
       // ----------------------------------------------------------
 
-      final String duration =
-          route['duration']
-                  ?.toString() ??
-              '';
+      final String duration = route['duration']?.toString() ?? '';
 
-      final RegExp durationRegex =
-          RegExp(
-        r'(\d+(?:\.\d+)?)s',
-      );
+      final RegExp durationRegex = RegExp(r'(\d+(?:\.\d+)?)s');
 
-      final Match? durationMatch =
-          durationRegex.firstMatch(
-        duration,
-      );
+      final Match? durationMatch = durationRegex.firstMatch(duration);
 
       if (durationMatch != null) {
-        final double seconds =
-            double.parse(
-          durationMatch.group(1)!,
-        );
+        final double seconds = double.parse(durationMatch.group(1)!);
 
-        _routeDurationMinutes =
-            (seconds / 60).ceil();
+        _routeDurationMinutes = (seconds / 60).ceil();
       }
 
       // ----------------------------------------------------------
       // POLYLINE
       // ----------------------------------------------------------
 
-      final Map<String, dynamic>?
-          polylineData =
-          route['polyline']
-              as Map<String, dynamic>?;
+      final Map<String, dynamic>? polylineData =
+          route['polyline'] as Map<String, dynamic>?;
 
-      final String? encodedPolyline =
-          polylineData?[
-                  'encodedPolyline']
-              ?.toString();
+      final String? encodedPolyline = polylineData?['encodedPolyline']
+          ?.toString();
 
-      if (encodedPolyline != null &&
-          encodedPolyline.isNotEmpty) {
-        final List<LatLng> points =
-            _decodePolyline(
-          encodedPolyline,
-        );
+      if (encodedPolyline != null && encodedPolyline.isNotEmpty) {
+        final List<LatLng> points = _decodePolyline(encodedPolyline);
 
         if (mounted) {
           setState(() {
@@ -739,20 +580,13 @@ class _ProviderDirectionsPageState
 
             _polylines.add(
               Polyline(
-                polylineId:
-                    const PolylineId(
-                  'provider_to_driver_route',
-                ),
+                polylineId: const PolylineId('provider_to_driver_route'),
                 points: points,
-                color:
-                    const Color(0xFFF6E900),
+                color: const Color(0xFFF6E900),
                 width: 6,
-                jointType:
-                    JointType.round,
-                startCap:
-                    Cap.roundCap,
-                endCap:
-                    Cap.roundCap,
+                jointType: JointType.round,
+                startCap: Cap.roundCap,
+                endCap: Cap.roundCap,
               ),
             );
           });
@@ -763,9 +597,7 @@ class _ProviderDirectionsPageState
         setState(() {});
       }
     } catch (e) {
-      debugPrint(
-        'Error calculating route: $e',
-      );
+      debugPrint('Error calculating route: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -779,9 +611,7 @@ class _ProviderDirectionsPageState
   // DECODE GOOGLE POLYLINE
   // ============================================================
 
-  List<LatLng> _decodePolyline(
-    String encoded,
-  ) {
+  List<LatLng> _decodePolyline(String encoded) {
     final List<LatLng> points = [];
 
     int index = 0;
@@ -798,20 +628,16 @@ class _ProviderDirectionsPageState
       int byte;
 
       do {
-        byte =
-            encoded.codeUnitAt(index++) -
-                63;
+        byte = encoded.codeUnitAt(index++) - 63;
 
-        result |=
-            (byte & 0x1f) << shift;
+        result |= (byte & 0x1f) << shift;
 
         shift += 5;
       } while (byte >= 0x20);
 
-      final int latitudeChange =
-          (result & 1) != 0
-              ? ~(result >> 1)
-              : (result >> 1);
+      final int latitudeChange = (result & 1) != 0
+          ? ~(result >> 1)
+          : (result >> 1);
 
       latitude += latitudeChange;
 
@@ -820,29 +646,20 @@ class _ProviderDirectionsPageState
       result = 0;
 
       do {
-        byte =
-            encoded.codeUnitAt(index++) -
-                63;
+        byte = encoded.codeUnitAt(index++) - 63;
 
-        result |=
-            (byte & 0x1f) << shift;
+        result |= (byte & 0x1f) << shift;
 
         shift += 5;
       } while (byte >= 0x20);
 
-      final int longitudeChange =
-          (result & 1) != 0
-              ? ~(result >> 1)
-              : (result >> 1);
+      final int longitudeChange = (result & 1) != 0
+          ? ~(result >> 1)
+          : (result >> 1);
 
       longitude += longitudeChange;
 
-      points.add(
-        LatLng(
-          latitude / 100000.0,
-          longitude / 100000.0,
-        ),
-      );
+      points.add(LatLng(latitude / 100000.0, longitude / 100000.0));
     }
 
     return points;
@@ -864,42 +681,28 @@ class _ProviderDirectionsPageState
       return;
     }
 
-    final double minLatitude =
-        _providerPosition!.latitude <
-                _driverLatitude!
-            ? _providerPosition!.latitude
-            : _driverLatitude!;
+    final double minLatitude = _providerPosition!.latitude < _driverLatitude!
+        ? _providerPosition!.latitude
+        : _driverLatitude!;
 
-    final double maxLatitude =
-        _providerPosition!.latitude >
-                _driverLatitude!
-            ? _providerPosition!.latitude
-            : _driverLatitude!;
+    final double maxLatitude = _providerPosition!.latitude > _driverLatitude!
+        ? _providerPosition!.latitude
+        : _driverLatitude!;
 
-    final double minLongitude =
-        _providerPosition!.longitude <
-                _driverLongitude!
-            ? _providerPosition!.longitude
-            : _driverLongitude!;
+    final double minLongitude = _providerPosition!.longitude < _driverLongitude!
+        ? _providerPosition!.longitude
+        : _driverLongitude!;
 
-    final double maxLongitude =
-        _providerPosition!.longitude >
-                _driverLongitude!
-            ? _providerPosition!.longitude
-            : _driverLongitude!;
+    final double maxLongitude = _providerPosition!.longitude > _driverLongitude!
+        ? _providerPosition!.longitude
+        : _driverLongitude!;
 
     try {
       await _mapController!.animateCamera(
         CameraUpdate.newLatLngBounds(
           LatLngBounds(
-            southwest: LatLng(
-              minLatitude,
-              minLongitude,
-            ),
-            northeast: LatLng(
-              maxLatitude,
-              maxLongitude,
-            ),
+            southwest: LatLng(minLatitude, minLongitude),
+            northeast: LatLng(maxLatitude, maxLongitude),
           ),
           80,
         ),
@@ -907,9 +710,7 @@ class _ProviderDirectionsPageState
 
       _hasInitialCameraFit = true;
     } catch (e) {
-      debugPrint(
-        'Error fitting map: $e',
-      );
+      debugPrint('Error fitting map: $e');
     }
   }
 
@@ -917,9 +718,7 @@ class _ProviderDirectionsPageState
   // MAP CREATED
   // ============================================================
 
-  void _onMapCreated(
-    GoogleMapController controller,
-  ) {
+  void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
 
     _fitBothLocations();
@@ -932,8 +731,7 @@ class _ProviderDirectionsPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF05090B),
+      backgroundColor: const Color(0xFF05090B),
       body: SafeArea(
         child: Column(
           children: [
@@ -943,38 +741,26 @@ class _ProviderDirectionsPageState
               child: Stack(
                 children: [
                   GoogleMap(
-                    initialCameraPosition:
-                        const CameraPosition(
-                      target:
-                          _defaultLocation,
+                    initialCameraPosition: const CameraPosition(
+                      target: _defaultLocation,
                       zoom: 8,
                     ),
-                    onMapCreated:
-                        _onMapCreated,
+                    onMapCreated: _onMapCreated,
                     markers: _markers,
                     polylines: _polylines,
-                    myLocationEnabled:
-                        true,
-                    myLocationButtonEnabled:
-                        false,
-                    zoomControlsEnabled:
-                        false,
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: false,
+                    zoomControlsEnabled: false,
                     compassEnabled: true,
                     mapToolbarEnabled: false,
                   ),
 
-                  Positioned(
-                    top: 16,
-                    left: 16,
-                    child:
-                        _buildLiveBadge(),
-                  ),
+                  Positioned(top: 16, left: 16, child: _buildLiveBadge()),
 
                   Positioned(
                     right: 16,
                     bottom: 16,
-                    child:
-                        _buildLocationButton(),
+                    child: _buildLocationButton(),
                   ),
                 ],
               ),
@@ -994,15 +780,8 @@ class _ProviderDirectionsPageState
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        16,
-        16,
-        16,
-        16,
-      ),
-      color:
-          const Color(0xFF05090B),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      color: const Color(0xFF05090B),
       child: Row(
         children: [
           IconButton(
@@ -1020,25 +799,20 @@ class _ProviderDirectionsPageState
 
           const Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Get Directions',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 SizedBox(height: 2),
                 Text(
                   'Navigate to the vehicle owner',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -1054,28 +828,19 @@ class _ProviderDirectionsPageState
 
   Widget _buildLiveBadge() {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 9,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFF111719),
-        borderRadius:
-            BorderRadius.circular(22),
+        color: const Color(0xFF111719),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
-        mainAxisSize:
-            MainAxisSize.min,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
             width: 8,
             height: 8,
-            decoration:
-                const BoxDecoration(
-              color:
-                  Colors.greenAccent,
+            decoration: const BoxDecoration(
+              color: Colors.greenAccent,
               shape: BoxShape.circle,
             ),
           ),
@@ -1085,11 +850,9 @@ class _ProviderDirectionsPageState
           const Text(
             'LIVE NAVIGATION',
             style: TextStyle(
-              color:
-                  Colors.greenAccent,
+              color: Colors.greenAccent,
               fontSize: 10,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
         ],
@@ -1104,17 +867,13 @@ class _ProviderDirectionsPageState
   Widget _buildLocationButton() {
     return GestureDetector(
       onTap: () {
-        if (_providerPosition ==
-            null) {
+        if (_providerPosition == null) {
           return;
         }
 
         _mapController?.animateCamera(
           CameraUpdate.newLatLngZoom(
-            LatLng(
-              _providerPosition!.latitude,
-              _providerPosition!.longitude,
-            ),
+            LatLng(_providerPosition!.latitude, _providerPosition!.longitude),
             15,
           ),
         );
@@ -1123,15 +882,12 @@ class _ProviderDirectionsPageState
         width: 50,
         height: 50,
         decoration: BoxDecoration(
-          color:
-              const Color(0xFF101719),
-          borderRadius:
-              BorderRadius.circular(16),
+          color: const Color(0xFF101719),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: const Icon(
           Icons.my_location_rounded,
-          color:
-              Color(0xFFF6E900),
+          color: Color(0xFFF6E900),
           size: 23,
         ),
       ),
@@ -1144,29 +900,17 @@ class _ProviderDirectionsPageState
 
   Widget _buildBottomPanel() {
     final bool canGetDirections =
-        _driverLatitude != null &&
-        _driverLongitude != null;
+        _driverLatitude != null && _driverLongitude != null;
 
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        20,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: const BoxDecoration(
-        color:
-            Color(0xFF151A1E),
-        borderRadius:
-            BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
+        color: Color(0xFF151A1E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ======================================================
           // DRIVER INFORMATION
@@ -1178,17 +922,12 @@ class _ProviderDirectionsPageState
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color:
-                      const Color(0xFFF6E900)
-                          .withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(15),
+                  color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
-                  Icons
-                      .directions_car_filled_rounded,
-                  color:
-                      Color(0xFFF6E900),
+                  Icons.directions_car_filled_rounded,
+                  color: Color(0xFFF6E900),
                   size: 24,
                 ),
               ),
@@ -1197,20 +936,16 @@ class _ProviderDirectionsPageState
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       _driverName,
                       maxLines: 1,
-                      overflow:
-                          TextOverflow.ellipsis,
-                      style:
-                          const TextStyle(
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
@@ -1218,8 +953,7 @@ class _ProviderDirectionsPageState
 
                     Text(
                       '$_vehicleType • $_issueType',
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
                       ),
@@ -1235,36 +969,27 @@ class _ProviderDirectionsPageState
           // ======================================================
           // ETA + DISTANCE
           // ======================================================
-
           Row(
             children: [
               Expanded(
-                child:
-                    _buildInfoCard(
-                  icon:
-                      Icons.timer_outlined,
+                child: _buildInfoCard(
+                  icon: Icons.timer_outlined,
                   title: 'ETA',
-                  value:
-                      _routeDurationMinutes !=
-                              null
-                          ? '${_routeDurationMinutes!} min'
-                          : 'Calculating...',
+                  value: _routeDurationMinutes != null
+                      ? '${_routeDurationMinutes!} min'
+                      : 'Calculating...',
                 ),
               ),
 
               const SizedBox(width: 10),
 
               Expanded(
-                child:
-                    _buildInfoCard(
-                  icon:
-                      Icons.route_outlined,
+                child: _buildInfoCard(
+                  icon: Icons.route_outlined,
                   title: 'DISTANCE',
-                  value:
-                      _routeDistanceKm !=
-                              null
-                          ? '${_routeDistanceKm!.toStringAsFixed(1)} km'
-                          : 'Calculating...',
+                  value: _routeDistanceKm != null
+                      ? '${_routeDistanceKm!.toStringAsFixed(1)} km'
+                      : 'Calculating...',
                 ),
               ),
             ],
@@ -1275,13 +1000,11 @@ class _ProviderDirectionsPageState
           // ======================================================
           // STATUS
           // ======================================================
-
           Row(
             children: [
               const Icon(
                 Icons.navigation_rounded,
-                color:
-                    Colors.greenAccent,
+                color: Colors.greenAccent,
                 size: 17,
               ),
 
@@ -1291,17 +1014,12 @@ class _ProviderDirectionsPageState
                 child: Text(
                   _isCalculatingRoute
                       ? 'Calculating the best route to the driver...'
-                      : _routeDistanceKm !=
-                                  null
-                          ? 'Follow the highlighted route to the driver.'
-                          : canGetDirections
-                              ? 'Driver location is ready.'
-                              : 'Waiting for location data...',
-                  style:
-                      const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                      : _routeDistanceKm != null
+                      ? 'Follow the highlighted route to the driver.'
+                      : canGetDirections
+                      ? 'Driver location is ready.'
+                      : 'Waiting for location data...',
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ),
             ],
@@ -1312,32 +1030,24 @@ class _ProviderDirectionsPageState
           // ======================================================
           // GET DIRECTIONS BUTTON
           // ======================================================
-
           SizedBox(
             width: double.infinity,
             height: 52,
             child: ElevatedButton.icon(
-              onPressed:
-                  canGetDirections &&
-                          !_isOpeningDirections
-                      ? _openGoogleMapsDirections
-                      : null,
+              onPressed: canGetDirections && !_isOpeningDirections
+                  ? _openGoogleMapsDirections
+                  : null,
 
               icon: _isOpeningDirections
                   ? const SizedBox(
                       width: 19,
                       height: 19,
-                      child:
-                          CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2,
                         color: Colors.black,
                       ),
                     )
-                  : const Icon(
-                      Icons
-                          .directions_rounded,
-                      size: 23,
-                    ),
+                  : const Icon(Icons.directions_rounded, size: 23),
 
               label: Text(
                 _isOpeningDirections
@@ -1345,28 +1055,18 @@ class _ProviderDirectionsPageState
                     : 'Get Directions',
                 style: const TextStyle(
                   fontSize: 14,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
 
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    const Color(0xFFF6E900),
-                foregroundColor:
-                    Colors.black,
-                disabledBackgroundColor:
-                    Colors.white10,
-                disabledForegroundColor:
-                    Colors.white30,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF6E900),
+                foregroundColor: Colors.black,
+                disabledBackgroundColor: Colors.white10,
+                disabledForegroundColor: Colors.white30,
                 elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
@@ -1377,42 +1077,24 @@ class _ProviderDirectionsPageState
           // ======================================================
           // JOB STATUS BUTTON
           // ======================================================
-
           SizedBox(
             width: double.infinity,
             height: 52,
             child: OutlinedButton.icon(
-              onPressed:
-                  _openJobStatusPage,
+              onPressed: _openJobStatusPage,
 
-              icon: const Icon(
-                Icons.assignment_rounded,
-                size: 22,
-              ),
+              icon: const Icon(Icons.assignment_rounded, size: 22),
 
               label: const Text(
                 'Job Status',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight:
-                      FontWeight.bold,
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
 
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    Colors.white,
-                side:
-                    const BorderSide(
-                  color: Colors.white24,
-                ),
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
@@ -1423,7 +1105,6 @@ class _ProviderDirectionsPageState
           // ======================================================
           // BACK BUTTON
           // ======================================================
-
           SizedBox(
             width: double.infinity,
             height: 48,
@@ -1431,28 +1112,16 @@ class _ProviderDirectionsPageState
               onPressed: () {
                 Navigator.pop(context);
               },
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    Colors.white,
-                side:
-                    const BorderSide(
-                  color: Colors.white24,
-                ),
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    13,
-                  ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
                 ),
               ),
               child: const Text(
                 'Back',
-                style: TextStyle(
-                  fontWeight:
-                      FontWeight.w600,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -1471,37 +1140,24 @@ class _ProviderDirectionsPageState
     required String value,
   }) {
     return Container(
-      padding:
-          const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color:
-            const Color(0xFF05090B),
-        borderRadius:
-            BorderRadius.circular(14),
+        color: const Color(0xFF05090B),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color:
-                const Color(0xFFF6E900),
-            size: 22,
-          ),
+          Icon(icon, color: const Color(0xFFF6E900), size: 22),
 
           const SizedBox(width: 10),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style:
-                      const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 9,
-                  ),
+                  style: const TextStyle(color: Colors.white38, fontSize: 9),
                 ),
 
                 const SizedBox(height: 4),
@@ -1509,14 +1165,11 @@ class _ProviderDirectionsPageState
                 Text(
                   value,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -1531,21 +1184,16 @@ class _ProviderDirectionsPageState
   // SHOW MESSAGE
   // ============================================================
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-        backgroundColor:
-            const Color(0xFF151D21),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF151D21),
       ),
     );
   }

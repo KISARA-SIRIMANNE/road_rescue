@@ -23,8 +23,7 @@ class LocationConfirmationPage extends StatefulWidget {
       _LocationConfirmationPageState();
 }
 
-class _LocationConfirmationPageState
-    extends State<LocationConfirmationPage> {
+class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   GoogleMapController? _mapController;
@@ -39,8 +38,7 @@ class _LocationConfirmationPageState
   // Insurance claim details
   bool _isInsuranceClaim = false;
 
-  final TextEditingController _policyNumberController =
-      TextEditingController();
+  final TextEditingController _policyNumberController = TextEditingController();
 
   final TextEditingController _insuranceDescriptionController =
       TextEditingController();
@@ -58,8 +56,8 @@ class _LocationConfirmationPageState
   @override
   void initState() {
     super.initState();
-    _selectedInsuranceCompanyId =
-        widget.userData['_selectedInsuranceCompanyId']?.toString();
+    _selectedInsuranceCompanyId = widget.userData['_selectedInsuranceCompanyId']
+        ?.toString();
     _initializeLocation();
   }
 
@@ -76,8 +74,7 @@ class _LocationConfirmationPageState
     });
 
     try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
         if (!mounted) return;
@@ -85,8 +82,7 @@ class _LocationConfirmationPageState
         setState(() {
           _isLocationServiceEnabled = false;
           _isLoading = false;
-          _errorMessage =
-              'Location services are disabled. Please enable GPS.';
+          _errorMessage = 'Location services are disabled. Please enable GPS.';
         });
 
         return;
@@ -94,8 +90,7 @@ class _LocationConfirmationPageState
 
       _isLocationServiceEnabled = true;
 
-      LocationPermission permission =
-          await Geolocator.checkPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -107,8 +102,7 @@ class _LocationConfirmationPageState
         setState(() {
           _hasLocationPermission = false;
           _isLoading = false;
-          _errorMessage =
-              'Location permission is required to continue.';
+          _errorMessage = 'Location permission is required to continue.';
         });
 
         return;
@@ -130,8 +124,7 @@ class _LocationConfirmationPageState
 
       _hasLocationPermission = true;
 
-      final Position position =
-          await Geolocator.getCurrentPosition(
+      final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: Duration(seconds: 15),
@@ -165,8 +158,7 @@ class _LocationConfirmationPageState
       setState(() {
         _isLocationServiceEnabled = false;
         _isLoading = false;
-        _errorMessage =
-            'Location services are disabled. Please enable GPS.';
+        _errorMessage = 'Location services are disabled. Please enable GPS.';
       });
     } on PermissionDeniedException {
       if (!mounted) return;
@@ -201,28 +193,28 @@ class _LocationConfirmationPageState
 
     _positionSubscription =
         Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-        distanceFilter: 10,
-      ),
-    ).listen(
-      (position) {
-        if (!mounted || !_isValidPosition(position)) return;
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+          ),
+        ).listen(
+          (position) {
+            if (!mounted || !_isValidPosition(position)) return;
 
-        setState(() {
-          _currentPosition = position;
-        });
+            setState(() {
+              _currentPosition = position;
+            });
 
-        _updateUserMarker(position);
+            _updateUserMarker(position);
 
-        if (!_hasCenteredOnInitialLocation) {
-          _centerOnInitialLocation(position);
-        }
-      },
-      onError: (Object error) {
-        debugPrint('Location stream error: $error');
-      },
-    );
+            if (!_hasCenteredOnInitialLocation) {
+              _centerOnInitialLocation(position);
+            }
+          },
+          onError: (Object error) {
+            debugPrint('Location stream error: $error');
+          },
+        );
   }
 
   bool _isValidPosition(Position position) {
@@ -241,10 +233,7 @@ class _LocationConfirmationPageState
   void _updateUserMarker(Position position) {
     if (!mounted || !_isValidPosition(position)) return;
 
-    final LatLng location = LatLng(
-      position.latitude,
-      position.longitude,
-    );
+    final LatLng location = LatLng(position.latitude, position.longitude);
 
     setState(() {
       _markers
@@ -269,17 +258,11 @@ class _LocationConfirmationPageState
   Future<void> _moveCameraToPosition(Position position) async {
     if (_mapController == null) return;
 
-    final LatLng location = LatLng(
-      position.latitude,
-      position.longitude,
-    );
+    final LatLng location = LatLng(position.latitude, position.longitude);
 
     await _mapController!.animateCamera(
       CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: location,
-          zoom: 17,
-        ),
+        CameraPosition(target: location, zoom: 17),
       ),
     );
   }
@@ -314,9 +297,7 @@ class _LocationConfirmationPageState
     // --------------------------------------------------------------
 
     if (_currentPosition == null) {
-      _showMessage(
-        'Your current location has not been detected yet.',
-      );
+      _showMessage('Your current location has not been detected yet.');
       return;
     }
 
@@ -329,23 +310,17 @@ class _LocationConfirmationPageState
 
     if (_isInsuranceClaim) {
       if (insuranceCompanyById(_selectedInsuranceCompanyId) == null) {
-        _showMessage(
-          'Please select your insurance company.',
-        );
+        _showMessage('Please select your insurance company.');
         return;
       }
 
       if (_policyNumberController.text.trim().isEmpty) {
-        _showMessage(
-          'Please enter your policy number.',
-        );
+        _showMessage('Please enter your policy number.');
         return;
       }
 
       if (_insuranceDescriptionController.text.trim().isEmpty) {
-        _showMessage(
-          'Please describe the insurance claim.',
-        );
+        _showMessage('Please describe the insurance claim.');
         return;
       }
     }
@@ -365,13 +340,10 @@ class _LocationConfirmationPageState
       // 4. Get user ID
       // ------------------------------------------------------------
 
-      final String? userId =
-          widget.userData['uid']?.toString();
+      final String? userId = widget.userData['uid']?.toString();
 
       if (userId == null || userId.trim().isEmpty) {
-        throw Exception(
-          'User ID could not be found.',
-        );
+        throw Exception('User ID could not be found.');
       }
 
       // ------------------------------------------------------------
@@ -379,25 +351,18 @@ class _LocationConfirmationPageState
       // ------------------------------------------------------------
 
       final String userName =
-          widget.userData['name']?.toString().trim().isNotEmpty ==
-                  true
-              ? widget.userData['name'].toString().trim()
-              : 'RoadRescue User';
+          widget.userData['name']?.toString().trim().isNotEmpty == true
+          ? widget.userData['name'].toString().trim()
+          : 'RoadRescue User';
 
       // ------------------------------------------------------------
       // 6. Get vehicle type
       // ------------------------------------------------------------
 
       final String vehicleType =
-          widget.userData['vehicleType']
-                  ?.toString()
-                  .trim()
-                  .isNotEmpty ==
-              true
-              ? widget.userData['vehicleType']
-                  .toString()
-                  .trim()
-              : 'Vehicle';
+          widget.userData['vehicleType']?.toString().trim().isNotEmpty == true
+          ? widget.userData['vehicleType'].toString().trim()
+          : 'Vehicle';
 
       // ------------------------------------------------------------
       // 7. Get current position
@@ -409,11 +374,8 @@ class _LocationConfirmationPageState
       // 8. Create assistance request
       // ------------------------------------------------------------
 
-      final DocumentReference<Map<String, dynamic>>
-          requestReference =
-          _firestore
-              .collection('assistance_requests')
-              .doc();
+      final DocumentReference<Map<String, dynamic>> requestReference =
+          _firestore.collection('assistance_requests').doc();
 
       await requestReference.set({
         // Request information
@@ -433,14 +395,11 @@ class _LocationConfirmationPageState
         'longitude': position.longitude,
         'accuracy': position.accuracy,
 
-        'locationTimestamp': Timestamp.fromDate(
-          position.timestamp,
-        ),
+        'locationTimestamp': Timestamp.fromDate(position.timestamp),
 
         // ----------------------------------------------------------
         // Insurance claim information
         // ----------------------------------------------------------
-
         'insuranceClaim': _isInsuranceClaim,
 
         'insuranceCompanyId': _isInsuranceClaim
@@ -458,9 +417,7 @@ class _LocationConfirmationPageState
             ? _insuranceDescriptionController.text.trim()
             : '',
 
-        'insuranceStatus': _isInsuranceClaim
-            ? 'pending'
-            : 'not_required',
+        'insuranceStatus': _isInsuranceClaim ? 'pending' : 'not_required',
 
         // Timestamps
         'createdAt': FieldValue.serverTimestamp(),
@@ -476,10 +433,7 @@ class _LocationConfirmationPageState
           final QuerySnapshot<Map<String, dynamic>> insuranceUsers =
               await _firestore
                   .collection('users')
-                  .where(
-                    'role',
-                    isEqualTo: 'insurance_provider',
-                  )
+                  .where('role', isEqualTo: 'insurance_provider')
                   .where(
                     'insuranceCompanyId',
                     isEqualTo: _selectedInsuranceCompanyId,
@@ -487,47 +441,36 @@ class _LocationConfirmationPageState
                   .get();
 
           if (insuranceUsers.docs.isNotEmpty) {
-            final WriteBatch batch =
-                _firestore.batch();
+            final WriteBatch batch = _firestore.batch();
 
-            for (
-              final QueryDocumentSnapshot<Map<String, dynamic>>
-                  insuranceUser
-              in insuranceUsers.docs
-            ) {
+            for (final QueryDocumentSnapshot<Map<String, dynamic>> insuranceUser
+                in insuranceUsers.docs) {
               final DocumentReference<Map<String, dynamic>>
-                  notificationReference =
-                  _firestore
-                      .collection('notifications')
-                      .doc(
-                        'new_claim_${requestReference.id}_${insuranceUser.id}',
-                      );
+              notificationReference = _firestore
+                  .collection('notifications')
+                  .doc('new_claim_${requestReference.id}_${insuranceUser.id}');
 
-              batch.set(
-                notificationReference,
-                {
-                  'userId': insuranceUser.id,
+              batch.set(notificationReference, {
+                'userId': insuranceUser.id,
 
-                  'title': 'New Insurance Claim',
+                'title': 'New Insurance Claim',
 
-                  'message':
-                      'A new insurance claim from '
-                      '$userName requires verification.',
+                'message':
+                    'A new insurance claim from '
+                    '$userName requires verification.',
 
-                  'type': 'new_claim',
+                'type': 'new_claim',
 
-                  'claimId': requestReference.id,
+                'claimId': requestReference.id,
 
-                  'requestId': requestReference.id,
+                'requestId': requestReference.id,
 
-                  'read': false,
+                'read': false,
 
-                  'isRead': false,
+                'isRead': false,
 
-                  'createdAt':
-                      FieldValue.serverTimestamp(),
-                },
-              );
+                'createdAt': FieldValue.serverTimestamp(),
+              });
             }
 
             await batch.commit();
@@ -541,9 +484,7 @@ class _LocationConfirmationPageState
             '${e.code} - ${e.message}',
           );
         } catch (e) {
-          debugPrint(
-            'Unexpected insurance notification error: $e',
-          );
+          debugPrint('Unexpected insurance notification error: $e');
         }
       }
 
@@ -560,8 +501,7 @@ class _LocationConfirmationPageState
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) =>
-              AssistanceTrackingPage(
+          builder: (context) => AssistanceTrackingPage(
             requestId: requestReference.id,
             userData: widget.userData,
             issue: widget.issue,
@@ -575,14 +515,9 @@ class _LocationConfirmationPageState
         _isCreatingRequest = false;
       });
 
-      debugPrint(
-        'Firebase error: ${e.code} - ${e.message}',
-      );
+      debugPrint('Firebase error: ${e.code} - ${e.message}');
 
-      _showMessage(
-        e.message ??
-            'Failed to create assistance request.',
-      );
+      _showMessage(e.message ?? 'Failed to create assistance request.');
     } catch (e) {
       if (!mounted) return;
 
@@ -590,13 +525,9 @@ class _LocationConfirmationPageState
         _isCreatingRequest = false;
       });
 
-      debugPrint(
-        'Create assistance request error: $e',
-      );
+      debugPrint('Create assistance request error: $e');
 
-      _showMessage(
-        'Something went wrong while creating your request.',
-      );
+      _showMessage('Something went wrong while creating your request.');
     }
   }
 
@@ -662,11 +593,9 @@ class _LocationConfirmationPageState
                 children: [
                   _buildMap(),
 
-                  if (_isLoading)
-                    _buildLoadingOverlay(),
+                  if (_isLoading) _buildLoadingOverlay(),
 
-                  if (!_isLoading &&
-                      _errorMessage != null)
+                  if (!_isLoading && _errorMessage != null)
                     _buildLocationError(),
 
                   _buildMyLocationButton(),
@@ -690,10 +619,6 @@ class _LocationConfirmationPageState
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF05090B),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-      ),
-      color: const Color(0xFF101214),
       child: Row(
         children: [
           IconButton(
@@ -730,9 +655,7 @@ class _LocationConfirmationPageState
     final Position? position = _currentPosition;
 
     if (position == null) {
-      return const ColoredBox(
-        color: Color(0xFF101214),
-      );
+      return const ColoredBox(color: Color(0xFF101214));
     }
 
     final LatLng initialLocation = LatLng(
@@ -741,10 +664,7 @@ class _LocationConfirmationPageState
     );
 
     return GoogleMap(
-      initialCameraPosition: CameraPosition(
-        target: initialLocation,
-        zoom: 15,
-      ),
+      initialCameraPosition: CameraPosition(target: initialLocation, zoom: 15),
       onMapCreated: _onMapCreated,
       markers: _markers,
       myLocationEnabled: _hasLocationPermission,
@@ -765,21 +685,16 @@ class _LocationConfirmationPageState
   Widget _buildLoadingOverlay() {
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.black.withValues(alpha: 0.45),
         child: const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircularProgressIndicator(
-                color: Color(0xFFF6E900),
-              ),
+              CircularProgressIndicator(color: Color(0xFFF6E900)),
               SizedBox(height: 16),
               Text(
                 'Finding your location...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.white, fontSize: 14),
               ),
             ],
           ),
@@ -793,17 +708,13 @@ class _LocationConfirmationPageState
   // ================================================================
 
   Widget _buildLocationError() {
-    final bool serviceDisabled =
-        !_isLocationServiceEnabled;
+    final bool serviceDisabled = !_isLocationServiceEnabled;
 
-    final bool permissionDenied =
-        !_hasLocationPermission;
+    final bool permissionDenied = !_hasLocationPermission;
 
     return Positioned.fill(
       child: Container(
-        color: const Color(0xFF05090B).withOpacity(0.90),
-        color: const Color(0xFF101214)
-            .withOpacity(0.90),
+        color: const Color(0xFF05090B).withValues(alpha: 0.90),
         padding: const EdgeInsets.all(24),
         child: Center(
           child: Container(
@@ -812,9 +723,6 @@ class _LocationConfirmationPageState
             decoration: BoxDecoration(
               color: const Color(0xFF11181C),
               borderRadius: BorderRadius.circular(22),
-              color: const Color(0xFF191C20),
-              borderRadius:
-                  BorderRadius.circular(22),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -823,8 +731,7 @@ class _LocationConfirmationPageState
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF6E900)
-                        .withOpacity(0.12),
+                    color: const Color(0xFFF6E900).withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -848,8 +755,7 @@ class _LocationConfirmationPageState
                 const SizedBox(height: 10),
 
                 Text(
-                  _errorMessage ??
-                      'We need your location to continue.',
+                  _errorMessage ?? 'We need your location to continue.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white60,
@@ -867,29 +773,23 @@ class _LocationConfirmationPageState
                     onPressed: serviceDisabled
                         ? _openLocationSettings
                         : permissionDenied
-                            ? _openAppSettings
-                            : _initializeLocation,
-                    style:
-                        ElevatedButton.styleFrom(
-                      backgroundColor:
-                          const Color(0xFFF6E900),
+                        ? _openAppSettings
+                        : _initializeLocation,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFF6E900),
                       foregroundColor: Colors.black,
                       elevation: 0,
-                      shape:
-                          RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                     child: Text(
                       serviceDisabled
                           ? 'Enable Location'
                           : permissionDenied
-                              ? 'Open Settings'
-                              : 'Try Again',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                          ? 'Open Settings'
+                          : 'Try Again',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -914,22 +814,16 @@ class _LocationConfirmationPageState
         child: InkWell(
           onTap: () async {
             if (_currentPosition != null) {
-              await _moveCameraToPosition(
-                _currentPosition!,
-              );
+              await _moveCameraToPosition(_currentPosition!);
             }
           },
-          borderRadius:
-              BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(16),
           child: Container(
             width: 52,
             height: 52,
             decoration: BoxDecoration(
               color: const Color(0xFF11181C),
               borderRadius: BorderRadius.circular(16),
-              color: const Color(0xFF191C20),
-              borderRadius:
-                  BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.my_location_rounded,
@@ -949,31 +843,18 @@ class _LocationConfirmationPageState
   Widget _buildInsuranceSection() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        20,
-      ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF11181C),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(26),
-          topRight: Radius.circular(26),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF191C20),
-        borderRadius:
-            BorderRadius.circular(18),
+        color: const Color(0xFF11181C),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: _isInsuranceClaim
               ? const Color(0xFFF6E900)
-              : Colors.white.withOpacity(0.06),
+              : Colors.white.withValues(alpha: 0.06),
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -981,10 +862,8 @@ class _LocationConfirmationPageState
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900)
-                      .withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(14),
+                  color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.shield_outlined,
@@ -996,25 +875,20 @@ class _LocationConfirmationPageState
 
               const Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Insurance Claim',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 4),
                     Text(
                       'Is this request related to an insurance claim?',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.white54, fontSize: 12),
                     ),
                   ],
                 ),
@@ -1022,8 +896,7 @@ class _LocationConfirmationPageState
 
               Switch(
                 value: _isInsuranceClaim,
-                activeColor:
-                    const Color(0xFFF6E900),
+                activeThumbColor: const Color(0xFFF6E900),
                 onChanged: (value) {
                   setState(() {
                     _isInsuranceClaim = value;
@@ -1037,7 +910,7 @@ class _LocationConfirmationPageState
             const SizedBox(height: 18),
 
             DropdownButtonFormField<String>(
-              value: _selectedInsuranceCompanyId,
+              initialValue: _selectedInsuranceCompanyId,
               isExpanded: true,
               dropdownColor: const Color(0xFF191C20),
               style: const TextStyle(color: Colors.white),
@@ -1068,8 +941,7 @@ class _LocationConfirmationPageState
             const SizedBox(height: 12),
 
             _buildInsuranceTextField(
-              controller:
-                  _policyNumberController,
+              controller: _policyNumberController,
               label: 'Policy Number',
               hint: 'Enter your policy number',
               icon: Icons.badge_outlined,
@@ -1078,8 +950,7 @@ class _LocationConfirmationPageState
             const SizedBox(height: 12),
 
             _buildInsuranceTextField(
-              controller:
-                  _insuranceDescriptionController,
+              controller: _insuranceDescriptionController,
               label: 'Claim Description',
               hint: 'Briefly describe the incident',
               icon: Icons.notes_outlined,
@@ -1101,50 +972,26 @@ class _LocationConfirmationPageState
     return TextField(
       controller: controller,
       maxLines: maxLines,
-      style: const TextStyle(
-        color: Colors.white,
-        fontSize: 14,
-      ),
+      style: const TextStyle(color: Colors.white, fontSize: 14),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(
-          color: Colors.white60,
-          fontSize: 13,
-        ),
-        hintStyle: const TextStyle(
-          color: Colors.white30,
-          fontSize: 13,
-        ),
-        prefixIcon: Icon(
-          icon,
-          color: const Color(0xFFF6E900),
-          size: 20,
-        ),
+        labelStyle: const TextStyle(color: Colors.white60, fontSize: 13),
+        hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
+        prefixIcon: Icon(icon, color: const Color(0xFFF6E900), size: 20),
         filled: true,
         fillColor: const Color(0xFF101214),
         border: OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius:
-              BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Colors.white.withOpacity(0.06),
-          ),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
-        focusedBorder:
-            const OutlineInputBorder(
-          borderRadius:
-              BorderRadius.all(
-            Radius.circular(12),
-          ),
-          borderSide: BorderSide(
-            color: Color(0xFFF6E900),
-            width: 1.3,
-          ),
+        focusedBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: Color(0xFFF6E900), width: 1.3),
         ),
       ),
     );
@@ -1155,224 +1002,191 @@ class _LocationConfirmationPageState
   // ================================================================
 
   Widget _buildBottomPanel() {
-    final bool hasLocation =
-        _currentPosition != null;
+    final bool hasLocation = _currentPosition != null;
 
     return Flexible(
       fit: FlexFit.loose,
       child: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(
-          20,
-          18,
-          20,
-          20,
-        ),
-        decoration: const BoxDecoration(
-          color: Color(0xFF191C20),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(26),
-            topRight: Radius.circular(26),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.white24,
-                borderRadius:
-                    BorderRadius.circular(20),
-              ),
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          decoration: const BoxDecoration(
+            color: Color(0xFF191C20),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(26),
+              topRight: Radius.circular(26),
             ),
           ),
-
-          const SizedBox(height: 18),
-
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900)
-                      .withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(14),
-                ),
-                child: const Icon(
-                  Icons.location_on_rounded,
-                  color: Color(0xFFF6E900),
-                  size: 25,
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                 ),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(height: 18),
 
-              Expanded(
-                child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+              Row(
+                children: [
+                  Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.location_on_rounded,
+                      color: Color(0xFFF6E900),
+                      size: 25,
+                    ),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Your Current Location',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 4),
+
+                        Text(
+                          hasLocation
+                              ? 'Location detected'
+                              : 'Detecting location...',
+                          style: TextStyle(
+                            color: hasLocation
+                                ? Colors.greenAccent
+                                : Colors.white54,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF05090B),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
                   children: [
-                    const Text(
-                      'Your Current Location',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight:
-                            FontWeight.bold,
-                      ),
+                    const Icon(
+                      Icons.build_circle_outlined,
+                      color: Colors.white54,
+                      size: 20,
                     ),
 
-                    const SizedBox(height: 4),
+                    const SizedBox(width: 10),
 
-                    Text(
-                      hasLocation
-                          ? 'Location detected'
-                          : 'Detecting location...',
-                      style: TextStyle(
-                        color: hasLocation
-                            ? Colors.greenAccent
-                            : Colors.white54,
-                        fontSize: 13,
+                    const Text(
+                      'Issue:',
+                      style: TextStyle(color: Colors.white54, fontSize: 13),
+                    ),
+
+                    const SizedBox(width: 6),
+
+                    Expanded(
+                      child: Text(
+                        widget.issue,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
 
-          const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
-          Container(
-            width: double.infinity,
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-            decoration: BoxDecoration(
-              color: const Color(0xFF05090B),
-              borderRadius:
-                  BorderRadius.circular(14),
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.build_circle_outlined,
-                  color: Colors.white54,
-                  size: 20,
-                ),
+              _buildInsuranceSection(),
 
-                const SizedBox(width: 10),
+              const SizedBox(height: 14),
 
-                const Text(
-                  'Issue:',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 13,
-                  ),
-                ),
-
-                const SizedBox(width: 6),
-
-                Expanded(
-                  child: Text(
-                    widget.issue,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
-                    overflow:
-                        TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          _buildInsuranceSection(),
-
-          const SizedBox(height: 14),
-
-          const Text(
-            'Your location will be shared with a roadside assistance provider so they can find you.',
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-
-          const SizedBox(height: 18),
-
-          SizedBox(
-            width: double.infinity,
-            height: 54,
-            child: ElevatedButton(
-              onPressed:
-                  hasLocation &&
-                          !_isCreatingRequest
-                      ? _confirmLocation
-                      : null,
-              style:
-                  ElevatedButton.styleFrom(
-                backgroundColor:
-                    const Color(0xFFF6E900),
-                disabledBackgroundColor:
-                    Colors.white12,
-                foregroundColor: Colors.black,
-                disabledForegroundColor:
-                    Colors.white30,
-                elevation: 0,
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(16),
+              const Text(
+                'Your location will be shared with a roadside assistance provider so they can find you.',
+                style: TextStyle(
+                  color: Colors.white38,
+                  fontSize: 12,
+                  height: 1.4,
                 ),
               ),
-              child: _isCreatingRequest
-                  ? const SizedBox(
-                      width: 23,
-                      height: 23,
-                      child:
-                          CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        color: Colors.black,
-                      ),
-                    )
-                  : const Row(
-                      mainAxisAlignment:
-                          MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons
-                              .check_circle_outline_rounded,
-                          size: 21,
-                        ),
-                        SizedBox(width: 9),
-                        Text(
-                          'Confirm Location',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight:
-                                FontWeight.bold,
-                          ),
-                        ),
-                      ],
+
+              const SizedBox(height: 18),
+
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton(
+                  onPressed: hasLocation && !_isCreatingRequest
+                      ? _confirmLocation
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF6E900),
+                    disabledBackgroundColor: Colors.white12,
+                    foregroundColor: Colors.black,
+                    disabledForegroundColor: Colors.white30,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-            ),
-          ),
+                  ),
+                  child: _isCreatingRequest
+                      ? const SizedBox(
+                          width: 23,
+                          height: 23,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.black,
+                          ),
+                        )
+                      : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle_outline_rounded, size: 21),
+                            SizedBox(width: 9),
+                            Text(
+                              'Confirm Location',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
             ],
           ),
         ),

@@ -38,8 +38,6 @@ dependencies:
   # Open Google Maps / external navigation
   url_launcher: ^6.3.2
 
-  firebase_storage: ^13.0.0
-  image_picker: ^1.2.1
   # Google Fonts
   google_fonts: ^6.2.1
   firebase_messaging: ^16.7.0

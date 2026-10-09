@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
 import 'roadside_provider_home_page.dart';
 
 class JobStatusPage extends StatefulWidget {
@@ -74,53 +75,53 @@ class _JobStatusPageState extends State<JobStatusPage> {
         .doc(widget.requestId)
         .snapshots()
         .listen(
-      (DocumentSnapshot snapshot) {
-        if (!mounted) {
-          return;
-        }
+          (DocumentSnapshot snapshot) {
+            if (!mounted) {
+              return;
+            }
 
-        if (!snapshot.exists) {
-          return;
-        }
+            if (!snapshot.exists) {
+              return;
+            }
 
-        final Map<String, dynamic> data =
-            snapshot.data() as Map<String, dynamic>;
+            final Map<String, dynamic> data =
+                snapshot.data() as Map<String, dynamic>;
 
-        final dynamic amount = data['jobAmount'];
+            final dynamic amount = data['jobAmount'];
 
-        if (amount is num) {
-          _jobAmount = amount.toDouble();
+            if (amount is num) {
+              _jobAmount = amount.toDouble();
 
-          if (_amountController.text.isEmpty) {
-            _amountController.text = _jobAmount!.toStringAsFixed(2);
-          }
-        }
+              if (_amountController.text.isEmpty) {
+                _amountController.text = _jobAmount!.toStringAsFixed(2);
+              }
+            }
 
-        setState(() {
-          _status = data['status']?.toString() ?? 'accepted';
+            setState(() {
+              _status = data['status']?.toString() ?? 'accepted';
 
-          _driverName = data['userName']?.toString() ?? 'Vehicle Owner';
+              _driverName = data['userName']?.toString() ?? 'Vehicle Owner';
 
-          _vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
+              _vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
 
-          _issueType = data['issueType']?.toString() ?? 'Assistance';
+              _issueType = data['issueType']?.toString() ?? 'Assistance';
 
-          _paymentStatus =
-              data['paymentStatus']?.toString() ?? 'not_applicable';
+              _paymentStatus =
+                  data['paymentStatus']?.toString() ?? 'not_applicable';
 
-          _isLoading = false;
-        });
-      },
-      onError: (error) {
-        debugPrint('Job listener error: $error');
+              _isLoading = false;
+            });
+          },
+          onError: (error) {
+            debugPrint('Job listener error: $error');
 
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      },
-    );
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+            }
+          },
+        );
   }
 
   // ============================================================
@@ -212,11 +213,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'jobAmount': amount,
-        'paymentStatus': _paymentStatus == 'paid' ? 'paid' : 'pending',
-        'paymentUpdatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'jobAmount': amount,
+            'paymentStatus': _paymentStatus == 'paid' ? 'paid' : 'pending',
+            'paymentUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (!mounted) {
         return;
@@ -262,17 +263,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
           backgroundColor: const Color(0xFF11181C),
           title: const Text(
             'Confirm Payment',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: Text(
             'Have you actually received the payment of ${_formatAmount(_jobAmount!)} from the customer?',
-            style: const TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: const TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
@@ -308,11 +303,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'paymentStatus': 'paid',
-        'paymentReceivedAt': FieldValue.serverTimestamp(),
-        'paymentUpdatedAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'paymentStatus': 'paid',
+            'paymentReceivedAt': FieldValue.serverTimestamp(),
+            'paymentUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (!mounted) {
         return;
@@ -343,9 +338,8 @@ class _JobStatusPageState extends State<JobStatusPage> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (context) => RoadsideProviderHomePage(
-          userData: widget.userData,
-        ),
+        builder: (context) =>
+            RoadsideProviderHomePage(userData: widget.userData),
       ),
       (route) => false,
     );
@@ -584,10 +578,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 SizedBox(height: 2),
                 Text(
                   'Manage your current assistance job',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -615,7 +606,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withOpacity(0.12),
+              color: const Color(0xFFF6E900).withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
@@ -640,10 +631,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 const SizedBox(height: 4),
                 Text(
                   '$_vehicleType • $_issueType',
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -671,7 +659,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withOpacity(0.12),
+              color: const Color(0xFFF6E900).withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -753,45 +741,39 @@ class _JobStatusPageState extends State<JobStatusPage> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        children: List.generate(
-          labels.length,
-          (index) {
-            final bool completed = index <= currentIndex;
+        children: List.generate(labels.length, (index) {
+          final bool completed = index <= currentIndex;
 
-            return Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: 27,
-                    height: 27,
-                    decoration: BoxDecoration(
-                      color: completed
-                          ? const Color(0xFFF6E900)
-                          : Colors.white10,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      completed ? Icons.check : Icons.circle,
-                      color: completed ? Colors.black : Colors.white24,
-                      size: 15,
-                    ),
+          return Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 27,
+                  height: 27,
+                  decoration: BoxDecoration(
+                    color: completed ? const Color(0xFFF6E900) : Colors.white10,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 7),
-                  Text(
-                    labels[index],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: completed ? Colors.white : Colors.white30,
-                      fontSize: 8,
-                      fontWeight:
-                          completed ? FontWeight.w600 : FontWeight.normal,
-                    ),
+                  child: Icon(
+                    completed ? Icons.check : Icons.circle,
+                    color: completed ? Colors.black : Colors.white24,
+                    size: 15,
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: completed ? Colors.white : Colors.white30,
+                    fontSize: 8,
+                    fontWeight: completed ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -836,10 +818,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
               ),
         label: Text(
           _isUpdating ? 'Updating...' : _nextButtonText(),
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFF6E900),
@@ -867,17 +846,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
           backgroundColor: const Color(0xFF11181C),
           title: const Text(
             'Complete Job?',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Are you sure the roadside assistance service has been completed?',
-            style: TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
@@ -924,8 +897,8 @@ class _JobStatusPageState extends State<JobStatusPage> {
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: completed
-              ? const Color(0xFFF6E900).withOpacity(0.18)
-              : Colors.white.withOpacity(0.04),
+              ? const Color(0xFFF6E900).withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.04),
         ),
       ),
       child: Column(
@@ -937,7 +910,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withOpacity(0.10),
+                  color: const Color(0xFFF6E900).withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
@@ -962,10 +935,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                     SizedBox(height: 3),
                     Text(
                       'Service payment',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                      ),
+                      style: TextStyle(color: Colors.white38, fontSize: 10),
                     ),
                   ],
                 ),
@@ -988,10 +958,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
           else ...[
             const Text(
               'Job Amount',
-              style: TextStyle(
-                color: Colors.white54,
-                fontSize: 10,
-              ),
+              style: TextStyle(color: Colors.white54, fontSize: 10),
             ),
 
             const SizedBox(height: 8),
@@ -1060,7 +1027,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withOpacity(0.08),
+                  color: Colors.greenAccent.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -1094,16 +1061,10 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 height: 50,
                 child: ElevatedButton.icon(
                   onPressed: _goToProviderDashboard,
-                  icon: const Icon(
-                    Icons.dashboard_rounded,
-                    size: 20,
-                  ),
+                  icon: const Icon(Icons.dashboard_rounded, size: 20),
                   label: const Text(
                     'Back to Provider Dashboard',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF6E900),
@@ -1147,12 +1108,9 @@ class _JobStatusPageState extends State<JobStatusPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
       decoration: BoxDecoration(
-        color: textColor.withOpacity(0.10),
+        color: textColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(

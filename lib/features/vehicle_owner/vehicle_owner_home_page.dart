@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
+
 import 'request_assistance_page.dart';
 import 'vehicle_owner_notifications_page.dart';
 
 class VehicleOwnerHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const VehicleOwnerHomePage({
-    super.key,
-    required this.userData,
-  });
+  const VehicleOwnerHomePage({super.key, required this.userData});
 
   @override
-  State<VehicleOwnerHomePage> createState() =>
-      _VehicleOwnerHomePageState();
+  State<VehicleOwnerHomePage> createState() => _VehicleOwnerHomePageState();
 }
 
-class _VehicleOwnerHomePageState
-    extends State<VehicleOwnerHomePage> {
+class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
   // ============================================================
   // COLORS
   // ============================================================
@@ -89,18 +85,11 @@ class _VehicleOwnerHomePageState
       color: yellowColor,
       backgroundColor: cardColor,
       onRefresh: () async {
-        await Future.delayed(
-          const Duration(milliseconds: 600),
-        );
+        await Future.delayed(const Duration(milliseconds: 600));
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          22,
-          20,
-          22,
-          30,
-        ),
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -132,9 +121,7 @@ class _VehicleOwnerHomePageState
               title: 'My Vehicle',
               actionText: 'Edit',
               onActionPressed: () {
-                _showComingSoon(
-                  'Vehicle editing will be available soon.',
-                );
+                _showComingSoon('Vehicle editing will be available soon.');
               },
             ),
 
@@ -224,8 +211,7 @@ class _VehicleOwnerHomePageState
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) =>
-                    const VehicleOwnerNotificationsPage(),
+                builder: (context) => const VehicleOwnerNotificationsPage(),
               ),
             );
           },
@@ -246,9 +232,7 @@ class _VehicleOwnerHomePageState
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: borderColor,
-              ),
+              border: Border.all(color: borderColor),
             ),
             child: const Icon(
               Icons.person_outline_rounded,
@@ -283,10 +267,7 @@ class _VehicleOwnerHomePageState
 
         const Text(
           'How can we help you today?',
-          style: TextStyle(
-            color: greyColor,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: greyColor, fontSize: 14),
         ),
       ],
     );
@@ -305,7 +286,7 @@ class _VehicleOwnerHomePageState
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: yellowColor.withOpacity(0.12),
+            color: yellowColor.withValues(alpha: 0.12),
             blurRadius: 25,
             offset: const Offset(0, 10),
           ),
@@ -320,7 +301,7 @@ class _VehicleOwnerHomePageState
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: backgroundColor.withOpacity(0.12),
+                  color: backgroundColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
@@ -338,17 +319,13 @@ class _VehicleOwnerHomePageState
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: backgroundColor.withOpacity(0.10),
+                  color: backgroundColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.circle,
-                      color: Color(0xFF1B5E20),
-                      size: 8,
-                    ),
+                    Icon(Icons.circle, color: Color(0xFF1B5E20), size: 8),
                     SizedBox(width: 5),
                     Text(
                       'Available 24/7',
@@ -380,7 +357,7 @@ class _VehicleOwnerHomePageState
           Text(
             'Request assistance and get help from a nearby provider.',
             style: TextStyle(
-              color: backgroundColor.withOpacity(0.65),
+              color: backgroundColor.withValues(alpha: 0.65),
               fontSize: 12.5,
               height: 1.45,
             ),
@@ -394,11 +371,10 @@ class _VehicleOwnerHomePageState
             child: ElevatedButton(
               onPressed: () {
                 Navigator.push(
-                context,
-                MaterialPageRoute(
-                builder: (context) => RequestAssistancePage(
-                  userData: widget.userData,
-                    ),
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        RequestAssistancePage(userData: widget.userData),
                   ),
                 );
               },
@@ -413,10 +389,7 @@ class _VehicleOwnerHomePageState
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.car_repair_rounded,
-                    size: 20,
-                  ),
+                  Icon(Icons.car_repair_rounded, size: 20),
                   SizedBox(width: 9),
                   Text(
                     'Request Assistance',
@@ -526,24 +499,15 @@ class _VehicleOwnerHomePageState
   }) {
     return GestureDetector(
       onTap: () {
-        _showComingSoon(
-          '$title assistance will be available soon.',
-        );
+        _showComingSoon('$title assistance will be available soon.');
       },
       child: Container(
-        constraints: const BoxConstraints(
-          minHeight: 112,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 13,
-        ),
+        constraints: const BoxConstraints(minHeight: 112),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: borderColor,
-          ),
+          border: Border.all(color: borderColor),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -552,14 +516,10 @@ class _VehicleOwnerHomePageState
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: yellowColor.withOpacity(0.09),
+                color: yellowColor.withValues(alpha: 0.09),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(
-                icon,
-                color: yellowColor,
-                size: 21,
-              ),
+              child: Icon(icon, color: yellowColor, size: 21),
             ),
 
             const SizedBox(height: 9),
@@ -579,10 +539,7 @@ class _VehicleOwnerHomePageState
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: greyColor,
-                fontSize: 8.5,
-              ),
+              style: const TextStyle(color: greyColor, fontSize: 8.5),
             ),
           ],
         ),
@@ -601,9 +558,7 @@ class _VehicleOwnerHomePageState
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: borderColor,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -611,7 +566,7 @@ class _VehicleOwnerHomePageState
             width: 55,
             height: 55,
             decoration: BoxDecoration(
-              color: yellowColor.withOpacity(0.09),
+              color: yellowColor.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(
@@ -629,10 +584,7 @@ class _VehicleOwnerHomePageState
               children: [
                 const Text(
                   'My Vehicle',
-                  style: TextStyle(
-                    color: greyColor,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: greyColor, fontSize: 11),
                 ),
 
                 const SizedBox(height: 4),
@@ -650,10 +602,7 @@ class _VehicleOwnerHomePageState
 
                 const Text(
                   'Vehicle information',
-                  style: TextStyle(
-                    color: greyColor,
-                    fontSize: 10,
-                  ),
+                  style: TextStyle(color: greyColor, fontSize: 10),
                 ),
               ],
             ),
@@ -688,9 +637,7 @@ class _VehicleOwnerHomePageState
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: borderColor,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         children: [
@@ -724,11 +671,7 @@ class _VehicleOwnerHomePageState
           const Text(
             'Your roadside assistance requests will appear here.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: greyColor,
-              fontSize: 11.5,
-              height: 1.4,
-            ),
+            style: TextStyle(color: greyColor, fontSize: 11.5, height: 1.4),
           ),
         ],
       ),
@@ -741,12 +684,7 @@ class _VehicleOwnerHomePageState
 
   Widget _buildRequestsPage() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        22,
-        25,
-        22,
-        30,
-      ),
+      padding: const EdgeInsets.fromLTRB(22, 25, 22, 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -768,19 +706,12 @@ class _VehicleOwnerHomePageState
   // ============================================================
 
   Widget _buildProfilePage() {
-    final email =
-        widget.userData['email']?.toString() ?? '';
+    final email = widget.userData['email']?.toString() ?? '';
 
-    final contactNumber =
-        widget.userData['contactNumber']?.toString() ?? '';
+    final contactNumber = widget.userData['contactNumber']?.toString() ?? '';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        22,
-        25,
-        22,
-        30,
-      ),
+      padding: const EdgeInsets.fromLTRB(22, 25, 22, 30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -798,9 +729,7 @@ class _VehicleOwnerHomePageState
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: borderColor,
-              ),
+              border: Border.all(color: borderColor),
             ),
             child: Column(
               children: [
@@ -833,10 +762,7 @@ class _VehicleOwnerHomePageState
 
                 Text(
                   email,
-                  style: const TextStyle(
-                    color: greyColor,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: greyColor, fontSize: 12),
                 ),
 
                 const SizedBox(height: 12),
@@ -847,7 +773,7 @@ class _VehicleOwnerHomePageState
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: yellowColor.withOpacity(0.09),
+                    color: yellowColor.withValues(alpha: 0.09),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -886,9 +812,7 @@ class _VehicleOwnerHomePageState
             icon: Icons.edit_outlined,
             title: 'Edit Profile',
             onTap: () {
-              _showComingSoon(
-                'Profile editing will be available soon.',
-              );
+              _showComingSoon('Profile editing will be available soon.');
             },
           ),
 
@@ -911,10 +835,7 @@ class _VehicleOwnerHomePageState
   // PAGE HEADER
   // ============================================================
 
-  Widget _buildPageHeader({
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _buildPageHeader({required String title, required String subtitle}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -929,13 +850,7 @@ class _VehicleOwnerHomePageState
 
         const SizedBox(height: 7),
 
-        Text(
-          subtitle,
-          style: const TextStyle(
-            color: greyColor,
-            fontSize: 13,
-          ),
-        ),
+        Text(subtitle, style: const TextStyle(color: greyColor, fontSize: 13)),
       ],
     );
   }
@@ -955,9 +870,7 @@ class _VehicleOwnerHomePageState
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: borderColor,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -965,14 +878,10 @@ class _VehicleOwnerHomePageState
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: yellowColor.withOpacity(0.08),
+              color: yellowColor.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(
-              icon,
-              color: yellowColor,
-              size: 21,
-            ),
+            child: Icon(icon, color: yellowColor, size: 21),
           ),
 
           const SizedBox(width: 13),
@@ -983,10 +892,7 @@ class _VehicleOwnerHomePageState
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: greyColor,
-                    fontSize: 10,
-                  ),
+                  style: const TextStyle(color: greyColor, fontSize: 10),
                 ),
 
                 const SizedBox(height: 4),
@@ -1021,26 +927,19 @@ class _VehicleOwnerHomePageState
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(15),
           border: Border.all(
-            color: isDestructive
-                ? const Color(0xFF4A2727)
-                : borderColor,
+            color: isDestructive ? const Color(0xFF4A2727) : borderColor,
           ),
         ),
         child: Row(
           children: [
             Icon(
               icon,
-              color: isDestructive
-                  ? const Color(0xFFFF5252)
-                  : greyColor,
+              color: isDestructive ? const Color(0xFFFF5252) : greyColor,
               size: 21,
             ),
 
@@ -1049,9 +948,7 @@ class _VehicleOwnerHomePageState
             Text(
               title,
               style: TextStyle(
-                color: isDestructive
-                    ? const Color(0xFFFF5252)
-                    : whiteColor,
+                color: isDestructive ? const Color(0xFFFF5252) : whiteColor,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -1061,9 +958,7 @@ class _VehicleOwnerHomePageState
 
             Icon(
               Icons.chevron_right_rounded,
-              color: isDestructive
-                  ? const Color(0xFFFF5252)
-                  : greyColor,
+              color: isDestructive ? const Color(0xFFFF5252) : greyColor,
               size: 20,
             ),
           ],
@@ -1080,58 +975,34 @@ class _VehicleOwnerHomePageState
     return Container(
       decoration: const BoxDecoration(
         color: cardColor,
-        border: Border(
-          top: BorderSide(
-            color: borderColor,
-            width: 0.6,
-          ),
-        ),
+        border: Border(top: BorderSide(color: borderColor, width: 0.6)),
       ),
       child: NavigationBar(
         height: 68,
         backgroundColor: cardColor,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: yellowColor.withOpacity(0.12),
+        indicatorColor: yellowColor.withValues(alpha: 0.12),
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-        labelBehavior:
-            NavigationDestinationLabelBehavior.alwaysShow,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(
-            icon: Icon(
-              Icons.home_outlined,
-              color: greyColor,
-            ),
-            selectedIcon: Icon(
-              Icons.home_rounded,
-              color: yellowColor,
-            ),
+            icon: Icon(Icons.home_outlined, color: greyColor),
+            selectedIcon: Icon(Icons.home_rounded, color: yellowColor),
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons.assignment_outlined,
-              color: greyColor,
-            ),
-            selectedIcon: Icon(
-              Icons.assignment_rounded,
-              color: yellowColor,
-            ),
+            icon: Icon(Icons.assignment_outlined, color: greyColor),
+            selectedIcon: Icon(Icons.assignment_rounded, color: yellowColor),
             label: 'Requests',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons.person_outline_rounded,
-              color: greyColor,
-            ),
-            selectedIcon: Icon(
-              Icons.person_rounded,
-              color: yellowColor,
-            ),
+            icon: Icon(Icons.person_outline_rounded, color: greyColor),
+            selectedIcon: Icon(Icons.person_rounded, color: yellowColor),
             label: 'Profile',
           ),
         ],
@@ -1155,15 +1026,9 @@ class _VehicleOwnerHomePageState
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: borderColor,
-          ),
+          border: Border.all(color: borderColor),
         ),
-        child: Icon(
-          icon,
-          color: whiteColor,
-          size: 22,
-        ),
+        child: Icon(icon, color: whiteColor, size: 22),
       ),
     );
   }
@@ -1183,37 +1048,24 @@ class _VehicleOwnerHomePageState
           ),
           title: const Text(
             'Log Out',
-            style: TextStyle(
-              color: whiteColor,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Are you sure you want to log out of RoadRescue?',
-            style: TextStyle(
-              color: greyColor,
-              height: 1.4,
-            ),
+            style: TextStyle(color: greyColor, height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext);
               },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: greyColor,
-                ),
-              ),
+              child: const Text('Cancel', style: TextStyle(color: greyColor)),
             ),
             TextButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
 
-                _showComingSoon(
-                  'Logout functionality will be connected next.',
-                );
+                _showComingSoon('Logout functionality will be connected next.');
               },
               child: const Text(
                 'Log Out',

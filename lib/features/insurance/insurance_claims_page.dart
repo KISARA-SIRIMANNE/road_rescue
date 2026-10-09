@@ -502,7 +502,7 @@ class _InsuranceClaimsPageState extends State<InsuranceClaimsPage> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 9),
+        separatorBuilder: (_, _) => const SizedBox(width: 9),
         itemBuilder: (context, index) {
           final filter = filters[index];
 
