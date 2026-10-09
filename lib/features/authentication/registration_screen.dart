@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'login_screen.dart';
+import '../../services/insurance_company.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -38,9 +39,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final TextEditingController _workshopLocationController =
       TextEditingController();
 
-  final TextEditingController _companyNameController =
-      TextEditingController();
-
   final TextEditingController _passwordController =
       TextEditingController();
 
@@ -52,6 +50,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // ============================================================
 
   String _selectedRole = 'vehicle_owner';
+  String? _selectedInsuranceCompanyId;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -79,7 +78,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     _vehicleTypeController.dispose();
     _contactNumberController.dispose();
     _workshopLocationController.dispose();
-    _companyNameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
 
@@ -131,8 +129,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (_selectedRole == 'insurance_provider') {
-      if (_companyNameController.text.trim().isEmpty) {
-        _showError('Please enter your company name.');
+      if (insuranceCompanyById(_selectedInsuranceCompanyId) == null) {
+        _showError('Please select your insurance company.');
         return;
       }
     }
@@ -241,8 +239,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       // ----------------------------------------------------------
 
       if (_selectedRole == 'insurance_provider') {
-        userData['companyName'] =
-            _companyNameController.text.trim();
+        final company = insuranceCompanyById(_selectedInsuranceCompanyId);
+        userData['insuranceCompanyId'] = company!.id;
+        userData['companyName'] = company.name;
       }
 
       // ----------------------------------------------------------
@@ -795,12 +794,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       );
     }
 
-    return _buildTextField(
-      controller: _companyNameController,
-      label: 'Company Name',
-      hint: 'Enter your company name',
-      icon: Icons.business_outlined,
-      textInputType: TextInputType.text,
+    return DropdownButtonFormField<String>(
+      value: _selectedInsuranceCompanyId,
+      isExpanded: true,
+      dropdownColor: cardColor,
+      style: const TextStyle(color: whiteColor),
+      decoration: const InputDecoration(
+        labelText: 'Insurance Company',
+        prefixIcon: Icon(Icons.business_outlined, color: greyColor),
+      ),
+      hint: const Text('Select insurance company'),
+      items: insuranceCompanies
+          .map(
+            (company) => DropdownMenuItem(
+              value: company.id,
+              child: Text(company.name),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedInsuranceCompanyId = value;
+        });
+      },
     );
   }
 

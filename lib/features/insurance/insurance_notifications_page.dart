@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'claim_details_verification_page.dart';
+import '../../services/insurance_company.dart';
 
 class InsuranceNotificationsPage extends StatefulWidget {
   const InsuranceNotificationsPage({super.key});
@@ -51,6 +52,10 @@ class _InsuranceNotificationsPageState
       final claims = await _firestore
           .collection('assistance_requests')
           .where('insuranceClaim', isEqualTo: true)
+          .where(
+            'insuranceCompanyId',
+            isEqualTo: await loadCurrentInsuranceCompanyId(),
+          )
           .get();
 
       for (final claim in claims.docs) {

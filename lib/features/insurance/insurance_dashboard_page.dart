@@ -11,6 +11,7 @@ import 'insurance_claim_history_page.dart';
 import 'claim_details_verification_page.dart';
 import 'insurance_reports_page.dart';
 import 'insurance_profile_page.dart';
+import '../../services/insurance_company.dart';
 
 class InsuranceDashboardPage extends StatefulWidget {
   const InsuranceDashboardPage({super.key});
@@ -39,6 +40,7 @@ class _InsuranceDashboardPageState
 
   String _userName = 'Insurance Officer';
   String _companyName = 'Insurance Provider';
+  String? _companyId;
 
   List<Map<String, dynamic>> _claims = [];
 
@@ -112,6 +114,9 @@ class _InsuranceDashboardPageState
           'No authenticated user found.',
         );
       }
+
+      _companyId = await loadCurrentInsuranceCompanyId();
+      _companyName = insuranceCompanyById(_companyId)!.name;
 
       // --------------------------------------------------------
       // USER PROFILE
@@ -198,6 +203,7 @@ class _InsuranceDashboardPageState
                   'insuranceClaim',
                   isEqualTo: true,
                 )
+                .where('insuranceCompanyId', isEqualTo: _companyId)
                 .get();
 
         _claims =
@@ -260,6 +266,7 @@ class _InsuranceDashboardPageState
           await _firestore
               .collection('assistance_requests')
               .where('insuranceClaim', isEqualTo: true)
+              .where('insuranceCompanyId', isEqualTo: _companyId)
               .get();
 
       for (final document in snapshot.docs) {

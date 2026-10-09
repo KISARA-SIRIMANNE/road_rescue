@@ -5,6 +5,12 @@ import 'firebase_options.dart';
 import 'features/onboarding/onboarding_screen_1.dart';
 import 'features/onboarding/onboarding_screen_2.dart';
 import 'features/onboarding/onboarding_screen_3.dart';
+origin/feature/insurance
+import 'services/notification_service.dart';
+
+
+
+testing
 
 Future<void> main() async {
   // Make sure Flutter is initialized before Firebase.
@@ -14,6 +20,8 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await NotificationService.instance.initialize();
 
   // Start the application.
   runApp(const RoadRescueApp());

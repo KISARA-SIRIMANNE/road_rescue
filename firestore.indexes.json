@@ -1,0 +1,33 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "assistance_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "insuranceClaim",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insuranceCompanyId",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "role",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insuranceCompanyId",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
