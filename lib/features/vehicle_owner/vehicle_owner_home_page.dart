@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'request_assistance_page.dart';
+import 'vehicle_owner_notifications_page.dart';
 
 class VehicleOwnerHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -20,12 +21,12 @@ class _VehicleOwnerHomePageState
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF08090A);
-  static const Color cardColor = Color(0xFF171C20);
-  static const Color yellowColor = Color(0xFFF6E900);
+  static const Color backgroundColor = Color(0xFF05090B);
+  static const Color cardColor = Color(0xFF11181C);
+  static const Color yellowColor = Color(0xFFFFD21F);
   static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color greyColor = Color(0xFF929AA2);
-  static const Color borderColor = Color(0xFF394149);
+  static const Color greyColor = Color(0xFFA5ADB3);
+  static const Color borderColor = Color(0xFF263036);
 
   // ============================================================
   // STATE
@@ -220,8 +221,12 @@ class _VehicleOwnerHomePageState
         _buildIconButton(
           icon: Icons.notifications_none_rounded,
           onPressed: () {
-            _showComingSoon(
-              'Notifications will be available soon.',
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    const VehicleOwnerNotificationsPage(),
+              ),
             );
           },
         ),
