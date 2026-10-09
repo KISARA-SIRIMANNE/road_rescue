@@ -832,9 +832,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _status == 'pending'
-                          ? 'Searching for a roadside provider...'
-                          : _status,
+                      _getStatusText(),
                       style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 13,
@@ -938,5 +936,41 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
         ],
       ),
     );
+  }
+  // ================================================================
+  // STATUS TEXT
+  // ================================================================
+
+  String _getStatusText() {
+    switch (_status) {
+      case 'pending':
+      case 'searching':
+        return 'Searching for a roadside provider...';
+
+      case 'accepted':
+        return _providerName?.isNotEmpty == true
+            ? '${_providerName!} has accepted your request.'
+            : 'A roadside provider has accepted your request.';
+
+      case 'on_the_way':
+        return _providerName?.isNotEmpty == true
+            ? '${_providerName!} is on the way.'
+            : 'Your roadside provider is on the way.';
+
+      case 'arrived':
+        return 'Your roadside provider has arrived.';
+
+      case 'in_progress':
+        return 'Roadside assistance is in progress.';
+
+      case 'completed':
+        return 'Roadside assistance has been completed.';
+
+      case 'cancelled':
+        return 'This assistance request was cancelled.';
+
+      default:
+        return _status;
+    }
   }
 }
