@@ -5,22 +5,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
+import 'provider_job_flow_pages.dart';
+
 class RoadsideProviderHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const RoadsideProviderHomePage({
-    super.key,
-    required this.userData,
-  });
+  const RoadsideProviderHomePage({super.key, required this.userData});
 
   @override
   State<RoadsideProviderHomePage> createState() =>
       _RoadsideProviderHomePageState();
 }
 
-class _RoadsideProviderHomePageState
-    extends State<RoadsideProviderHomePage> {
+class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   int _selectedIndex = 0;
+  int _jobStep = 0;
+  String? _selectedJobId;
+  Map<String, dynamic>? _selectedJobData;
+  bool _isCompletingJob = false;
 
   bool _isOnline = false;
   bool _isGettingLocation = false;
@@ -34,8 +36,11 @@ class _RoadsideProviderHomePageState
   // ============================================================
 
   StreamSubscription<QuerySnapshot>? _requestSubscription;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
+  _activeJobsSubscription;
 
   final List<QueryDocumentSnapshot> _incomingRequests = [];
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> _activeJobs = [];
 
   bool _isLoadingRequests = false;
 
@@ -43,24 +48,19 @@ class _RoadsideProviderHomePageState
   // FIREBASE
   // ============================================================
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   // ============================================================
   // COLORS
   // ============================================================
 
-  final Color _backgroundColor =
-      const Color(0xFF08090A);
+  final Color _backgroundColor = const Color(0xFF08090A);
 
-  final Color _cardColor =
-      const Color(0xFF171C20);
+  final Color _cardColor = const Color(0xFF171C20);
 
-  final Color _yellowColor =
-      const Color(0xFFF6E900);
+  final Color _yellowColor = const Color(0xFFF6E900);
 
   // ============================================================
   // PROVIDER DATA
@@ -82,9 +82,7 @@ class _RoadsideProviderHomePageState
   }
 
   String get _providerId {
-    return widget.userData['uid']?.toString() ??
-        _auth.currentUser?.uid ??
-        '';
+    return widget.userData['uid']?.toString() ?? _auth.currentUser?.uid ?? '';
   }
 
   // ============================================================
@@ -96,6 +94,7 @@ class _RoadsideProviderHomePageState
     super.initState();
 
     _loadProviderAvailability();
+    _startActiveJobsListener();
   }
 
   // ============================================================
@@ -108,11 +107,10 @@ class _RoadsideProviderHomePageState
         return;
       }
 
-      final DocumentSnapshot document =
-          await _firestore
-              .collection('users')
-              .doc(_providerId)
-              .get();
+      final DocumentSnapshot document = await _firestore
+          .collection('users')
+          .doc(_providerId)
+          .get();
 
       if (!document.exists) {
         return;
@@ -125,8 +123,7 @@ class _RoadsideProviderHomePageState
         return;
       }
 
-      final bool savedOnlineStatus =
-          data['isOnline'] == true;
+      final bool savedOnlineStatus = data['isOnline'] == true;
 
       if (!mounted) {
         return;
@@ -135,13 +132,10 @@ class _RoadsideProviderHomePageState
       setState(() {
         _isOnline = savedOnlineStatus;
 
-        if (data['latitude'] != null &&
-            data['longitude'] != null) {
+        if (data['latitude'] != null && data['longitude'] != null) {
           _currentPosition = Position(
-            latitude:
-                (data['latitude'] as num).toDouble(),
-            longitude:
-                (data['longitude'] as num).toDouble(),
+            latitude: (data['latitude'] as num).toDouble(),
+            longitude: (data['longitude'] as num).toDouble(),
             timestamp: DateTime.now(),
             accuracy: 0,
             altitude: 0,
@@ -159,9 +153,7 @@ class _RoadsideProviderHomePageState
         _startRequestListener();
       }
     } catch (e) {
-      debugPrint(
-        'Error loading provider availability: $e',
-      );
+      debugPrint('Error loading provider availability: $e');
     }
   }
 
@@ -170,8 +162,7 @@ class _RoadsideProviderHomePageState
   // ============================================================
 
   Future<bool> _checkLocationPermission() async {
-    bool serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
       if (mounted) {
@@ -181,26 +172,21 @@ class _RoadsideProviderHomePageState
       return false;
     }
 
-    LocationPermission permission =
-        await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
+      permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied) {
       if (mounted) {
-        _showMessage(
-          'Location permission is required to go online.',
-        );
+        _showMessage('Location permission is required to go online.');
       }
 
       return false;
     }
 
-    if (permission ==
-        LocationPermission.deniedForever) {
+    if (permission == LocationPermission.deniedForever) {
       if (mounted) {
         _showPermissionSettingsMessage();
       }
@@ -225,8 +211,7 @@ class _RoadsideProviderHomePageState
     });
 
     try {
-      final bool permissionGranted =
-          await _checkLocationPermission();
+      final bool permissionGranted = await _checkLocationPermission();
 
       if (!permissionGranted) {
         if (mounted) {
@@ -239,20 +224,15 @@ class _RoadsideProviderHomePageState
         return;
       }
 
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
       );
 
       _currentPosition = position;
 
-      await _updateProviderLocation(
-        position,
-        isOnline: true,
-      );
+      await _updateProviderLocation(position, isOnline: true);
 
       if (!mounted) {
         return;
@@ -268,13 +248,9 @@ class _RoadsideProviderHomePageState
       // Start listening for assistance requests.
       _startRequestListener();
 
-      _showMessage(
-        'You are now online.',
-      );
+      _showMessage('You are now online.');
     } catch (e) {
-      debugPrint(
-        'Error going online: $e',
-      );
+      debugPrint('Error going online: $e');
 
       if (!mounted) {
         return;
@@ -285,9 +261,7 @@ class _RoadsideProviderHomePageState
         _isGettingLocation = false;
       });
 
-      _showMessage(
-        'Could not get your current location.',
-      );
+      _showMessage('Could not get your current location.');
     }
   }
 
@@ -303,19 +277,13 @@ class _RoadsideProviderHomePageState
 
     try {
       if (_providerId.isNotEmpty) {
-        await _firestore
-            .collection('users')
-            .doc(_providerId)
-            .update({
+        await _firestore.collection('users').doc(_providerId).update({
           'isOnline': false,
-          'updatedAt':
-              FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
     } catch (e) {
-      debugPrint(
-        'Error going offline: $e',
-      );
+      debugPrint('Error going offline: $e');
     }
 
     if (!mounted) {
@@ -326,9 +294,7 @@ class _RoadsideProviderHomePageState
       _isOnline = false;
     });
 
-    _showMessage(
-      'You are now offline.',
-    );
+    _showMessage('You are now offline.');
   }
 
   // ============================================================
@@ -338,38 +304,30 @@ class _RoadsideProviderHomePageState
   void _startLocationStream() {
     _positionSubscription?.cancel();
 
-    const LocationSettings settings =
-        LocationSettings(
+    const LocationSettings settings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 10,
     );
 
     _positionSubscription =
-        Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(
-      (Position position) async {
-        if (!_isOnline) {
-          return;
-        }
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          (Position position) async {
+            if (!_isOnline) {
+              return;
+            }
 
-        _currentPosition = position;
+            _currentPosition = position;
 
-        if (mounted) {
-          setState(() {});
-        }
+            if (mounted) {
+              setState(() {});
+            }
 
-        await _updateProviderLocation(
-          position,
-          isOnline: true,
+            await _updateProviderLocation(position, isOnline: true);
+          },
+          onError: (error) {
+            debugPrint('Provider location stream error: $error');
+          },
         );
-      },
-      onError: (error) {
-        debugPrint(
-          'Provider location stream error: $error',
-        );
-      },
-    );
   }
 
   // ============================================================
@@ -381,30 +339,21 @@ class _RoadsideProviderHomePageState
     required bool isOnline,
   }) async {
     if (_providerId.isEmpty) {
-      debugPrint(
-        'Provider ID is empty. Cannot update location.',
-      );
+      debugPrint('Provider ID is empty. Cannot update location.');
 
       return;
     }
 
     try {
-      await _firestore
-          .collection('users')
-          .doc(_providerId)
-          .update({
+      await _firestore.collection('users').doc(_providerId).update({
         'latitude': position.latitude,
         'longitude': position.longitude,
         'isOnline': isOnline,
-        'locationUpdatedAt':
-            FieldValue.serverTimestamp(),
-        'updatedAt':
-            FieldValue.serverTimestamp(),
+        'locationUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint(
-        'Error updating provider location: $e',
-      );
+      debugPrint('Error updating provider location: $e');
     }
   }
 
@@ -438,99 +387,78 @@ class _RoadsideProviderHomePageState
 
     _requestSubscription = _firestore
         .collection('assistance_requests')
-        .where(
-          'status',
-          whereIn: [
-            'pending',
-            'searching',
-          ],
-        )
+        .where('status', whereIn: ['pending', 'searching'])
         .snapshots()
         .listen(
-      (QuerySnapshot snapshot) {
-        final List<QueryDocumentSnapshot>
-            requests =
-            snapshot.docs.where((document) {
-          final Map<String, dynamic> data =
-              document.data()
-                  as Map<String, dynamic>;
+          (QuerySnapshot snapshot) {
+            final List<QueryDocumentSnapshot> requests = snapshot.docs.where((
+              document,
+            ) {
+              final Map<String, dynamic> data =
+                  document.data() as Map<String, dynamic>;
 
-          final List<dynamic> deniedBy =
-              data['deniedBy'] is List
-                  ? List<dynamic>.from(
-                      data['deniedBy'] as List,
-                    )
+              final List<dynamic> deniedBy = data['deniedBy'] is List
+                  ? List<dynamic>.from(data['deniedBy'] as List)
                   : <dynamic>[];
 
-          // If this provider has denied the request,
-          // don't display it to this provider.
-          return !deniedBy.contains(
-            _providerId,
-          );
-        }).toList();
+              // If this provider has denied the request,
+              // don't display it to this provider.
+              return !deniedBy.contains(_providerId);
+            }).toList();
 
-        // Sort newest requests first.
-        requests.sort((a, b) {
-          final Map<String, dynamic> aData =
-              a.data()
-                  as Map<String, dynamic>;
+            // Sort newest requests first.
+            requests.sort((a, b) {
+              final Map<String, dynamic> aData =
+                  a.data() as Map<String, dynamic>;
 
-          final Map<String, dynamic> bData =
-              b.data()
-                  as Map<String, dynamic>;
+              final Map<String, dynamic> bData =
+                  b.data() as Map<String, dynamic>;
 
-          final Timestamp? aTime =
-              aData['createdAt'] is Timestamp
-                  ? aData['createdAt']
-                      as Timestamp
+              final Timestamp? aTime = aData['createdAt'] is Timestamp
+                  ? aData['createdAt'] as Timestamp
                   : null;
 
-          final Timestamp? bTime =
-              bData['createdAt'] is Timestamp
-                  ? bData['createdAt']
-                      as Timestamp
+              final Timestamp? bTime = bData['createdAt'] is Timestamp
+                  ? bData['createdAt'] as Timestamp
                   : null;
 
-          if (aTime == null &&
-              bTime == null) {
-            return 0;
-          }
+              if (aTime == null && bTime == null) {
+                return 0;
+              }
 
-          if (aTime == null) {
-            return 1;
-          }
+              if (aTime == null) {
+                return 1;
+              }
 
-          if (bTime == null) {
-            return -1;
-          }
+              if (bTime == null) {
+                return -1;
+              }
 
-          return bTime.compareTo(aTime);
-        });
+              return bTime.compareTo(aTime);
+            });
 
-        if (!mounted) {
-          return;
-        }
+            if (!mounted) {
+              return;
+            }
 
-        setState(() {
-          _incomingRequests
-            ..clear()
-            ..addAll(requests);
+            setState(() {
+              _incomingRequests
+                ..clear()
+                ..addAll(requests);
 
-          _isLoadingRequests = false;
-        });
-      },
-      onError: (error) {
-        debugPrint(
-          'Assistance request listener error: $error',
+              _isLoadingRequests = false;
+            });
+          },
+          onError: (error) {
+            debugPrint('Assistance request listener error: $error');
+
+            if (mounted) {
+              setState(() {
+                _isLoadingRequests = false;
+              });
+            }
+          },
         );
-
-        if (mounted) {
-          setState(() {
-            _isLoadingRequests = false;
-          });
-        }
-      },
-    );
   }
 
   // ============================================================
@@ -552,82 +480,175 @@ class _RoadsideProviderHomePageState
     });
   }
 
+  void _startActiveJobsListener() {
+    if (_providerId.isEmpty) return;
+
+    _activeJobsSubscription?.cancel();
+    _activeJobsSubscription = _firestore
+        .collection('assistance_requests')
+        .where('providerId', isEqualTo: _providerId)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            final List<QueryDocumentSnapshot<Map<String, dynamic>>> activeJobs =
+                snapshot.docs.where((document) {
+                  final String status =
+                      document.data()['status']?.toString() ?? '';
+                  return status == 'accepted' || status == 'in_progress';
+                }).toList();
+
+            if (!mounted) return;
+            setState(() {
+              _activeJobs
+                ..clear()
+                ..addAll(activeJobs);
+
+              for (final job in activeJobs) {
+                if (job.id == _selectedJobId) {
+                  _selectedJobData = job.data();
+                  break;
+                }
+              }
+            });
+          },
+          onError: (Object error) {
+            debugPrint('Active provider jobs listener error: $error');
+          },
+        );
+  }
+
+  void _openJob(
+    String requestId,
+    Map<String, dynamic> requestData, {
+    int? step,
+  }) {
+    setState(() {
+      _selectedJobId = requestId;
+      _selectedJobData = requestData;
+      _jobStep = step ?? (requestData['status'] == 'in_progress' ? 4 : 1);
+      _selectedIndex = 1;
+    });
+  }
+
+  Future<void> _startSelectedJob() async {
+    final String? requestId = _selectedJobId;
+    if (requestId == null) return;
+
+    try {
+      await _firestore.collection('assistance_requests').doc(requestId).update({
+        'status': 'in_progress',
+        'serviceStartedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      if (!mounted) return;
+      setState(() {
+        _selectedJobData = {...?_selectedJobData, 'status': 'in_progress'};
+        _jobStep = 4;
+      });
+    } on FirebaseException catch (error) {
+      _showMessage(error.message ?? 'Could not start this service.');
+    } catch (error) {
+      _showMessage('Could not start this service: $error');
+    }
+  }
+
+  Future<void> _completeSelectedJob(String notes) async {
+    final String? requestId = _selectedJobId;
+    final Map<String, dynamic>? jobData = _selectedJobData;
+    if (requestId == null || jobData == null || _isCompletingJob) return;
+
+    setState(() => _isCompletingJob = true);
+    try {
+      final double? fee = providerJobFee(jobData);
+      final Map<String, dynamic> completedValues = {
+        'status': 'completed',
+        'serviceNotes': notes,
+        'completedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      completedValues.addAll({'earningsAmount': ?fee});
+      await _firestore
+          .collection('assistance_requests')
+          .doc(requestId)
+          .update(completedValues);
+
+      if (!mounted) return;
+      setState(() {
+        _selectedJobData = {
+          ...jobData,
+          'status': 'completed',
+          'earningsAmount': ?fee,
+        };
+        _jobStep = 0;
+        _isCompletingJob = false;
+        _selectedIndex = 3;
+      });
+      _showMessage('Service completed. Earnings updated.');
+    } on FirebaseException catch (error) {
+      if (mounted) {
+        setState(() => _isCompletingJob = false);
+        _showMessage(error.message ?? 'Could not complete this service.');
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isCompletingJob = false);
+        _showMessage('Could not complete this service: $error');
+      }
+    }
+  }
+
   // ============================================================
   // ACCEPT REQUEST
   // ============================================================
 
-  Future<void> _acceptRequest(
-    QueryDocumentSnapshot requestDocument,
-  ) async {
+  Future<void> _acceptRequest(QueryDocumentSnapshot requestDocument) async {
     if (_providerId.isEmpty) {
       return;
     }
 
-    final DocumentReference requestReference =
-        _firestore
-            .collection('assistance_requests')
-            .doc(requestDocument.id);
+    final DocumentReference requestReference = _firestore
+        .collection('assistance_requests')
+        .doc(requestDocument.id);
 
     try {
-      await _firestore.runTransaction(
-        (transaction) async {
-          final DocumentSnapshot snapshot =
-              await transaction.get(
-            requestReference,
+      await _firestore.runTransaction((transaction) async {
+        final DocumentSnapshot snapshot = await transaction.get(
+          requestReference,
+        );
+
+        if (!snapshot.exists) {
+          throw Exception('This request no longer exists.');
+        }
+
+        final Map<String, dynamic> data =
+            snapshot.data() as Map<String, dynamic>;
+
+        final String status = data['status']?.toString() ?? 'pending';
+
+        final List<dynamic> deniedBy = data['deniedBy'] is List
+            ? List<dynamic>.from(data['deniedBy'] as List)
+            : <dynamic>[];
+
+        if (deniedBy.contains(_providerId)) {
+          throw Exception('You have already denied this request.');
+        }
+
+        if (status != 'pending' && status != 'searching') {
+          throw Exception(
+            'This request has already been accepted '
+            'by another provider.',
           );
+        }
 
-          if (!snapshot.exists) {
-            throw Exception(
-              'This request no longer exists.',
-            );
-          }
-
-          final Map<String, dynamic> data =
-              snapshot.data()
-                  as Map<String, dynamic>;
-
-          final String status =
-              data['status']?.toString() ??
-                  'pending';
-
-          final List<dynamic> deniedBy =
-              data['deniedBy'] is List
-                  ? List<dynamic>.from(
-                      data['deniedBy'] as List,
-                    )
-                  : <dynamic>[];
-
-          if (deniedBy.contains(
-            _providerId,
-          )) {
-            throw Exception(
-              'You have already denied this request.',
-            );
-          }
-
-          if (status != 'pending' &&
-              status != 'searching') {
-            throw Exception(
-              'This request has already been accepted '
-              'by another provider.',
-            );
-          }
-
-          transaction.update(
-            requestReference,
-            {
-              'status': 'accepted',
-              'providerId': _providerId,
-              'providerName': _providerName,
-              'providerEmail': _email,
-              'acceptedAt':
-                  FieldValue.serverTimestamp(),
-              'updatedAt':
-                  FieldValue.serverTimestamp(),
-            },
-          );
-        },
-      );
+        transaction.update(requestReference, {
+          'status': 'accepted',
+          'providerId': _providerId,
+          'providerName': _providerName,
+          'providerEmail': _email,
+          'acceptedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
 
       if (!mounted) {
         return;
@@ -635,30 +656,28 @@ class _RoadsideProviderHomePageState
 
       setState(() {
         _incomingRequests.removeWhere(
-          (request) =>
-              request.id ==
-              requestDocument.id,
+          (request) => request.id == requestDocument.id,
         );
+        _selectedJobId = requestDocument.id;
+        _selectedJobData = {
+          ...(requestDocument.data() as Map<String, dynamic>),
+          'status': 'accepted',
+          'providerId': _providerId,
+          'providerName': _providerName,
+        };
+        _jobStep = 1;
+        _selectedIndex = 1;
       });
 
-      _showMessage(
-        'Request accepted successfully.',
-      );
+      _showMessage('Request accepted. Review the job details.');
     } catch (e) {
-      debugPrint(
-        'Error accepting request: $e',
-      );
+      debugPrint('Error accepting request: $e');
 
       if (!mounted) {
         return;
       }
 
-      _showMessage(
-        e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
-      );
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -666,70 +685,47 @@ class _RoadsideProviderHomePageState
   // DENY REQUEST
   // ============================================================
 
-  Future<void> _denyRequest(
-    QueryDocumentSnapshot requestDocument,
-  ) async {
+  Future<void> _denyRequest(QueryDocumentSnapshot requestDocument) async {
     if (_providerId.isEmpty) {
       return;
     }
 
-    final DocumentReference requestReference =
-        _firestore
-            .collection('assistance_requests')
-            .doc(requestDocument.id);
+    final DocumentReference requestReference = _firestore
+        .collection('assistance_requests')
+        .doc(requestDocument.id);
 
     try {
-      await _firestore.runTransaction(
-        (transaction) async {
-          final DocumentSnapshot snapshot =
-              await transaction.get(
-            requestReference,
-          );
+      await _firestore.runTransaction((transaction) async {
+        final DocumentSnapshot snapshot = await transaction.get(
+          requestReference,
+        );
 
-          if (!snapshot.exists) {
-            throw Exception(
-              'This request no longer exists.',
-            );
-          }
+        if (!snapshot.exists) {
+          throw Exception('This request no longer exists.');
+        }
 
-          final Map<String, dynamic> data =
-              snapshot.data()
-                  as Map<String, dynamic>;
+        final Map<String, dynamic> data =
+            snapshot.data() as Map<String, dynamic>;
 
-          final String status =
-              data['status']?.toString() ??
-                  'pending';
+        final String status = data['status']?.toString() ?? 'pending';
 
-          if (status != 'pending' &&
-              status != 'searching') {
-            throw Exception(
-              'This request is no longer available.',
-            );
-          }
+        if (status != 'pending' && status != 'searching') {
+          throw Exception('This request is no longer available.');
+        }
 
-          final List<dynamic> deniedBy =
-              data['deniedBy'] is List
-                  ? List<dynamic>.from(
-                      data['deniedBy'] as List,
-                    )
-                  : <dynamic>[];
+        final List<dynamic> deniedBy = data['deniedBy'] is List
+            ? List<dynamic>.from(data['deniedBy'] as List)
+            : <dynamic>[];
 
-          if (!deniedBy.contains(
-            _providerId,
-          )) {
-            deniedBy.add(_providerId);
-          }
+        if (!deniedBy.contains(_providerId)) {
+          deniedBy.add(_providerId);
+        }
 
-          transaction.update(
-            requestReference,
-            {
-              'deniedBy': deniedBy,
-              'updatedAt':
-                  FieldValue.serverTimestamp(),
-            },
-          );
-        },
-      );
+        transaction.update(requestReference, {
+          'deniedBy': deniedBy,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
 
       if (!mounted) {
         return;
@@ -737,30 +733,19 @@ class _RoadsideProviderHomePageState
 
       setState(() {
         _incomingRequests.removeWhere(
-          (request) =>
-              request.id ==
-              requestDocument.id,
+          (request) => request.id == requestDocument.id,
         );
       });
 
-      _showMessage(
-        'Request denied.',
-      );
+      _showMessage('Request denied.');
     } catch (e) {
-      debugPrint(
-        'Error denying request: $e',
-      );
+      debugPrint('Error denying request: $e');
 
       if (!mounted) {
         return;
       }
 
-      _showMessage(
-        e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
-      );
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -773,22 +758,18 @@ class _RoadsideProviderHomePageState
 
     // Stop listening for requests.
     await _stopRequestListener();
+    await _activeJobsSubscription?.cancel();
+    _activeJobsSubscription = null;
 
     try {
       if (_providerId.isNotEmpty) {
-        await _firestore
-            .collection('users')
-            .doc(_providerId)
-            .update({
+        await _firestore.collection('users').doc(_providerId).update({
           'isOnline': false,
-          'updatedAt':
-              FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
     } catch (e) {
-      debugPrint(
-        'Error updating logout status: $e',
-      );
+      debugPrint('Error updating logout status: $e');
     }
 
     await _auth.signOut();
@@ -797,8 +778,7 @@ class _RoadsideProviderHomePageState
       return;
     }
 
-    Navigator.of(context)
-        .popUntil((route) => route.isFirst);
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   // ============================================================
@@ -811,6 +791,7 @@ class _RoadsideProviderHomePageState
 
     // Cancel request listener.
     _requestSubscription?.cancel();
+    _activeJobsSubscription?.cancel();
 
     super.dispose();
   }
@@ -829,12 +810,13 @@ class _RoadsideProviderHomePageState
           children: [
             _buildHomePage(),
             _buildRequestsPage(),
+            _buildMapPage(),
+            ProviderEarningsView(providerId: _providerId),
             _buildProfilePage(),
           ],
         ),
       ),
-      bottomNavigationBar:
-          _buildBottomNavigationBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
@@ -844,16 +826,9 @@ class _RoadsideProviderHomePageState
 
   Widget _buildHomePage() {
     return SingleChildScrollView(
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        24,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTopBar(),
 
@@ -890,9 +865,7 @@ class _RoadsideProviderHomePageState
 
           const SizedBox(height: 28),
 
-          _buildSectionTitle(
-            title: 'Quick Actions',
-          ),
+          _buildSectionTitle(title: 'Quick Actions'),
 
           const SizedBox(height: 12),
 
@@ -922,8 +895,7 @@ class _RoadsideProviderHomePageState
           height: 46,
           decoration: BoxDecoration(
             color: _yellowColor,
-            borderRadius:
-                BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(
             Icons.car_repair_rounded,
@@ -948,9 +920,7 @@ class _RoadsideProviderHomePageState
 
         IconButton(
           onPressed: () {
-            _showComingSoon(
-              'Notifications',
-            );
+            _showComingSoon('Notifications');
           },
           icon: const Icon(
             Icons.notifications_none_rounded,
@@ -960,10 +930,7 @@ class _RoadsideProviderHomePageState
 
         PopupMenuButton<String>(
           color: _cardColor,
-          icon: const Icon(
-            Icons.more_vert_rounded,
-            color: Colors.white,
-          ),
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
           onSelected: (value) {
             if (value == 'logout') {
               _logout();
@@ -975,17 +942,9 @@ class _RoadsideProviderHomePageState
                 value: 'logout',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.logout_rounded,
-                      color: Colors.white70,
-                    ),
+                    Icon(Icons.logout_rounded, color: Colors.white70),
                     SizedBox(width: 10),
-                    Text(
-                      'Logout',
-                      style: TextStyle(
-                        color: Colors.white,
-                      ),
-                    ),
+                    Text('Logout', style: TextStyle(color: Colors.white)),
                   ],
                 ),
               ),
@@ -1002,8 +961,7 @@ class _RoadsideProviderHomePageState
 
   Widget _buildGreeting() {
     return Column(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Hello, $_providerName 👋',
@@ -1019,10 +977,7 @@ class _RoadsideProviderHomePageState
 
         const Text(
           'Ready to help drivers on the road?',
-          style: TextStyle(
-            color: Colors.white60,
-            fontSize: 15,
-          ),
+          style: TextStyle(color: Colors.white60, fontSize: 15),
         ),
       ],
     );
@@ -1038,8 +993,7 @@ class _RoadsideProviderHomePageState
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _yellowColor,
-        borderRadius:
-            BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(22),
       ),
       child: Row(
         children: [
@@ -1047,26 +1001,22 @@ class _RoadsideProviderHomePageState
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: Colors.black
-                  .withValues(alpha: 0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: _isGettingLocation
                 ? const SizedBox(
                     width: 24,
                     height: 24,
-                    child:
-                        CircularProgressIndicator(
+                    child: CircularProgressIndicator(
                       color: Colors.black,
                       strokeWidth: 3,
                     ),
                   )
                 : Icon(
                     _isOnline
-                        ? Icons
-                            .radio_button_checked_rounded
-                        : Icons
-                            .radio_button_off_rounded,
+                        ? Icons.radio_button_checked_rounded
+                        : Icons.radio_button_off_rounded,
                     color: Colors.black,
                     size: 27,
                   ),
@@ -1076,16 +1026,14 @@ class _RoadsideProviderHomePageState
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Availability',
                   style: TextStyle(
                     color: Colors.black54,
                     fontSize: 13,
-                    fontWeight:
-                        FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
 
@@ -1095,13 +1043,12 @@ class _RoadsideProviderHomePageState
                   _isGettingLocation
                       ? 'Getting Location...'
                       : _isOnline
-                          ? 'You are Online'
-                          : 'You are Offline',
+                      ? 'You are Online'
+                      : 'You are Offline',
                   style: const TextStyle(
                     color: Colors.black,
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.w800,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
 
@@ -1111,10 +1058,7 @@ class _RoadsideProviderHomePageState
                   _isOnline
                       ? 'You can receive assistance requests'
                       : 'You will not receive new requests',
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
                 ),
               ],
             ),
@@ -1133,10 +1077,8 @@ class _RoadsideProviderHomePageState
                   },
             activeThumbColor: Colors.black,
             activeTrackColor: Colors.black26,
-            inactiveThumbColor:
-                Colors.black54,
-            inactiveTrackColor:
-                Colors.black12,
+            inactiveThumbColor: Colors.black54,
+            inactiveTrackColor: Colors.black12,
           ),
         ],
       ),
@@ -1162,8 +1104,7 @@ class _RoadsideProviderHomePageState
 
         Expanded(
           child: _buildStatisticCard(
-            icon:
-                Icons.check_circle_rounded,
+            icon: Icons.check_circle_rounded,
             value: '0',
             label: 'Completed',
           ),
@@ -1188,23 +1129,14 @@ class _RoadsideProviderHomePageState
     required String label,
   }) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 18,
-        horizontal: 10,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 10),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: _yellowColor,
-            size: 22,
-          ),
+          Icon(icon, color: _yellowColor, size: 22),
 
           const SizedBox(height: 10),
 
@@ -1221,10 +1153,7 @@ class _RoadsideProviderHomePageState
 
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
         ],
       ),
@@ -1260,8 +1189,7 @@ class _RoadsideProviderHomePageState
               actionText,
               style: TextStyle(
                 color: _yellowColor,
-                fontWeight:
-                    FontWeight.w700,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ),
@@ -1276,15 +1204,10 @@ class _RoadsideProviderHomePageState
   Widget _buildEmptyRequestsCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 32,
-        horizontal: 20,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
@@ -1292,8 +1215,7 @@ class _RoadsideProviderHomePageState
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: _yellowColor
-                  .withValues(alpha: 0.10),
+              color: _yellowColor.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -1319,11 +1241,7 @@ class _RoadsideProviderHomePageState
           const Text(
             'New assistance requests near you will appear here.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 13,
-              height: 1.4,
-            ),
+            style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
           ),
         ],
       ),
@@ -1342,20 +1260,12 @@ class _RoadsideProviderHomePageState
     if (_isLoadingRequests) {
       return Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.symmetric(
-          vertical: 28,
-          horizontal: 20,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
         decoration: BoxDecoration(
           color: _cardColor,
-          borderRadius:
-              BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: const Center(
-          child:
-              CircularProgressIndicator(),
-        ),
+        child: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -1363,73 +1273,46 @@ class _RoadsideProviderHomePageState
       return _buildEmptyRequestsCard();
     }
 
-    return Column(
-      children: _incomingRequests
-          .map(_buildRequestCard)
-          .toList(),
-    );
+    return Column(children: _incomingRequests.map(_buildRequestCard).toList());
   }
 
   // ============================================================
   // REQUEST CARD
   // ============================================================
 
-  Widget _buildRequestCard(
-    QueryDocumentSnapshot requestDocument,
-  ) {
+  Widget _buildRequestCard(QueryDocumentSnapshot requestDocument) {
     final Map<String, dynamic> data =
-        requestDocument.data()
-            as Map<String, dynamic>;
+        requestDocument.data() as Map<String, dynamic>;
 
-    final String userName =
-        data['userName']?.toString() ??
-            'Driver';
+    final String userName = data['userName']?.toString() ?? 'Driver';
 
-    final String vehicleType =
-        data['vehicleType']?.toString() ??
-            'Vehicle';
+    final String vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
 
     final String issueType =
-        data['issueType']?.toString() ??
-            'Assistance needed';
+        data['issueType']?.toString() ?? 'Assistance needed';
 
-    final String status =
-        data['status']?.toString() ??
-            'pending';
+    final String status = data['status']?.toString() ?? 'pending';
 
-    final num? latitude =
-        data['latitude'] as num?;
+    final num? latitude = data['latitude'] as num?;
 
-    final num? longitude =
-        data['longitude'] as num?;
+    final num? longitude = data['longitude'] as num?;
 
-    final String locationText =
-        latitude != null &&
-                longitude != null
-            ? '${latitude.toStringAsFixed(5)}, '
-                '${longitude.toStringAsFixed(5)}'
-            : 'Location unavailable';
+    final String locationText = latitude != null && longitude != null
+        ? '${latitude.toStringAsFixed(5)}, '
+              '${longitude.toStringAsFixed(5)}'
+        : 'Location unavailable';
 
     return Container(
       width: double.infinity,
-      margin:
-          const EdgeInsets.only(
-        bottom: 14,
-      ),
-      padding:
-          const EdgeInsets.all(18),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
-        border: Border.all(
-          color: _yellowColor
-              .withValues(alpha: 0.22),
-        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _yellowColor.withValues(alpha: 0.22)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -1437,10 +1320,8 @@ class _RoadsideProviderHomePageState
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: _yellowColor
-                      .withValues(alpha: 0.12),
-                  borderRadius:
-                      BorderRadius.circular(14),
+                  color: _yellowColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   Icons.car_repair_rounded,
@@ -1453,16 +1334,14 @@ class _RoadsideProviderHomePageState
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'New Assistance Request',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight:
-                            FontWeight.w800,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
 
@@ -1473,8 +1352,7 @@ class _RoadsideProviderHomePageState
                       style: TextStyle(
                         color: _yellowColor,
                         fontSize: 11,
-                        fontWeight:
-                            FontWeight.w700,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 0.7,
                       ),
                     ),
@@ -1498,11 +1376,7 @@ class _RoadsideProviderHomePageState
             vehicleType,
           ),
 
-          _buildRequestInfoRow(
-            Icons.build_outlined,
-            'Issue',
-            issueType,
-          ),
+          _buildRequestInfoRow(Icons.build_outlined, 'Issue', issueType),
 
           _buildRequestInfoRow(
             Icons.location_on_outlined,
@@ -1516,38 +1390,18 @@ class _RoadsideProviderHomePageState
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () =>
-                      _denyRequest(
-                    requestDocument,
-                  ),
-                  style:
-                      OutlinedButton.styleFrom(
-                    foregroundColor:
-                        Colors.redAccent,
-                    side:
-                        const BorderSide(
-                      color:
-                          Colors.redAccent,
-                    ),
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
-                      vertical: 13,
-                    ),
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
+                  onPressed: () => _denyRequest(requestDocument),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: const Text(
                     'Deny',
-                    style: TextStyle(
-                      fontWeight:
-                          FontWeight.w700,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
@@ -1556,36 +1410,19 @@ class _RoadsideProviderHomePageState
 
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () =>
-                      _acceptRequest(
-                    requestDocument,
-                  ),
-                  style:
-                      ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _yellowColor,
-                    foregroundColor:
-                        Colors.black,
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
-                      vertical: 13,
-                    ),
+                  onPressed: () => _acceptRequest(requestDocument),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _yellowColor,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
                     elevation: 0,
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: const Text(
                     'Accept',
-                    style: TextStyle(
-                      fontWeight:
-                          FontWeight.w800,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
               ),
@@ -1600,25 +1437,13 @@ class _RoadsideProviderHomePageState
   // REQUEST INFO ROW
   // ============================================================
 
-  Widget _buildRequestInfoRow(
-    IconData icon,
-    String title,
-    String value,
-  ) {
+  Widget _buildRequestInfoRow(IconData icon, String title, String value) {
     return Padding(
-      padding:
-          const EdgeInsets.only(
-        bottom: 11,
-      ),
+      padding: const EdgeInsets.only(bottom: 11),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            icon,
-            color: Colors.white54,
-            size: 20,
-          ),
+          Icon(icon, color: Colors.white54, size: 20),
 
           const SizedBox(width: 11),
 
@@ -1626,10 +1451,7 @@ class _RoadsideProviderHomePageState
             width: 68,
             child: Text(
               title,
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 12,
-              ),
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ),
 
@@ -1637,13 +1459,11 @@ class _RoadsideProviderHomePageState
             child: Text(
               value,
               maxLines: 2,
-              overflow:
-                  TextOverflow.ellipsis,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 13,
-                fontWeight:
-                    FontWeight.w600,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
@@ -1659,23 +1479,14 @@ class _RoadsideProviderHomePageState
   Widget _buildOfflineRequestsCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 30,
-        horizontal: 20,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
-          const Icon(
-            Icons.wifi_off_rounded,
-            color: Colors.white38,
-            size: 35,
-          ),
+          const Icon(Icons.wifi_off_rounded, color: Colors.white38, size: 35),
 
           const SizedBox(height: 12),
 
@@ -1684,8 +1495,7 @@ class _RoadsideProviderHomePageState
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
-              fontWeight:
-                  FontWeight.w700,
+              fontWeight: FontWeight.w700,
             ),
           ),
 
@@ -1694,11 +1504,7 @@ class _RoadsideProviderHomePageState
           const Text(
             'Go online to receive new assistance requests.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 13,
-              height: 1.4,
-            ),
+            style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
           ),
         ],
       ),
@@ -1714,8 +1520,7 @@ class _RoadsideProviderHomePageState
       children: [
         Expanded(
           child: _buildQuickAction(
-            icon:
-                Icons.assignment_outlined,
+            icon: Icons.assignment_outlined,
             title: 'Requests',
             onTap: () {
               setState(() {
@@ -1729,21 +1534,17 @@ class _RoadsideProviderHomePageState
 
         Expanded(
           child: _buildQuickAction(
-            icon:
-                Icons.location_on_outlined,
+            icon: Icons.location_on_outlined,
             title: 'My Location',
             onTap: () {
-              if (_currentPosition !=
-                  null) {
+              if (_currentPosition != null) {
                 _showMessage(
                   'Location: '
                   '${_currentPosition!.latitude.toStringAsFixed(5)}, '
                   '${_currentPosition!.longitude.toStringAsFixed(5)}',
                 );
               } else {
-                _showMessage(
-                  'Current location is not available.',
-                );
+                _showMessage('Current location is not available.');
               }
             },
           ),
@@ -1753,12 +1554,11 @@ class _RoadsideProviderHomePageState
 
         Expanded(
           child: _buildQuickAction(
-            icon:
-                Icons.person_outline_rounded,
+            icon: Icons.person_outline_rounded,
             title: 'Profile',
             onTap: () {
               setState(() {
-                _selectedIndex = 2;
+                _selectedIndex = 4;
               });
             },
           ),
@@ -1774,26 +1574,16 @@ class _RoadsideProviderHomePageState
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius:
-          BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          vertical: 18,
-          horizontal: 8,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
         decoration: BoxDecoration(
           color: _cardColor,
-          borderRadius:
-              BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: _yellowColor,
-              size: 25,
-            ),
+            Icon(icon, color: _yellowColor, size: 25),
 
             const SizedBox(height: 9),
 
@@ -1803,8 +1593,7 @@ class _RoadsideProviderHomePageState
               style: const TextStyle(
                 color: Colors.white70,
                 fontSize: 12,
-                fontWeight:
-                    FontWeight.w600,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],
@@ -1818,16 +1607,14 @@ class _RoadsideProviderHomePageState
   // ============================================================
 
   Widget _buildCurrentLocationCard() {
-    final Position? position =
-        _currentPosition;
+    final Position? position = _currentPosition;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -1835,10 +1622,8 @@ class _RoadsideProviderHomePageState
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _yellowColor
-                  .withValues(alpha: 0.10),
-              borderRadius:
-                  BorderRadius.circular(14),
+              color: _yellowColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               Icons.my_location_rounded,
@@ -1851,15 +1636,11 @@ class _RoadsideProviderHomePageState
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Current GPS Location',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
 
                 const SizedBox(height: 5),
@@ -1868,25 +1649,19 @@ class _RoadsideProviderHomePageState
                   position == null
                       ? 'Location not available'
                       : '${position.latitude.toStringAsFixed(5)}, '
-                        '${position.longitude.toStringAsFixed(5)}',
+                            '${position.longitude.toStringAsFixed(5)}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w700,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
 
-                if (_isOnline &&
-                    position != null) ...[
+                if (_isOnline && position != null) ...[
                   const SizedBox(height: 4),
                   const Text(
                     'Location is being updated',
-                    style: TextStyle(
-                      color:
-                          Colors.greenAccent,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: Colors.greenAccent, fontSize: 11),
                   ),
                 ],
               ],
@@ -1907,8 +1682,7 @@ class _RoadsideProviderHomePageState
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -1916,10 +1690,8 @@ class _RoadsideProviderHomePageState
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _yellowColor
-                  .withValues(alpha: 0.10),
-              borderRadius:
-                  BorderRadius.circular(14),
+              color: _yellowColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(
               Icons.build_circle_outlined,
@@ -1932,15 +1704,11 @@ class _RoadsideProviderHomePageState
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Service Location',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
 
                 const SizedBox(height: 4),
@@ -1948,13 +1716,11 @@ class _RoadsideProviderHomePageState
                 Text(
                   _workshopLocation,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w700,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
@@ -1963,9 +1729,7 @@ class _RoadsideProviderHomePageState
 
           IconButton(
             onPressed: () {
-              _showComingSoon(
-                'Location editing',
-              );
+              _showComingSoon('Location editing');
             },
             icon: const Icon(
               Icons.chevron_right_rounded,
@@ -1982,25 +1746,55 @@ class _RoadsideProviderHomePageState
   // ============================================================
 
   Widget _buildRequestsPage() {
+    final String? selectedJobId = _selectedJobId;
+    final Map<String, dynamic>? selectedJobData = _selectedJobData;
+    if (selectedJobId != null && selectedJobData != null && _jobStep != 0) {
+      if (_jobStep == 1) {
+        return ProviderRequestDetailsView(
+          requestId: selectedJobId,
+          requestData: selectedJobData,
+          onBack: () => setState(() => _jobStep = 0),
+          onNavigate: () => setState(() => _jobStep = 2),
+        );
+      }
+      if (_jobStep == 2) {
+        return ProviderNavigationView(
+          requestData: selectedJobData,
+          onBack: () => setState(() => _jobStep = 1),
+          onChat: () => setState(() => _jobStep = 3),
+          onStartService: _startSelectedJob,
+        );
+      }
+      if (_jobStep == 3) {
+        return ProviderChatView(
+          requestId: selectedJobId,
+          providerId: _providerId,
+          providerName: _providerName,
+          requestData: selectedJobData,
+          onBack: () => setState(() => _jobStep = 2),
+          onError: _showMessage,
+        );
+      }
+      if (_jobStep == 4) {
+        return ProviderServiceProgressView(
+          requestData: selectedJobData,
+          isCompleting: _isCompletingJob,
+          onComplete: _completeSelectedJob,
+        );
+      }
+    }
+
     return SingleChildScrollView(
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        24,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Assistance Requests',
+            'Jobs',
             style: TextStyle(
               color: Colors.white,
               fontSize: 27,
-              fontWeight:
-                  FontWeight.w800,
+              fontWeight: FontWeight.w800,
             ),
           ),
 
@@ -2008,13 +1802,24 @@ class _RoadsideProviderHomePageState
 
           const Text(
             'Requests from drivers near your service area.',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 14,
-            ),
+            style: TextStyle(color: Colors.white54, fontSize: 14),
           ),
 
           const SizedBox(height: 25),
+
+          if (_activeJobs.isNotEmpty) ...[
+            const Text(
+              'Active jobs',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ..._activeJobs.map(_buildActiveJobCard),
+            const SizedBox(height: 14),
+          ],
 
           // CHANGED:
           // Show real incoming requests.
@@ -2024,19 +1829,87 @@ class _RoadsideProviderHomePageState
     );
   }
 
+  Widget _buildActiveJobCard(QueryDocumentSnapshot<Map<String, dynamic>> job) {
+    final Map<String, dynamic> data = job.data();
+    final bool inProgress = data['status'] == 'in_progress';
+
+    return InkWell(
+      onTap: () => _openJob(job.id, data),
+      borderRadius: BorderRadius.circular(17),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: _yellowColor.withValues(alpha: 0.32)),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              inProgress
+                  ? Icons.build_circle_outlined
+                  : Icons.navigation_outlined,
+              color: _yellowColor,
+              size: 25,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    providerJobService(data),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${providerJobCustomer(data)} • '
+                    '${inProgress ? 'In progress' : 'Accepted'}',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white54),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMapPage() {
+    Map<String, dynamic>? mapJobData;
+    String? mapJobId;
+    if (_selectedJobData != null &&
+        (_selectedJobData!['status'] == 'accepted' ||
+            _selectedJobData!['status'] == 'in_progress')) {
+      mapJobData = _selectedJobData;
+      mapJobId = _selectedJobId;
+    } else if (_activeJobs.isNotEmpty) {
+      mapJobData = _activeJobs.first.data();
+      mapJobId = _activeJobs.first.id;
+    }
+
+    return ProviderMapView(
+      requestData: mapJobData,
+      onOpenJob: mapJobData == null || mapJobId == null
+          ? null
+          : () => _openJob(mapJobId!, mapJobData!),
+    );
+  }
+
   // ============================================================
   // PROFILE PAGE
   // ============================================================
 
   Widget _buildProfilePage() {
     return SingleChildScrollView(
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        24,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
       child: Column(
         children: [
           const SizedBox(height: 10),
@@ -2063,8 +1936,7 @@ class _RoadsideProviderHomePageState
             style: const TextStyle(
               color: Colors.white,
               fontSize: 23,
-              fontWeight:
-                  FontWeight.w800,
+              fontWeight: FontWeight.w800,
             ),
           ),
 
@@ -2072,10 +1944,7 @@ class _RoadsideProviderHomePageState
 
           Text(
             _email,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 13),
           ),
 
           const SizedBox(height: 28),
@@ -2087,8 +1956,7 @@ class _RoadsideProviderHomePageState
           ),
 
           _buildProfileItem(
-            icon:
-                Icons.location_on_outlined,
+            icon: Icons.location_on_outlined,
             title: 'Workshop Location',
             value: _workshopLocation,
           ),
@@ -2096,14 +1964,12 @@ class _RoadsideProviderHomePageState
           _buildProfileItem(
             icon: Icons.badge_outlined,
             title: 'Role',
-            value:
-                'Roadside Assistance Provider',
+            value: 'Roadside Assistance Provider',
           ),
 
           if (_currentPosition != null)
             _buildProfileItem(
-              icon:
-                  Icons.my_location_rounded,
+              icon: Icons.my_location_rounded,
               title: 'Current GPS',
               value:
                   '${_currentPosition!.latitude.toStringAsFixed(5)}, '
@@ -2116,30 +1982,14 @@ class _RoadsideProviderHomePageState
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _logout,
-              icon: const Icon(
-                Icons.logout_rounded,
-              ),
-              label:
-                  const Text('Logout'),
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    Colors.redAccent,
-                side:
-                    const BorderSide(
-                  color: Colors.redAccent,
-                ),
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  vertical: 15,
-                ),
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text('Logout'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
@@ -2156,54 +2006,37 @@ class _RoadsideProviderHomePageState
   }) {
     return Container(
       width: double.infinity,
-      margin:
-          const EdgeInsets.only(
-        bottom: 12,
-      ),
-      padding:
-          const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: _yellowColor,
-            size: 23,
-          ),
+          Icon(icon, color: _yellowColor, size: 23),
 
           const SizedBox(width: 14),
 
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
 
                 const SizedBox(height: 4),
 
                 Text(
-                  value.isEmpty
-                      ? 'Not available'
-                      : value,
+                  value.isEmpty ? 'Not available' : value,
                   maxLines: 2,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -2221,10 +2054,7 @@ class _RoadsideProviderHomePageState
   Widget _buildBottomNavigationBar() {
     return NavigationBar(
       backgroundColor: _cardColor,
-      indicatorColor:
-          _yellowColor.withValues(
-        alpha: 0.15,
-      ),
+      indicatorColor: _yellowColor.withValues(alpha: 0.15),
       selectedIndex: _selectedIndex,
       onDestinationSelected: (index) {
         setState(() {
@@ -2233,38 +2063,32 @@ class _RoadsideProviderHomePageState
       },
       destinations: [
         NavigationDestination(
-          icon: const Icon(
-            Icons.home_outlined,
-            color: Colors.white54,
-          ),
-          selectedIcon: Icon(
-            Icons.home_rounded,
-            color: _yellowColor,
-          ),
+          icon: const Icon(Icons.home_outlined, color: Colors.white54),
+          selectedIcon: Icon(Icons.home_rounded, color: _yellowColor),
           label: 'Home',
         ),
 
         NavigationDestination(
-          icon: const Icon(
-            Icons.assignment_outlined,
-            color: Colors.white54,
-          ),
-          selectedIcon: Icon(
-            Icons.assignment_rounded,
-            color: _yellowColor,
-          ),
-          label: 'Requests',
+          icon: const Icon(Icons.assignment_outlined, color: Colors.white54),
+          selectedIcon: Icon(Icons.assignment_rounded, color: _yellowColor),
+          label: 'Jobs',
         ),
 
         NavigationDestination(
-          icon: const Icon(
-            Icons.person_outline_rounded,
-            color: Colors.white54,
-          ),
-          selectedIcon: Icon(
-            Icons.person_rounded,
-            color: _yellowColor,
-          ),
+          icon: const Icon(Icons.map_outlined, color: Colors.white54),
+          selectedIcon: Icon(Icons.map_rounded, color: _yellowColor),
+          label: 'Map',
+        ),
+
+        NavigationDestination(
+          icon: const Icon(Icons.payments_outlined, color: Colors.white54),
+          selectedIcon: Icon(Icons.payments_rounded, color: _yellowColor),
+          label: 'Earnings',
+        ),
+
+        NavigationDestination(
+          icon: const Icon(Icons.person_outline_rounded, color: Colors.white54),
+          selectedIcon: Icon(Icons.person_rounded, color: _yellowColor),
           label: 'Profile',
         ),
       ],
@@ -2280,12 +2104,8 @@ class _RoadsideProviderHomePageState
       return;
     }
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: _cardColor,
-      ),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: _cardColor),
     );
   }
 
@@ -2301,27 +2121,18 @@ class _RoadsideProviderHomePageState
           backgroundColor: _cardColor,
           title: const Text(
             'Location is turned off',
-            style: TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: Colors.white),
           ),
           content: const Text(
             'Please turn on Location Services on your phone to go online.',
-            style: TextStyle(
-              color: Colors.white70,
-            ),
+            style: TextStyle(color: Colors.white70),
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: Text(
-                'OK',
-                style: TextStyle(
-                  color: _yellowColor,
-                ),
-              ),
+              child: Text('OK', style: TextStyle(color: _yellowColor)),
             ),
           ],
         );
@@ -2341,15 +2152,11 @@ class _RoadsideProviderHomePageState
           backgroundColor: _cardColor,
           title: const Text(
             'Location permission required',
-            style: TextStyle(
-              color: Colors.white,
-            ),
+            style: TextStyle(color: Colors.white),
           ),
           content: const Text(
             'Location permission was permanently denied. Please enable it from the app settings.',
-            style: TextStyle(
-              color: Colors.white70,
-            ),
+            style: TextStyle(color: Colors.white70),
           ),
           actions: [
             TextButton(
@@ -2358,23 +2165,18 @@ class _RoadsideProviderHomePageState
               },
               child: const Text(
                 'Cancel',
-                style: TextStyle(
-                  color: Colors.white70,
-                ),
+                style: TextStyle(color: Colors.white70),
               ),
             ),
             TextButton(
               onPressed: () async {
                 Navigator.pop(context);
 
-                await Geolocator
-                    .openAppSettings();
+                await Geolocator.openAppSettings();
               },
               child: Text(
                 'Open Settings',
-                style: TextStyle(
-                  color: _yellowColor,
-                ),
+                style: TextStyle(color: _yellowColor),
               ),
             ),
           ],
@@ -2384,8 +2186,6 @@ class _RoadsideProviderHomePageState
   }
 
   void _showComingSoon(String feature) {
-    _showMessage(
-      '$feature will be available soon.',
-    );
+    _showMessage('$feature will be available soon.');
   }
 }
