@@ -3,8 +3,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
-      allow create, update, delete: if request.auth != null
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && (
+          request.resource.data.role != 'insurance_provider'
+          || request.resource.data.insuranceCompanyId in [
+            'sri_lanka_insurance_general', 'ceylinco_general',
+            'fairfirst', 'allianz_lanka', 'janashakthi',
+            'peoples_insurance', 'hnb_general', 'lolc_general',
+            'amana_takaful', 'continental_lanka'
+          ]
+        );
+
+      allow delete: if request.auth != null
         && request.auth.uid == userId;
+
+      allow update: if request.auth != null
+        && request.auth.uid == userId
+        && (
+          resource.data.role != 'insurance_provider'
+          || request.resource.data.diff(resource.data).affectedKeys()
+              .hasNone(['insuranceCompanyId', 'companyName'])
+        );
 
       allow read: if request.auth != null
         && (
@@ -19,7 +39,19 @@ service cloud.firestore {
 
     match /assistance_requests/{requestId} {
       allow create: if request.auth != null
-        && request.resource.data.userId == request.auth.uid;
+        && request.resource.data.userId == request.auth.uid
+        && (
+          request.resource.data.insuranceClaim != true
+          || (
+            request.resource.data.insuranceCompanyId in [
+              'sri_lanka_insurance_general', 'ceylinco_general',
+              'fairfirst', 'allianz_lanka', 'janashakthi',
+              'peoples_insurance', 'hnb_general', 'lolc_general',
+              'amana_takaful', 'continental_lanka'
+            ]
+            && request.resource.data.insuranceCompany is string
+          )
+        );
 
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid
@@ -35,6 +67,9 @@ service cloud.firestore {
           get(/databases/$(database)/documents/users/$(request.auth.uid))
             .data.role == 'insurance_provider'
           && resource.data.insuranceClaim == true
+          && resource.data.insuranceCompanyId ==
+            get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.insuranceCompanyId
         )
       );
 
@@ -52,6 +87,11 @@ service cloud.firestore {
           get(/databases/$(database)/documents/users/$(request.auth.uid))
             .data.role == 'insurance_provider'
           && resource.data.insuranceClaim == true
+          && resource.data.insuranceCompanyId ==
+            get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.insuranceCompanyId
+          && request.resource.data.insuranceCompanyId ==
+            resource.data.insuranceCompanyId
           && request.resource.data.insuranceStatus in [
             'pending', 'under_review', 'approved',
             'rejected', 'need_information'
@@ -73,6 +113,9 @@ service cloud.firestore {
             get(/databases/$(database)/documents/users/$(request.auth.uid))
               .data.role == 'insurance_provider'
             && resource.data.insuranceClaim == true
+            && resource.data.insuranceCompanyId ==
+              get(/databases/$(database)/documents/users/$(request.auth.uid))
+                .data.insuranceCompanyId
           )
           || (
             resource.data.insuranceClaim == true
@@ -95,6 +138,12 @@ service cloud.firestore {
           && get(
             /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
           ).data.insuranceClaim == true
+          && get(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.insuranceCompanyId ==
+          get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceCompanyId
         )
         || (
           request.resource.data.type == 'new_claim'
@@ -109,6 +158,12 @@ service cloud.firestore {
           && get(
             /databases/$(database)/documents/users/$(request.resource.data.userId)
           ).data.role == 'insurance_provider'
+          && get(
+            /databases/$(database)/documents/users/$(request.resource.data.userId)
+          ).data.insuranceCompanyId ==
+          get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceCompanyId
         )
         || (
           get(/databases/$(database)/documents/users/$(request.auth.uid))
@@ -122,6 +177,12 @@ service cloud.firestore {
           && get(
             /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
           ).data.insuranceClaim == true
+          && get(
+            /databases/$(database)/documents/users/$(request.auth.uid)
+          ).data.insuranceCompanyId ==
+          get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceCompanyId
           && get(
             /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
           ).data.userId == request.resource.data.userId

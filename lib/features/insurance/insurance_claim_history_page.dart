@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'claim_details_verification_page.dart';
+import '../../services/insurance_company.dart';
 
 class InsuranceClaimHistoryPage extends StatefulWidget {
   const InsuranceClaimHistoryPage({super.key});
@@ -93,6 +94,10 @@ class _InsuranceClaimHistoryPageState extends State<InsuranceClaimHistoryPage> {
       final QuerySnapshot snapshot = await _firestore
           .collection('assistance_requests')
           .where('insuranceClaim', isEqualTo: true)
+          .where(
+            'insuranceCompanyId',
+            isEqualTo: await loadCurrentInsuranceCompanyId(),
+          )
           .get();
 
       final List<Map<String, dynamic>> loadedClaims = [];

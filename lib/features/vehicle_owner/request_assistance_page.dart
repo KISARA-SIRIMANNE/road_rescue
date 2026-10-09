@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:road_rescue/features/vehicle_owner/location_confirmation_page.dart';
+import '../../services/insurance_company.dart';
 
 class RequestAssistancePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -19,6 +20,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
       TextEditingController();
 
   String? _selectedIssue;
+  String? _selectedInsuranceCompanyId;
 
   final List<Map<String, dynamic>> _commonIssues = [
     {
@@ -79,7 +81,10 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
     context,
     MaterialPageRoute(
       builder: (context) => LocationConfirmationPage(
-        userData: widget.userData,
+        userData: {
+          ...widget.userData,
+          '_selectedInsuranceCompanyId': _selectedInsuranceCompanyId,
+        },
         issue: issue,
       ),
     ),
@@ -222,6 +227,51 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               _buildCustomIssueCard(),
 
               const SizedBox(height: 30),
+
+              const Text(
+                'Insurance Company (Optional)',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: _selectedInsuranceCompanyId,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF191C20),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Select insurance company',
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: const Color(0xFF191C20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('Not insured / Not sure'),
+                  ),
+                  ...insuranceCompanies.map(
+                    (company) => DropdownMenuItem(
+                      value: company.id,
+                      child: Text(company.name),
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedInsuranceCompanyId = value;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 20),
 
               // Request button
               SizedBox(
