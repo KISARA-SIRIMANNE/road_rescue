@@ -35,18 +35,13 @@ dependencies:
   # Geolocator
   geolocator: ^14.1.1
 
-  #google fonts
+  # Fonts and push/local notifications
   google_fonts: ^6.2.1
   firebase_messaging: ^16.7.0
   flutter_local_notifications: ^22.3.1
 
   # Open Google Maps / external navigation
   url_launcher: ^6.3.2
-
-  # Google Fonts
-  google_fonts: ^6.2.1
-  firebase_messaging: ^16.7.0
-  flutter_local_notifications: ^22.3.1
 
 dev_dependencies:
   flutter_test:

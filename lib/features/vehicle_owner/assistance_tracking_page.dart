@@ -54,7 +54,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   double? _providerLongitude;
   String? _providerName;
 
-  double? _currentDistance;
   String _distanceStatus = 'Waiting for provider location';
 
   final Set<Marker> _markers = {};
@@ -316,9 +315,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   }
 
   void _updateProviderMarker() {
-    if (!mounted ||
-        _providerLatitude == null ||
-        _providerLongitude == null) {
+    if (!mounted || _providerLatitude == null || _providerLongitude == null) {
       return;
     }
 
@@ -379,50 +376,53 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
         .doc(widget.requestId)
         .snapshots()
         .listen(
-      (snapshot) async {
-        final data = snapshot.data();
-        final status = data?['status']?.toString();
+          (snapshot) async {
+            final data = snapshot.data();
+            final status = data?['status']?.toString();
 
-        if (!snapshot.exists || data == null || status == null || status.isEmpty) {
-          return;
-        }
-        if (!mounted) return;
+            if (!snapshot.exists ||
+                data == null ||
+                status == null ||
+                status.isEmpty) {
+              return;
+            }
+            if (!mounted) return;
 
-        final latitude = data['providerLatitude'];
-        final longitude = data['providerLongitude'];
+            final latitude = data['providerLatitude'];
+            final longitude = data['providerLongitude'];
 
-        setState(() {
-          _status = status;
-          _providerName = data['providerName']?.toString();
+            setState(() {
+              _status = status;
+              _providerName = data['providerName']?.toString();
 
-          if (latitude is num && longitude is num) {
-            _providerLatitude = latitude.toDouble();
-            _providerLongitude = longitude.toDouble();
-          } else {
-            _providerLatitude = null;
-            _providerLongitude = null;
-          }
-        });
+              if (latitude is num && longitude is num) {
+                _providerLatitude = latitude.toDouble();
+                _providerLongitude = longitude.toDouble();
+              } else {
+                _providerLatitude = null;
+                _providerLongitude = null;
+              }
+            });
 
-        if (_providerLatitude != null && _providerLongitude != null) {
-          _updateProviderMarker();
-        } else {
-          _calculateDistance();
-        }
+            if (_providerLatitude != null && _providerLongitude != null) {
+              _updateProviderMarker();
+            } else {
+              _calculateDistance();
+            }
 
-        if (status == 'cancelled' || status == 'completed') {
-          await _stopTracking();
-        } else if (status == 'accepted' &&
-            !_hasNavigatedToProviderTracking) {
-          _hasNavigatedToProviderTracking = true;
-          await _stopTracking();
-          if (mounted) _navigateToProviderTracking(data);
-        }
-      },
-      onError: (Object error) {
-        debugPrint('Request status listener error: $error');
-      },
-    );
+            if (status == 'cancelled' || status == 'completed') {
+              await _stopTracking();
+            } else if (status == 'accepted' &&
+                !_hasNavigatedToProviderTracking) {
+              _hasNavigatedToProviderTracking = true;
+              await _stopTracking();
+              if (mounted) _navigateToProviderTracking(data);
+            }
+          },
+          onError: (Object error) {
+            debugPrint('Request status listener error: $error');
+          },
+        );
   }
 
   void _calculateDistance() {
@@ -435,7 +435,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
         providerLongitude == null) {
       if (mounted) {
         setState(() {
-          _currentDistance = null;
           _distanceStatus = 'Waiting for provider location';
         });
       }
@@ -452,18 +451,10 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
     if (!mounted) return;
 
     setState(() {
-      _currentDistance = distanceMeters;
       _distanceStatus = distanceMeters < 1000
           ? '${distanceMeters.round()} m away'
           : '${(distanceMeters / 1000).toStringAsFixed(1)} km away';
     });
-  }
-
-  String _formatDistance(double distanceInMeters) {
-    if (distanceInMeters < 1000) {
-      return '${distanceInMeters.round()} m';
-    }
-    return '${(distanceInMeters / 1000).toStringAsFixed(1)} km';
   }
 
   // ================================================================
@@ -726,7 +717,11 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
             ),
             const SizedBox(width: 7),
             Text(
-              _isTracking ? 'LIVE LOCATION' : 'LOCATION OFF',
+              _isTracking
+                  ? (_providerLatitude == null
+                        ? 'Waiting for provider'
+                        : _distanceStatus)
+                  : 'LOCATION OFF',
               style: TextStyle(
                 color: _isTracking ? Colors.greenAccent : Colors.white54,
                 fontSize: 11,

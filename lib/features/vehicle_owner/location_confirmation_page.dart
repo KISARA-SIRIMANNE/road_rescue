@@ -903,7 +903,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
           if (_isInsuranceClaim) ...[
             const SizedBox(height: 18),
             DropdownButtonFormField<String>(
-              value: _selectedInsuranceCompanyId,
+              initialValue: _selectedInsuranceCompanyId,
               isExpanded: true,
               dropdownColor: const Color(0xFF191C20),
               style: const TextStyle(color: Colors.white),
