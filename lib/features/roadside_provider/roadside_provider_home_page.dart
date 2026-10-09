@@ -1150,54 +1150,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       // Accept the request
       // ==========================================================
 
-      final DocumentSnapshot providerSnapshot = await _firestore
-          .collection('users')
-          .doc(_providerId)
-          .get();
-
-      if (!providerSnapshot.exists) {
-        throw Exception('Provider profile could not be found.');
-      }
-
-      final Map<String, dynamic>? providerData =
-          providerSnapshot.data() as Map<String, dynamic>?;
-
-      if (providerData == null) {
-        throw Exception('Provider information could not be loaded.');
-      }
-
-      final dynamic latitudeValue = providerData['latitude'];
-
-      final dynamic longitudeValue = providerData['longitude'];
-
-      if (latitudeValue == null || longitudeValue == null) {
-        throw Exception(
-          'Provider location is not available yet. '
-          'Please wait a few seconds and try again.',
-        );
-      }
-
-      final double providerLatitude = (latitudeValue as num).toDouble();
-
-      final double providerLongitude = (longitudeValue as num).toDouble();
-
-      debugPrint('========================================');
-
-      debugPrint('PROVIDER LOCATION BEFORE ACCEPTING');
-
-      debugPrint('Provider ID: $_providerId');
-
-      debugPrint('Latitude: $providerLatitude');
-
-      debugPrint('Longitude: $providerLongitude');
-
-      debugPrint('========================================');
-
-      // ==========================================================
-      // STEP 2:
-      // Accept the request
-      // ==========================================================
-
       String requestOwnerId = '';
       String issueType = 'roadside assistance';
 
@@ -1447,19 +1399,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
           'updatedAt': FieldValue.serverTimestamp(),
         });
       });
-        if (deniedBy.contains(_providerId)) {
-          throw Exception('You have already denied this request.');
-        }
-        deniedBy.add(_providerId);
-
-        // IMPORTANT:
-        // Denying a request must NOT change it
-        // to "accepted".
-        transaction.update(requestReference, {
-          'deniedBy': deniedBy,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      });
 
       final bool driverNotified = await _createRequestDecisionNotification(
         userId: requestOwnerId,
@@ -1478,7 +1417,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         );
       });
 
-      _showMessage('Request denied.');
       _showMessage(
         driverNotified
             ? 'Request denied.'
@@ -1959,75 +1897,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 height: 42,
                 decoration: BoxDecoration(
                   color: _yellowColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(
-                  Icons.car_repair_rounded,
-                  color: _yellowColor,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Active Job',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              _buildActiveStatusBadge(status),
-            ],
-          ),
-
-          const SizedBox(height: 18),
-
-          _buildRequestDetailRow(Icons.build_outlined, 'Issue', issueType),
-
-          const SizedBox(height: 10),
-
-          _buildRequestDetailRow(
-            Icons.directions_car_outlined,
-            'Vehicle',
-            vehicleType,
-          ),
-
-          const SizedBox(height: 10),
-
-          _buildRequestDetailRow(Icons.person_outline, 'Customer', userName),
-
-
-    final String issueType =
-        _activeJobData!['issueType']?.toString() ?? 'Assistance Request';
-
-    final String vehicleType =
-        _activeJobData!['vehicleType']?.toString() ?? 'Vehicle';
-
-    final String userName =
-        _activeJobData!['userName']?.toString() ?? 'Vehicle Owner';
-
-    final String status = _activeJobData!['status']?.toString() ?? 'accepted';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _yellowColor.withOpacity(0.20)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: _yellowColor.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
@@ -3005,91 +2874,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                     title: 'Denied',
                     value: _hasLoadedDeniedStatistics
                         ? _deniedRequests.toString()
-                        : '—',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatisticItem(
-                    icon: Icons.directions_car_filled_outlined,
-                    title: 'Active',
-                    value: _activeJobs.toString(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildStatisticItem(
-                    icon: Icons.payments_outlined,
-                    title: 'Earnings',
-                    value: 'Rs. ${_totalEarnings.toStringAsFixed(0)}',
-                  ),
-                ),
-              ],
-            ),
-          ] else if (_isLoadingStats)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
-            ),
-                ),
-                child: Icon(
-                  Icons.bar_chart_rounded,
-                  color: _yellowColor,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'My Statistics',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              if (_isLoadingStats)
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: _yellowColor,
-                  ),
-                ),
-            ],
-          ),
-
-          const SizedBox(height: 18),
-
-          if (_statisticsError != null)
-            _buildProfileLoadError(
-              message: _statisticsError!,
-              onRetry: _loadProviderStatistics,
-            ),
-          if (_hasLoadedAssignedStatistics) ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatisticItem(
-                    icon: Icons.check_circle_outline_rounded,
-                    title: 'Completed',
-                    value: _completedJobs.toString(),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildStatisticItem(
-                    icon: Icons.cancel_outlined,
-                    title: 'Denied',
-                    value: _hasLoadedDeniedStatistics
-                        ? _deniedRequests.toString()
-                        : '—',
+                        : 'â€”',
                   ),
                 ),
               ],
@@ -3536,7 +3321,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                     ),
                     const SizedBox(width: 7),
                     Text(
-                      '$_assignedJobs total jobs  •  $_activeJobs active',
+                      '$_assignedJobs total jobs  â€¢  $_activeJobs active',
                       style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 12,
@@ -3678,14 +3463,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
     final dynamic amountValue = job['jobAmount'];
 
-
-    final String issueType =
-        job['issueType']?.toString() ?? 'Assistance Request';
-
-    final String vehicleType = job['vehicleType']?.toString() ?? 'Vehicle';
-
-    final dynamic amountValue = job['jobAmount'];
-
     String amountText = '';
 
     if (amountValue is num) {
@@ -3705,13 +3482,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
     if (dateValue is Timestamp) {
       date = dateValue.toDate();
     }
-
-    final String dateText = date == null
-        ? 'Date unavailable'
-        : '${date.day.toString().padLeft(2, '0')}/'
-              '${date.month.toString().padLeft(2, '0')}/'
-              '${date.year}';
-
 
     final String dateText = date == null
         ? 'Date unavailable'

@@ -1133,7 +1133,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: yellowColor.withOpacity(0.1),
+                  color: yellowColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -1262,10 +1262,10 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                       width: 88,
                       height: 88,
                       decoration: BoxDecoration(
-                        color: yellowColor.withOpacity(0.12),
+                        color: yellowColor.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: yellowColor.withOpacity(0.35),
+                          color: yellowColor.withValues(alpha: 0.35),
                           width: 1.5,
                         ),
                         image: _profilePhotoUrl.isNotEmpty
@@ -1361,7 +1361,9 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: yellowColor,
                       foregroundColor: backgroundColor,
-                      disabledBackgroundColor: yellowColor.withOpacity(0.4),
+                      disabledBackgroundColor: yellowColor.withValues(
+                        alpha: 0.4,
+                      ),
                       disabledForegroundColor: Colors.black54,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
