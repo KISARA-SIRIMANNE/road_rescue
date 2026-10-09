@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'request_assistance_page.dart';
+import 'vehicle_owner_notifications_page.dart';
 
 class VehicleOwnerHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -220,8 +221,12 @@ class _VehicleOwnerHomePageState
         _buildIconButton(
           icon: Icons.notifications_none_rounded,
           onPressed: () {
-            _showComingSoon(
-              'Notifications will be available soon.',
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    const VehicleOwnerNotificationsPage(),
+              ),
             );
           },
         ),

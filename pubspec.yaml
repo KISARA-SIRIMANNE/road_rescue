@@ -19,6 +19,9 @@ dependencies:
   firebase_core: ^4.14.0
   firebase_auth: ^6.7.0
   cloud_firestore: ^6.10.0
+  firebase_storage: ^13.0.0
+  image_picker: ^1.2.1
+  image_cropper: ^11.0.0
 
   # Lottie animations
   lottie: ^3.5.1
@@ -37,6 +40,8 @@ dependencies:
 
   firebase_storage: ^13.0.0
   image_picker: ^1.2.1
+  # Google Fonts
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -47,7 +52,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Application assets
   assets:
     # Onboarding images
     - assets/pictures/tow_truck_3.png

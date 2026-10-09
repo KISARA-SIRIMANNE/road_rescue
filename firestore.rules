@@ -1,0 +1,154 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow create, update, delete: if request.auth != null
+        && request.auth.uid == userId;
+
+      allow read: if request.auth != null
+        && (
+          request.auth.uid == userId
+          || (
+            get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.role == 'vehicle_owner'
+            && resource.data.role == 'insurance_provider'
+          )
+        );
+    }
+
+    match /assistance_requests/{requestId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.role == 'roadside_provider'
+          && (
+            resource.data.status in ['pending', 'searching']
+            || resource.data.providerId == request.auth.uid
+          )
+        )
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.role == 'insurance_provider'
+          && resource.data.insuranceClaim == true
+        )
+      );
+
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.role == 'roadside_provider'
+          && (
+            resource.data.status in ['pending', 'searching']
+            || resource.data.providerId == request.auth.uid
+          )
+        )
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.role == 'insurance_provider'
+          && resource.data.insuranceClaim == true
+          && request.resource.data.insuranceStatus in [
+            'pending', 'under_review', 'approved',
+            'rejected', 'need_information'
+          ]
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'insuranceStatus',
+            'insuranceReviewedBy',
+            'insuranceReviewedAt',
+            'insuranceReviewNote',
+            'updatedAt'
+          ])
+        )
+      );
+
+      allow delete: if request.auth != null
+        && (
+          resource.data.userId == request.auth.uid
+          || (
+            get(/databases/$(database)/documents/users/$(request.auth.uid))
+              .data.role == 'insurance_provider'
+            && resource.data.insuranceClaim == true
+          )
+          || (
+            resource.data.insuranceClaim == true
+            && resource.data.insuranceReviewedBy == request.auth.uid
+          )
+        );
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+
+      allow create: if request.auth != null && (
+        request.resource.data.userId == request.auth.uid
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.role == 'insurance_provider'
+          && request.resource.data.type in ['new_claim', 'claim']
+          && request.resource.data.claimId is string
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceClaim == true
+        )
+        || (
+          request.resource.data.type == 'new_claim'
+          && request.resource.data.claimId is string
+          && request.resource.data.userId is string
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceClaim == true
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.userId == request.auth.uid
+          && get(
+            /databases/$(database)/documents/users/$(request.resource.data.userId)
+          ).data.role == 'insurance_provider'
+        )
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+          .data.role == 'insurance_provider'
+          && request.resource.data.type == 'claim_status_update'
+          && request.resource.data.status in [
+            'approved', 'rejected', 'need_information',
+            'under_review', 'pending'
+          ]
+          && request.resource.data.claimId is string
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceClaim == true
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.userId == request.resource.data.userId
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceReviewedBy == request.auth.uid
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
+          ).data.insuranceStatus == request.resource.data.status
+        )
+      );
+
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid
+        && (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'read', 'isRead'
+          ])
+          || (
+            request.resource.data.isDeleted == true
+            && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['isDeleted', 'deletedAt'])
+          )
+        );
+
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+    }
+  }
+}
