@@ -1,1 +1,28 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"road-rescue-38eff","appId":"1:758911680994:android:70c1f8864f12a7432fb9bb","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"road-rescue-38eff","configurations":{"android":"1:758911680994:android:70c1f8864f12a7432fb9bb","ios":"1:758911680994:ios:3f23e119e00631e92fb9bb"}}}}}}
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "road-rescue-38eff",
+          "appId": "1:758911680994:android:70c1f8864f12a7432fb9bb",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "road-rescue-38eff",
+          "configurations": {
+            "android": "1:758911680994:android:70c1f8864f12a7432fb9bb",
+            "ios": "1:758911680994:ios:3f23e119e00631e92fb9bb"
+          }
+        }
+      }
+    }
+  }
+}

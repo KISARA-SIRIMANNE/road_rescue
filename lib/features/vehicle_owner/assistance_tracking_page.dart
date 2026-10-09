@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../roadside_provider/provider_job_flow_pages.dart';
+
 class AssistanceTrackingPage extends StatefulWidget {
   final String requestId;
   final Map<String, dynamic> userData;
@@ -18,18 +20,15 @@ class AssistanceTrackingPage extends StatefulWidget {
   });
 
   @override
-  State<AssistanceTrackingPage> createState() =>
-      _AssistanceTrackingPageState();
+  State<AssistanceTrackingPage> createState() => _AssistanceTrackingPageState();
 }
 
-class _AssistanceTrackingPageState
-    extends State<AssistanceTrackingPage> {
+class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   // ================================================================
   // FIRESTORE
   // ================================================================
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ================================================================
   // GOOGLE MAP
@@ -72,6 +71,7 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   String _status = 'pending';
+  Map<String, dynamic>? _requestData;
 
   // ================================================================
   // ROADSIDE PROVIDER LIVE LOCATION
@@ -89,25 +89,20 @@ class _AssistanceTrackingPageState
   // closer or farther.
   double? _previousDistance;
 
-  String _distanceStatus =
-      'Waiting for roadside assistance...';
+  String _distanceStatus = 'Waiting for roadside assistance...';
 
   String? _providerName;
 
   // ================================================================
   // MAP MARKERS
   // ================================================================
-
   final Set<Marker> _markers = {};
 
   // ================================================================
   // DEFAULT MAP LOCATION
   // ================================================================
 
-  static const LatLng _defaultLocation = LatLng(
-    6.9271,
-    79.8612,
-  );
+  static const LatLng _defaultLocation = LatLng(6.9271, 79.8612);
 
   // ================================================================
   // INIT STATE
@@ -134,57 +129,48 @@ class _AssistanceTrackingPageState
         .doc(widget.requestId)
         .snapshots()
         .listen(
-      (DocumentSnapshot snapshot) {
-        if (!snapshot.exists) {
-          return;
-        }
+          (DocumentSnapshot snapshot) {
+            if (!snapshot.exists) {
+              return;
+            }
 
-        final Map<String, dynamic> data =
-            snapshot.data() as Map<String, dynamic>;
+            final Map<String, dynamic> data =
+                snapshot.data() as Map<String, dynamic>;
 
-        final String status =
-            data['status']?.toString() ?? 'pending';
+            final String status = data['status']?.toString() ?? 'pending';
 
-        final String? providerName =
-            data['providerName']?.toString();
+            final String? providerName = data['providerName']?.toString();
 
-        final dynamic providerLatitude =
-            data['providerLatitude'];
+            final dynamic providerLatitude = data['providerLatitude'];
 
-        final dynamic providerLongitude =
-            data['providerLongitude'];
+            final dynamic providerLongitude = data['providerLongitude'];
 
-        if (!mounted) {
-          return;
-        }
+            if (!mounted) {
+              return;
+            }
 
-        setState(() {
-          _status = status;
-          _providerName = providerName;
+            setState(() {
+              _status = status;
+              _requestData = data;
+              _providerName = providerName;
 
-          if (providerLatitude is num &&
-              providerLongitude is num) {
-            _providerLatitude =
-                providerLatitude.toDouble();
+              if (providerLatitude is num && providerLongitude is num) {
+                _providerLatitude = providerLatitude.toDouble();
 
-            _providerLongitude =
-                providerLongitude.toDouble();
-          } else {
-            _providerLatitude = null;
-            _providerLongitude = null;
-          }
-        });
+                _providerLongitude = providerLongitude.toDouble();
+              } else {
+                _providerLatitude = null;
+                _providerLongitude = null;
+              }
+            });
 
-        _updateProviderMarker();
-
-        _calculateDistance();
-      },
-      onError: (error) {
-        debugPrint(
-          'Assistance request listener error: $error',
+            _updateProviderMarker();
+            _calculateDistance();
+          },
+          onError: (error) {
+            debugPrint('Assistance request listener error: $error');
+          },
         );
-      },
-    );
   }
 
   // ================================================================
@@ -193,13 +179,10 @@ class _AssistanceTrackingPageState
 
   Future<void> _startTracking() async {
     try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
-        _showMessage(
-          'Location services are disabled.',
-        );
+        _showMessage('Location services are disabled.');
 
         if (mounted) {
           setState(() {
@@ -210,20 +193,15 @@ class _AssistanceTrackingPageState
         return;
       }
 
-      LocationPermission permission =
-          await Geolocator.checkPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
+        permission = await Geolocator.requestPermission();
       }
 
       if (permission == LocationPermission.denied ||
-          permission ==
-              LocationPermission.deniedForever) {
-        _showMessage(
-          'Location permission is required for live tracking.',
-        );
+          permission == LocationPermission.deniedForever) {
+        _showMessage('Location permission is required for live tracking.');
 
         if (mounted) {
           setState(() {
@@ -238,8 +216,7 @@ class _AssistanceTrackingPageState
       // GET INITIAL POSITION
       // ------------------------------------------------------------
 
-      final Position position =
-          await Geolocator.getCurrentPosition(
+      final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
@@ -271,44 +248,35 @@ class _AssistanceTrackingPageState
 
       await _positionSubscription?.cancel();
 
-      const LocationSettings settings =
-          LocationSettings(
+      const LocationSettings settings = LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
       );
 
       _positionSubscription =
-          Geolocator.getPositionStream(
-        locationSettings: settings,
-      ).listen(
-        (Position position) async {
-          if (!mounted) return;
+          Geolocator.getPositionStream(locationSettings: settings).listen(
+            (Position position) async {
+              if (!mounted) return;
 
-          setState(() {
-            _currentPosition = position;
-          });
+              setState(() {
+                _currentPosition = position;
+              });
 
-          // Update vehicle owner marker.
-          _updateMarker(position);
+              // Update vehicle owner marker.
+              _updateMarker(position);
 
-          // Update vehicle owner location in Firestore.
-          await _updateFirestoreLocation(
-            position,
+              // Update vehicle owner location in Firestore.
+              await _updateFirestoreLocation(position);
+
+              // Recalculate distance to provider.
+              _calculateDistance();
+            },
+            onError: (error) {
+              debugPrint('Vehicle owner location stream error: $error');
+            },
           );
-
-          // Recalculate distance to provider.
-          _calculateDistance();
-        },
-        onError: (error) {
-          debugPrint(
-            'Vehicle owner location stream error: $error',
-          );
-        },
-      );
     } catch (e) {
-      debugPrint(
-        'Unable to start live location tracking: $e',
-      );
+      debugPrint('Unable to start live location tracking: $e');
 
       if (!mounted) return;
 
@@ -317,9 +285,7 @@ class _AssistanceTrackingPageState
         _isTracking = false;
       });
 
-      _showMessage(
-        'Unable to start live location tracking.',
-      );
+      _showMessage('Unable to start live location tracking.');
     }
   }
 
@@ -327,22 +293,18 @@ class _AssistanceTrackingPageState
   // UPDATE FIRESTORE VEHICLE OWNER LOCATION
   // ================================================================
 
-  Future<void> _updateFirestoreLocation(
-    Position position,
-  ) async {
+  Future<void> _updateFirestoreLocation(Position position) async {
     try {
       await _firestore
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
-      debugPrint(
-        'Failed to update live location: $e',
-      );
+      debugPrint('Failed to update live location: $e');
     }
   }
 
@@ -351,10 +313,7 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   void _updateMarker(Position position) {
-    final LatLng location = LatLng(
-      position.latitude,
-      position.longitude,
-    );
+    final LatLng location = LatLng(position.latitude, position.longitude);
 
     if (!mounted) {
       return;
@@ -366,23 +325,17 @@ class _AssistanceTrackingPageState
       // IMPORTANT:
       // Do not clear the complete marker set because the
       // provider marker also exists there.
-      _markers.remove(
-        const MarkerId('vehicle_owner'),
-      );
+      _markers.remove(const MarkerId('vehicle_owner'));
 
       _markers.add(
         Marker(
-          markerId:
-              const MarkerId('vehicle_owner'),
+          markerId: const MarkerId('vehicle_owner'),
           position: location,
           infoWindow: const InfoWindow(
             title: 'Your Location',
             snippet: 'Live location',
           ),
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueBlue,
-          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
         ),
       );
     });
@@ -393,8 +346,7 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   void _updateProviderMarker() {
-    if (_providerLatitude == null ||
-        _providerLongitude == null) {
+    if (_providerLatitude == null || _providerLongitude == null) {
       return;
     }
 
@@ -409,15 +361,12 @@ class _AssistanceTrackingPageState
 
     setState(() {
       // Remove old provider marker.
-      _markers.remove(
-        const MarkerId('roadside_provider'),
-      );
+      _markers.remove(const MarkerId('roadside_provider'));
 
       // Add new provider marker.
       _markers.add(
         Marker(
-          markerId:
-              const MarkerId('roadside_provider'),
+          markerId: const MarkerId('roadside_provider'),
           position: providerLocation,
           infoWindow: InfoWindow(
             title: _providerName?.isNotEmpty == true
@@ -425,10 +374,7 @@ class _AssistanceTrackingPageState
                 : 'Roadside Assistance Provider',
             snippet: 'Live provider location',
           ),
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueRed,
-          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
     });
@@ -445,8 +391,7 @@ class _AssistanceTrackingPageState
       return;
     }
 
-    final double distance =
-        Geolocator.distanceBetween(
+    final double distance = Geolocator.distanceBetween(
       _currentPosition!.latitude,
       _currentPosition!.longitude,
       _providerLatitude!,
@@ -462,19 +407,13 @@ class _AssistanceTrackingPageState
       _currentDistance = distance;
 
       if (_previousDistance == null) {
-        _distanceStatus =
-            'Provider location received';
-      } else if (distance <
-          _previousDistance! - 5) {
-        _distanceStatus =
-            'Provider is getting closer';
-      } else if (distance >
-          _previousDistance! + 5) {
-        _distanceStatus =
-            'Provider is getting farther';
+        _distanceStatus = 'Provider location received';
+      } else if (distance < _previousDistance! - 5) {
+        _distanceStatus = 'Provider is getting closer';
+      } else if (distance > _previousDistance! + 5) {
+        _distanceStatus = 'Provider is getting farther';
       } else {
-        _distanceStatus =
-            'Provider distance is stable';
+        _distanceStatus = 'Provider distance is stable';
       }
     });
   }
@@ -499,18 +438,13 @@ class _AssistanceTrackingPageState
   // MOVE CAMERA
   // ================================================================
 
-  Future<void> _moveCamera(
-    Position position,
-  ) async {
+  Future<void> _moveCamera(Position position) async {
     if (_mapController == null) return;
 
     await _mapController!.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
-          target: LatLng(
-            position.latitude,
-            position.longitude,
-          ),
+          target: LatLng(position.latitude, position.longitude),
           zoom: 17,
         ),
       ),
@@ -521,9 +455,7 @@ class _AssistanceTrackingPageState
   // MAP CREATED
   // ================================================================
 
-  void _onMapCreated(
-    GoogleMapController controller,
-  ) {
+  void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
 
     if (_currentPosition != null) {
@@ -549,9 +481,9 @@ class _AssistanceTrackingPageState
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'status': 'cancelled',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'cancelled',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       await _stopTracking();
 
@@ -559,9 +491,7 @@ class _AssistanceTrackingPageState
 
       Navigator.pop(context);
     } catch (e) {
-      debugPrint(
-        'Error cancelling request: $e',
-      );
+      debugPrint('Error cancelling request: $e');
 
       if (!mounted) return;
 
@@ -569,9 +499,7 @@ class _AssistanceTrackingPageState
         _isCancelling = false;
       });
 
-      _showMessage(
-        'Unable to cancel the request.',
-      );
+      _showMessage('Unable to cancel the request.');
     }
   }
 
@@ -596,48 +524,29 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   Future<void> _showCancelDialog() async {
-    final bool? confirmed =
-        await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor:
-              const Color(0xFF171C20),
+          backgroundColor: const Color(0xFF1A1D20),
           title: const Text(
             'Cancel Request?',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Are you sure you want to cancel your roadside assistance request?',
-            style: TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  context,
-                  false,
-                );
+                Navigator.pop(context, false);
               },
-              child: const Text(
-                'No',
-                style: TextStyle(
-                  color: Colors.white70,
-                ),
-              ),
+              child: const Text('No', style: TextStyle(color: Colors.white70)),
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  context,
-                  true,
-                );
+                Navigator.pop(context, true);
               },
               child: const Text(
                 'Cancel Request',
@@ -664,14 +573,11 @@ class _AssistanceTrackingPageState
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-        backgroundColor:
-            const Color(0xFF24282D),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF24282D),
       ),
     );
   }
@@ -698,8 +604,7 @@ class _AssistanceTrackingPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF08090A),
+      backgroundColor: const Color(0xFF101214),
       body: SafeArea(
         child: Column(
           children: [
@@ -710,8 +615,7 @@ class _AssistanceTrackingPageState
                 children: [
                   _buildMap(),
 
-                  if (_isLoading)
-                    _buildLoading(),
+                  if (_isLoading) _buildLoading(),
 
                   _buildLiveIndicator(),
 
@@ -734,20 +638,13 @@ class _AssistanceTrackingPageState
   Widget _buildTopBar() {
     return Container(
       height: 64,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF08090A),
       child: Row(
         children: [
           IconButton(
-            onPressed:
-                _showCancelDialog,
-            icon: const Icon(
-              Icons.close,
-              color: Colors.white,
-            ),
+            onPressed: _showCancelDialog,
+            icon: const Icon(Icons.close, color: Colors.white),
           ),
 
           const Expanded(
@@ -770,8 +667,7 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   Widget _buildMap() {
-    LatLng location =
-        _defaultLocation;
+    LatLng location = _defaultLocation;
 
     if (_currentPosition != null) {
       location = LatLng(
@@ -781,13 +677,8 @@ class _AssistanceTrackingPageState
     }
 
     return GoogleMap(
-      initialCameraPosition:
-          CameraPosition(
-        target: location,
-        zoom: 17,
-      ),
-      onMapCreated:
-          _onMapCreated,
+      initialCameraPosition: CameraPosition(target: location, zoom: 17),
+      onMapCreated: _onMapCreated,
       markers: _markers,
       myLocationEnabled: true,
       myLocationButtonEnabled: false,
@@ -804,15 +695,9 @@ class _AssistanceTrackingPageState
   Widget _buildLoading() {
     return Positioned.fill(
       child: Container(
-        color:
-            Colors.black.withOpacity(
-          0.45,
-        ),
+        color: Colors.black.withOpacity(0.45),
         child: const Center(
-          child:
-              CircularProgressIndicator(
-            color: Color(0xFFF6E900),
-          ),
+          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
         ),
       ),
     );
@@ -827,49 +712,31 @@ class _AssistanceTrackingPageState
       top: 18,
       left: 18,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
-        decoration:
-            BoxDecoration(
-          color: const Color(
-            0xFF171C20,
-          ),
-          borderRadius:
-              BorderRadius.circular(20),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF171C20),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 9,
               height: 9,
-              decoration:
-                  BoxDecoration(
-                color: _isTracking
-                    ? Colors.greenAccent
-                    : Colors.white38,
-                shape:
-                    BoxShape.circle,
+              decoration: BoxDecoration(
+                color: _isTracking ? Colors.greenAccent : Colors.white38,
+                shape: BoxShape.circle,
               ),
             ),
 
             const SizedBox(width: 7),
 
             Text(
-              _isTracking
-                  ? 'LIVE LOCATION'
-                  : 'LOCATION OFF',
+              _isTracking ? 'LIVE LOCATION' : 'LOCATION OFF',
               style: TextStyle(
-                color: _isTracking
-                    ? Colors.greenAccent
-                    : Colors.white54,
+                color: _isTracking ? Colors.greenAccent : Colors.white54,
                 fontSize: 11,
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -889,23 +756,15 @@ class _AssistanceTrackingPageState
       child: GestureDetector(
         onTap: () {
           if (_currentPosition != null) {
-            _moveCamera(
-              _currentPosition!,
-            );
+            _moveCamera(_currentPosition!);
           }
         },
         child: Container(
           width: 52,
           height: 52,
-          decoration:
-              BoxDecoration(
-            color: const Color(
-              0xFF171C20,
-            ),
-            borderRadius:
-                BorderRadius.circular(
-              16,
-            ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF171C20),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
             Icons.my_location_rounded,
@@ -923,27 +782,16 @@ class _AssistanceTrackingPageState
   Widget _buildBottomPanel() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        20,
-      ),
-      decoration:
-          const BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: const BoxDecoration(
         color: Color(0xFF171C20),
-        borderRadius:
-            BorderRadius.only(
-          topLeft:
-              Radius.circular(26),
-          topRight:
-              Radius.circular(26),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(26),
+          topRight: Radius.circular(26),
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ----------------------------------------------------------
           // HANDLE
@@ -953,13 +801,9 @@ class _AssistanceTrackingPageState
             child: Container(
               width: 40,
               height: 4,
-              decoration:
-                  BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white24,
-                borderRadius:
-                    BorderRadius.circular(
-                  20,
-                ),
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
@@ -969,26 +813,18 @@ class _AssistanceTrackingPageState
           // ----------------------------------------------------------
           // ASSISTANCE STATUS
           // ----------------------------------------------------------
-
           Row(
             children: [
               Container(
                 width: 48,
                 height: 48,
-                decoration:
-                    BoxDecoration(
-                  color: const Color(
-                    0xFFF6E900,
-                  ).withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(
-                    15,
-                  ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6E900).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.support_agent,
-                  color:
-                      Color(0xFFF6E900),
+                  color: Color(0xFFF6E900),
                   size: 27,
                 ),
               ),
@@ -997,16 +833,14 @@ class _AssistanceTrackingPageState
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Assistance Requested',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 17,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
@@ -1014,10 +848,8 @@ class _AssistanceTrackingPageState
 
                     Text(
                       _getStatusText(),
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.white54,
+                      style: const TextStyle(
+                        color: Colors.white54,
                         fontSize: 13,
                       ),
                     ),
@@ -1032,26 +864,18 @@ class _AssistanceTrackingPageState
           // ----------------------------------------------------------
           // ISSUE
           // ----------------------------------------------------------
-
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.all(14),
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xFF08090A),
-              borderRadius:
-                  BorderRadius.circular(
-                14,
-              ),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF08090A),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.build_circle_outlined,
-                  color:
-                      Colors.white54,
+                  color: Colors.white54,
                   size: 21,
                 ),
 
@@ -1059,11 +883,7 @@ class _AssistanceTrackingPageState
 
                 const Text(
                   'Issue:',
-                  style: TextStyle(
-                    color:
-                        Colors.white54,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 13),
                 ),
 
                 const SizedBox(width: 6),
@@ -1071,12 +891,10 @@ class _AssistanceTrackingPageState
                 Expanded(
                   child: Text(
                     widget.issue,
-                    style:
-                        const TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -1089,13 +907,11 @@ class _AssistanceTrackingPageState
           // ----------------------------------------------------------
           // DRIVER LOCATION SHARING
           // ----------------------------------------------------------
-
           const Row(
             children: [
               Icon(
                 Icons.location_on_outlined,
-                color:
-                    Colors.greenAccent,
+                color: Colors.greenAccent,
                 size: 18,
               ),
 
@@ -1104,11 +920,7 @@ class _AssistanceTrackingPageState
               Expanded(
                 child: Text(
                   'Your live location is being shared with RoadRescue.',
-                  style: TextStyle(
-                    color:
-                        Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
             ],
@@ -1117,90 +929,58 @@ class _AssistanceTrackingPageState
           // ----------------------------------------------------------
           // PROVIDER LIVE LOCATION
           // ----------------------------------------------------------
-
-          if (_providerLatitude != null &&
-              _providerLongitude != null) ...[
+          if (_providerLatitude != null && _providerLongitude != null) ...[
             const SizedBox(height: 14),
 
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.all(14),
-              decoration:
-                  BoxDecoration(
-                color:
-                    const Color(0xFF08090A),
-                borderRadius:
-                    BorderRadius.circular(
-                  14,
-                ),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF08090A),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Container(
                         width: 38,
                         height: 38,
-                        decoration:
-                            BoxDecoration(
-                          color: Colors
-                              .redAccent
-                              .withOpacity(
-                            0.12,
-                          ),
-                          borderRadius:
-                              BorderRadius
-                                  .circular(
-                            11,
-                          ),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(11),
                         ),
                         child: const Icon(
                           Icons.support_agent,
-                          color:
-                              Colors.redAccent,
+                          color: Colors.redAccent,
                           size: 21,
                         ),
                       ),
 
-                      const SizedBox(
-                        width: 10,
-                      ),
+                      const SizedBox(width: 10),
 
                       Expanded(
                         child: Column(
-                          crossAxisAlignment:
-                              CrossAxisAlignment
-                                  .start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _providerName
-                                          ?.isNotEmpty ==
-                                      true
+                              _providerName?.isNotEmpty == true
                                   ? _providerName!
                                   : 'Roadside Assistance Provider',
-                              style:
-                                  const TextStyle(
-                                color:
-                                    Colors.white,
+                              style: const TextStyle(
+                                color: Colors.white,
                                 fontSize: 14,
-                                fontWeight:
-                                    FontWeight.w700,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
 
-                            const SizedBox(
-                              height: 3,
-                            ),
+                            const SizedBox(height: 3),
 
                             const Text(
                               'Live location',
-                              style:
-                                  TextStyle(
-                                color:
-                                    Colors.white54,
+                              style: TextStyle(
+                                color: Colors.white54,
                                 fontSize: 11,
                               ),
                             ),
@@ -1210,49 +990,35 @@ class _AssistanceTrackingPageState
                     ],
                   ),
 
-                  const SizedBox(
-                    height: 12,
-                  ),
+                  const SizedBox(height: 12),
 
                   Row(
                     children: [
                       const Icon(
                         Icons.route_rounded,
-                        color:
-                            Color(0xFFF6E900),
+                        color: Color(0xFFF6E900),
                         size: 19,
                       ),
 
-                      const SizedBox(
-                        width: 8,
-                      ),
+                      const SizedBox(width: 8),
 
                       Text(
-                        _formatDistance(
-                          _currentDistance,
-                        ),
-                        style:
-                            const TextStyle(
+                        _formatDistance(_currentDistance),
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 14,
-                          fontWeight:
-                              FontWeight.w700,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
 
-                      const SizedBox(
-                        width: 10,
-                      ),
+                      const SizedBox(width: 10),
 
                       Expanded(
                         child: Text(
                           _distanceStatus,
-                          textAlign:
-                              TextAlign.right,
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.white54,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            color: Colors.white54,
                             fontSize: 11,
                           ),
                         ),
@@ -1266,55 +1032,93 @@ class _AssistanceTrackingPageState
 
           const SizedBox(height: 18),
 
+          if ((_status == 'accepted' || _status == 'in_progress') &&
+              _requestData?['providerId']?.toString().isNotEmpty == true) ...[
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: _openProviderChat,
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                label: const Text('Chat with provider'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFF6E900),
+                  side: const BorderSide(color: Color(0xFF394149)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+
           // ----------------------------------------------------------
           // CANCEL BUTTON
           // ----------------------------------------------------------
-
           SizedBox(
             width: double.infinity,
             height: 50,
             child: OutlinedButton(
-              onPressed:
-                  _isCancelling
-                      ? null
-                      : _showCancelDialog,
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    Colors.white,
-                side:
-                    const BorderSide(
-                  color: Colors.white24,
-                ),
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+              onPressed: _isCancelling ? null : _showCancelDialog,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: _isCancelling
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child:
-                          CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color:
-                            Colors.white,
+                        color: Colors.white,
                       ),
                     )
                   : const Text(
                       'Cancel Request',
-                      style: TextStyle(
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _openProviderChat() {
+    final Map<String, dynamic>? requestData = _requestData;
+    final String? ownerId = widget.userData['uid']?.toString();
+    if (requestData == null || ownerId == null || ownerId.isEmpty) {
+      _showMessage('Could not identify your account for chat.');
+      return;
+    }
+
+    final String providerId = requestData['providerId']?.toString() ?? '';
+    if (providerId.isEmpty) {
+      _showMessage('The provider is not available for chat yet.');
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          backgroundColor: const Color(0xFF08090A),
+          body: SafeArea(
+            child: ProviderChatView(
+              requestId: widget.requestId,
+              providerId: ownerId,
+              providerName: widget.userData['name']?.toString() ?? 'Customer',
+              requestData: requestData,
+              chatTitle: 'Chat with provider',
+              onBack: () => Navigator.pop(context),
+              onError: _showMessage,
+            ),
+          ),
+        ),
       ),
     );
   }
