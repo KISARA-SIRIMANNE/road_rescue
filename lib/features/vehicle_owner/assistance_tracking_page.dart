@@ -18,39 +18,52 @@ class AssistanceTrackingPage extends StatefulWidget {
   });
 
   @override
-  State<AssistanceTrackingPage> createState() =>
-      _AssistanceTrackingPageState();
+  State<AssistanceTrackingPage> createState() => _AssistanceTrackingPageState();
 }
 
-class _AssistanceTrackingPageState
-    extends State<AssistanceTrackingPage> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
+    with WidgetsBindingObserver {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   GoogleMapController? _mapController;
 
   StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _requestSubscription;
 
   Position? _currentPosition;
 
   bool _isLoading = true;
   bool _isTracking = false;
   bool _isCancelling = false;
+  bool _isWritingLocation = false;
+  bool _locationWriteFailed = false;
+  Position? _queuedPosition;
 
   String _status = 'pending';
 
   final Set<Marker> _markers = {};
 
-  static const LatLng _defaultLocation = LatLng(
-    6.9271,
-    79.8612,
-  );
-
   @override
   void initState() {
     super.initState();
 
+    WidgetsBinding.instance.addObserver(this);
+    _listenToRequestStatus();
     _startTracking();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _positionSubscription?.cancel();
+      _positionSubscription = null;
+    } else if (state == AppLifecycleState.resumed &&
+        mounted &&
+        _status != 'cancelled' &&
+        _status != 'completed') {
+      _startTracking();
+    }
   }
 
   // ================================================================
@@ -59,13 +72,12 @@ class _AssistanceTrackingPageState
 
   Future<void> _startTracking() async {
     try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
-        _showMessage(
-          'Location services are disabled.',
-        );
+        if (!mounted) return;
+
+        _showMessage('Location services are disabled.');
 
         setState(() {
           _isLoading = false;
@@ -74,20 +86,17 @@ class _AssistanceTrackingPageState
         return;
       }
 
-      LocationPermission permission =
-          await Geolocator.checkPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
+        permission = await Geolocator.requestPermission();
       }
 
       if (permission == LocationPermission.denied ||
-          permission ==
-              LocationPermission.deniedForever) {
-        _showMessage(
-          'Location permission is required for live tracking.',
-        );
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+
+        _showMessage('Location permission is required for live tracking.');
 
         setState(() {
           _isLoading = false;
@@ -97,12 +106,16 @@ class _AssistanceTrackingPageState
       }
 
       // Get initial position.
-      final Position position =
-          await Geolocator.getCurrentPosition(
+      final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
         ),
       );
+
+      if (!_isValidPosition(position)) {
+        throw StateError('Invalid GPS coordinates received.');
+      }
 
       if (!mounted) return;
 
@@ -121,31 +134,59 @@ class _AssistanceTrackingPageState
       // Start continuous GPS updates.
       _positionSubscription?.cancel();
 
-      const LocationSettings settings =
-          LocationSettings(
+      const LocationSettings settings = LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
       );
 
       _positionSubscription =
-          Geolocator.getPositionStream(
-        locationSettings: settings,
-      ).listen(
-        (Position position) async {
-          if (!mounted) return;
+          Geolocator.getPositionStream(locationSettings: settings).listen(
+            (Position position) {
+              if (!mounted || !_isValidPosition(position)) return;
 
-          setState(() {
-            _currentPosition = position;
-          });
+              setState(() {
+                _currentPosition = position;
+              });
 
-          _updateMarker(position);
-
-          await _updateFirestoreLocation(
-            position,
+              _updateMarker(position);
+              _moveCamera(position);
+              _queueFirestoreLocationUpdate(position);
+            },
+            onError: (Object error) {
+              debugPrint('Live location stream error: $error');
+              if (mounted) {
+                _showMessage(
+                  'Live location updates are temporarily unavailable.',
+                );
+              }
+            },
           );
-        },
-      );
+    } on TimeoutException {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _isTracking = false;
+      });
+      _showMessage('Location request timed out. Check GPS and try again.');
+    } on LocationServiceDisabledException {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _isTracking = false;
+      });
+      _showMessage('Location services are disabled. Please enable GPS.');
+    } on PermissionDeniedException {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _isTracking = false;
+      });
+      _showMessage('Location permission is required for live tracking.');
     } catch (e) {
+      debugPrint('Live location startup error: $e');
       if (!mounted) return;
 
       setState(() {
@@ -153,9 +194,38 @@ class _AssistanceTrackingPageState
         _isTracking = false;
       });
 
-      _showMessage(
-        'Unable to start live location tracking.',
-      );
+      _showMessage('Unable to start live location tracking.');
+    }
+  }
+
+  bool _isValidPosition(Position position) {
+    return position.latitude.isFinite &&
+        position.longitude.isFinite &&
+        position.latitude >= -90 &&
+        position.latitude <= 90 &&
+        position.longitude >= -180 &&
+        position.longitude <= 180;
+  }
+
+  void _queueFirestoreLocationUpdate(Position position) {
+    _queuedPosition = position;
+    if (_isWritingLocation) return;
+    _flushFirestoreLocationUpdate();
+  }
+
+  Future<void> _flushFirestoreLocationUpdate() async {
+    final position = _queuedPosition;
+    if (position == null || _isWritingLocation) return;
+
+    _queuedPosition = null;
+    _isWritingLocation = true;
+    try {
+      await _updateFirestoreLocation(position);
+    } finally {
+      _isWritingLocation = false;
+      if (_queuedPosition != null && mounted) {
+        _flushFirestoreLocationUpdate();
+      }
     }
   }
 
@@ -163,22 +233,30 @@ class _AssistanceTrackingPageState
   // UPDATE FIRESTORE LOCATION
   // ================================================================
 
-  Future<void> _updateFirestoreLocation(
-    Position position,
-  ) async {
+  Future<void> _updateFirestoreLocation(Position position) async {
+    if (!_isValidPosition(position)) return;
+
     try {
       await _firestore
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'userId': widget.userData['uid']?.toString(),
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'accuracy': position.accuracy,
+            'locationTimestamp': Timestamp.fromDate(position.timestamp),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+      _locationWriteFailed = false;
     } catch (e) {
-      debugPrint(
-        'Failed to update live location: $e',
-      );
+      debugPrint('Failed to update live location: $e');
+      if (mounted && !_locationWriteFailed) {
+        _locationWriteFailed = true;
+        _showMessage(
+          'Location was detected, but could not be shared with the provider.',
+        );
+      }
     }
   }
 
@@ -187,18 +265,15 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   void _updateMarker(Position position) {
-    final LatLng location = LatLng(
-      position.latitude,
-      position.longitude,
-    );
+    if (!mounted || !_isValidPosition(position)) return;
+    final LatLng location = LatLng(position.latitude, position.longitude);
 
     setState(() {
       _markers
         ..clear()
         ..add(
           Marker(
-            markerId:
-                const MarkerId('vehicle_owner'),
+            markerId: const MarkerId('vehicle_owner'),
             position: location,
             infoWindow: const InfoWindow(
               title: 'Your Location',
@@ -213,18 +288,13 @@ class _AssistanceTrackingPageState
   // MOVE CAMERA
   // ================================================================
 
-  Future<void> _moveCamera(
-    Position position,
-  ) async {
+  Future<void> _moveCamera(Position position) async {
     if (_mapController == null) return;
 
     await _mapController!.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
-          target: LatLng(
-            position.latitude,
-            position.longitude,
-          ),
+          target: LatLng(position.latitude, position.longitude),
           zoom: 17,
         ),
       ),
@@ -235,14 +305,34 @@ class _AssistanceTrackingPageState
   // MAP CREATED
   // ================================================================
 
-  void _onMapCreated(
-    GoogleMapController controller,
-  ) {
+  void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
 
     if (_currentPosition != null) {
       _moveCamera(_currentPosition!);
     }
+  }
+
+  void _listenToRequestStatus() {
+    _requestSubscription = _firestore
+        .collection('assistance_requests')
+        .doc(widget.requestId)
+        .snapshots()
+        .listen(
+          (snapshot) {
+            final data = snapshot.data();
+            final status = data?['status']?.toString();
+            if (!mounted || status == null || status.isEmpty) return;
+
+            setState(() => _status = status);
+            if (status == 'cancelled' || status == 'completed') {
+              _stopTracking();
+            }
+          },
+          onError: (Object error) {
+            debugPrint('Request status listener error: $error');
+          },
+        );
   }
 
   // ================================================================
@@ -261,9 +351,9 @@ class _AssistanceTrackingPageState
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'status': 'cancelled',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'status': 'cancelled',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       await _stopTracking();
 
@@ -277,9 +367,7 @@ class _AssistanceTrackingPageState
         _isCancelling = false;
       });
 
-      _showMessage(
-        'Unable to cancel the request.',
-      );
+      _showMessage('Unable to cancel the request.');
     }
   }
 
@@ -304,48 +392,29 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   Future<void> _showCancelDialog() async {
-    final bool? confirmed =
-        await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor:
-              const Color(0xFF1A1D20),
+          backgroundColor: const Color(0xFF1A1D20),
           title: const Text(
             'Cancel Request?',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Are you sure you want to cancel your roadside assistance request?',
-            style: TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  context,
-                  false,
-                );
+                Navigator.pop(context, false);
               },
-              child: const Text(
-                'No',
-                style: TextStyle(
-                  color: Colors.white70,
-                ),
-              ),
+              child: const Text('No', style: TextStyle(color: Colors.white70)),
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  context,
-                  true,
-                );
+                Navigator.pop(context, true);
               },
               child: const Text(
                 'Cancel Request',
@@ -387,7 +456,9 @@ class _AssistanceTrackingPageState
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _positionSubscription?.cancel();
+    _requestSubscription?.cancel();
     _mapController?.dispose();
 
     super.dispose();
@@ -400,8 +471,7 @@ class _AssistanceTrackingPageState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF101214),
+      backgroundColor: const Color(0xFF101214),
       body: SafeArea(
         child: Column(
           children: [
@@ -412,8 +482,7 @@ class _AssistanceTrackingPageState
                 children: [
                   _buildMap(),
 
-                  if (_isLoading)
-                    _buildLoading(),
+                  if (_isLoading) _buildLoading(),
 
                   _buildLiveIndicator(),
 
@@ -436,20 +505,13 @@ class _AssistanceTrackingPageState
   Widget _buildTopBar() {
     return Container(
       height: 64,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF101214),
       child: Row(
         children: [
           IconButton(
-            onPressed:
-                _showCancelDialog,
-            icon: const Icon(
-              Icons.close,
-              color: Colors.white,
-            ),
+            onPressed: _showCancelDialog,
+            icon: const Icon(Icons.close, color: Colors.white),
           ),
 
           const Expanded(
@@ -472,24 +534,16 @@ class _AssistanceTrackingPageState
   // ================================================================
 
   Widget _buildMap() {
-    LatLng location =
-        _defaultLocation;
-
-    if (_currentPosition != null) {
-      location = LatLng(
-        _currentPosition!.latitude,
-        _currentPosition!.longitude,
-      );
+    final position = _currentPosition;
+    if (position == null) {
+      return const ColoredBox(color: Color(0xFF101214));
     }
 
+    final location = LatLng(position.latitude, position.longitude);
+
     return GoogleMap(
-      initialCameraPosition:
-          CameraPosition(
-        target: location,
-        zoom: 17,
-      ),
-      onMapCreated:
-          _onMapCreated,
+      initialCameraPosition: CameraPosition(target: location, zoom: 17),
+      onMapCreated: _onMapCreated,
       markers: _markers,
       myLocationEnabled: true,
       myLocationButtonEnabled: false,
@@ -506,13 +560,9 @@ class _AssistanceTrackingPageState
   Widget _buildLoading() {
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(
-          0.45,
-        ),
+        color: Colors.black.withOpacity(0.45),
         child: const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFFF6E900),
-          ),
+          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
         ),
       ),
     );
@@ -527,43 +577,29 @@ class _AssistanceTrackingPageState
       top: 18,
       left: 18,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF191C20),
-          borderRadius:
-              BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 9,
               height: 9,
-              decoration:
-                  BoxDecoration(
-                color: _isTracking
-                    ? Colors.greenAccent
-                    : Colors.white38,
+              decoration: BoxDecoration(
+                color: _isTracking ? Colors.greenAccent : Colors.white38,
                 shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 7),
             Text(
-              _isTracking
-                  ? 'LIVE LOCATION'
-                  : 'LOCATION OFF',
+              _isTracking ? 'LIVE LOCATION' : 'LOCATION OFF',
               style: TextStyle(
-                color: _isTracking
-                    ? Colors.greenAccent
-                    : Colors.white54,
+                color: _isTracking ? Colors.greenAccent : Colors.white54,
                 fontSize: 11,
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -583,20 +619,15 @@ class _AssistanceTrackingPageState
       child: GestureDetector(
         onTap: () {
           if (_currentPosition != null) {
-            _moveCamera(
-              _currentPosition!,
-            );
+            _moveCamera(_currentPosition!);
           }
         },
         child: Container(
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: const Color(
-              0xFF191C20,
-            ),
-            borderRadius:
-                BorderRadius.circular(16),
+            color: const Color(0xFF191C20),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
             Icons.my_location_rounded,
@@ -614,39 +645,24 @@ class _AssistanceTrackingPageState
   Widget _buildBottomPanel() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        20,
-      ),
-      decoration:
-          const BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: const BoxDecoration(
         color: Color(0xFF191C20),
-        borderRadius:
-            BorderRadius.only(
-          topLeft:
-              Radius.circular(26),
-          topRight:
-              Radius.circular(26),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(26),
+          topRight: Radius.circular(26),
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
             child: Container(
               width: 40,
               height: 4,
-              decoration:
-                  BoxDecoration(
+              decoration: BoxDecoration(
                 color: Colors.white24,
-                borderRadius:
-                    BorderRadius.circular(
-                  20,
-                ),
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
@@ -658,20 +674,13 @@ class _AssistanceTrackingPageState
               Container(
                 width: 48,
                 height: 48,
-                decoration:
-                    BoxDecoration(
-                  color: const Color(
-                    0xFFF6E900,
-                  ).withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(
-                    15,
-                  ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6E900).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.support_agent,
-                  color:
-                      Color(0xFFF6E900),
+                  color: Color(0xFFF6E900),
                   size: 27,
                 ),
               ),
@@ -680,16 +689,14 @@ class _AssistanceTrackingPageState
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Assistance Requested',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 17,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -697,10 +704,8 @@ class _AssistanceTrackingPageState
                       _status == 'pending'
                           ? 'Searching for a roadside provider...'
                           : _status,
-                      style:
-                          const TextStyle(
-                        color:
-                            Colors.white54,
+                      style: const TextStyle(
+                        color: Colors.white54,
                         fontSize: 13,
                       ),
                     ),
@@ -714,23 +719,16 @@ class _AssistanceTrackingPageState
 
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.all(14),
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xFF101214),
-              borderRadius:
-                  BorderRadius.circular(
-                14,
-              ),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFF101214),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
                 const Icon(
                   Icons.build_circle_outlined,
-                  color:
-                      Colors.white54,
+                  color: Colors.white54,
                   size: 21,
                 ),
 
@@ -738,11 +736,7 @@ class _AssistanceTrackingPageState
 
                 const Text(
                   'Issue:',
-                  style: TextStyle(
-                    color:
-                        Colors.white54,
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 13),
                 ),
 
                 const SizedBox(width: 6),
@@ -750,12 +744,10 @@ class _AssistanceTrackingPageState
                 Expanded(
                   child: Text(
                     widget.issue,
-                    style:
-                        const TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
-                      fontWeight:
-                          FontWeight.w600,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -769,19 +761,14 @@ class _AssistanceTrackingPageState
             children: [
               Icon(
                 Icons.location_on_outlined,
-                color:
-                    Colors.greenAccent,
+                color: Colors.greenAccent,
                 size: 18,
               ),
               SizedBox(width: 7),
               Expanded(
                 child: Text(
                   'Your live location is being shared with RoadRescue.',
-                  style: TextStyle(
-                    color:
-                        Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
             ],
@@ -793,45 +780,26 @@ class _AssistanceTrackingPageState
             width: double.infinity,
             height: 50,
             child: OutlinedButton(
-              onPressed:
-                  _isCancelling
-                      ? null
-                      : _showCancelDialog,
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    Colors.white,
-                side:
-                    const BorderSide(
-                  color:
-                      Colors.white24,
-                ),
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+              onPressed: _isCancelling ? null : _showCancelDialog,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: _isCancelling
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child:
-                          CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color:
-                            Colors.white,
+                        color: Colors.white,
                       ),
                     )
                   : const Text(
                       'Cancel Request',
-                      style:
-                          TextStyle(
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
             ),
           ),
