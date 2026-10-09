@@ -691,6 +691,7 @@ class _LocationConfirmationPageState
       padding: const EdgeInsets.symmetric(
         horizontal: 8,
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF101214),
       child: Row(
         children: [
@@ -801,6 +802,7 @@ class _LocationConfirmationPageState
       child: Container(
         color: const Color(0xFF101214)
             .withOpacity(0.90),
+        color: const Color(0xFF101214).withOpacity(0.90),
         padding: const EdgeInsets.all(24),
         child: Center(
           child: Container(
@@ -808,8 +810,7 @@ class _LocationConfirmationPageState
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: const Color(0xFF191C20),
-              borderRadius:
-                  BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(22),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -921,8 +922,7 @@ class _LocationConfirmationPageState
             height: 52,
             decoration: BoxDecoration(
               color: const Color(0xFF191C20),
-              borderRadius:
-                  BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.my_location_rounded,
@@ -945,8 +945,7 @@ class _LocationConfirmationPageState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF191C20),
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
           color: _isInsuranceClaim
               ? const Color(0xFFF6E900)
@@ -954,8 +953,7 @@ class _LocationConfirmationPageState
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -963,31 +961,25 @@ class _LocationConfirmationPageState
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900)
-                      .withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(14),
+                  color: const Color(0xFFF6E900).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
                   Icons.shield_outlined,
                   color: Color(0xFFF6E900),
                 ),
               ),
-
               const SizedBox(width: 12),
-
               const Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Insurance Claim',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 4),
@@ -1001,11 +993,9 @@ class _LocationConfirmationPageState
                   ],
                 ),
               ),
-
               Switch(
                 value: _isInsuranceClaim,
-                activeColor:
-                    const Color(0xFFF6E900),
+                activeColor: const Color(0xFFF6E900),
                 onChanged: (value) {
                   setState(() {
                     _isInsuranceClaim = value;
@@ -1014,7 +1004,6 @@ class _LocationConfirmationPageState
               ),
             ],
           ),
-
           if (_isInsuranceClaim) ...[
             const SizedBox(height: 18),
 
@@ -1045,23 +1034,22 @@ class _LocationConfirmationPageState
                   _selectedInsuranceCompanyId = value;
                 });
               },
-            ),
-
-            const SizedBox(height: 12),
-
             _buildInsuranceTextField(
-              controller:
-                  _policyNumberController,
+              controller: _insuranceCompanyController,
+              label: 'Insurance Company',
+              hint: 'e.g. Ceylinco Insurance',
+              icon: Icons.business_outlined,
+            ),
+            const SizedBox(height: 12),
+            _buildInsuranceTextField(
+              controller: _policyNumberController,
               label: 'Policy Number',
               hint: 'Enter your policy number',
               icon: Icons.badge_outlined,
             ),
-
             const SizedBox(height: 12),
-
             _buildInsuranceTextField(
-              controller:
-                  _insuranceDescriptionController,
+              controller: _insuranceDescriptionController,
               label: 'Claim Description',
               hint: 'Briefly describe the incident',
               icon: Icons.notes_outlined,

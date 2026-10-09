@@ -777,6 +777,7 @@ class RoleHomePlaceholder extends StatelessWidget {
                     color: Color(0xFFA5ADB3),
                     fontSize: 14,
                   ),
+                  style: TextStyle(color: Color(0xFF929AA2), fontSize: 14),
                 ),
               ],
             ),
