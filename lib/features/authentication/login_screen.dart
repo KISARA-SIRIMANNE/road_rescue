@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../vehicle_owner/vehicle_owner_home_page.dart';
 import '../insurance/insurance_dashboard_page.dart';
+import '../roadside_provider/roadside_provider_home_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -163,8 +164,9 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                RoleHomePlaceholder(role: role, userData: userData),
+            builder: (context) => RoadsideProviderHomePage(
+              userData: userData,
+            ),
           ),
         );
 
