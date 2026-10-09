@@ -16,24 +16,19 @@ class DriverJobStatusPage extends StatefulWidget {
   });
 
   @override
-  State<DriverJobStatusPage> createState() =>
-      _DriverJobStatusPageState();
+  State<DriverJobStatusPage> createState() => _DriverJobStatusPageState();
 }
 
-class _DriverJobStatusPageState
-    extends State<DriverJobStatusPage> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   String _status = 'accepted';
 
-  String _providerName =
-      'Roadside Provider';
+  String _providerName = 'Roadside Provider';
 
   double? _jobAmount;
 
-  String _paymentStatus =
-      'not_applicable';
+  String _paymentStatus = 'not_applicable';
 
   bool _isPaying = false;
 
@@ -60,57 +55,48 @@ class _DriverJobStatusPageState
         .doc(widget.requestId)
         .snapshots()
         .listen(
-      (DocumentSnapshot snapshot) {
-        if (!snapshot.exists) {
-          return;
-        }
+          (DocumentSnapshot snapshot) {
+            if (!snapshot.exists) {
+              return;
+            }
 
-        final Map<String, dynamic> data =
-            snapshot.data()
-                as Map<String, dynamic>;
+            final Map<String, dynamic> data =
+                snapshot.data() as Map<String, dynamic>;
 
-        final dynamic amount =
-            data['jobAmount'];
+            final dynamic amount = data['jobAmount'];
 
-        if (!mounted) {
-          return;
-        }
+            if (!mounted) {
+              return;
+            }
 
-        setState(() {
-          _status =
-              data['status']?.toString() ??
-                  'accepted';
+            setState(() {
+              _status = data['status']?.toString() ?? 'accepted';
 
-          _providerName =
-              data['providerName']?.toString() ??
-                  'Roadside Provider';
+              _providerName =
+                  data['providerName']?.toString() ?? 'Roadside Provider';
 
-          _paymentStatus =
-              data['paymentStatus']?.toString() ??
-                  'not_applicable';
+              _paymentStatus =
+                  data['paymentStatus']?.toString() ?? 'not_applicable';
 
-          if (amount is num) {
-            _jobAmount =
-                amount.toDouble();
-          } else {
-            _jobAmount = null;
-          }
+              if (amount is num) {
+                _jobAmount = amount.toDouble();
+              } else {
+                _jobAmount = null;
+              }
 
-          _isLoading = false;
-        });
-      },
-      onError: (error) {
-        debugPrint(
-          'Driver job status listener error: $error',
+              _isLoading = false;
+            });
+          },
+          onError: (error) {
+            debugPrint('Driver job status listener error: $error');
+
+            if (mounted) {
+              setState(() {
+                _isLoading = false;
+              });
+            }
+          },
         );
-
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      },
-    );
   }
 
   // ============================================================
@@ -118,11 +104,8 @@ class _DriverJobStatusPageState
   // ============================================================
 
   Future<void> _payNow() async {
-    if (_jobAmount == null ||
-        _jobAmount! <= 0) {
-      _showMessage(
-        'Payment amount is not available.',
-      );
+    if (_jobAmount == null || _jobAmount! <= 0) {
+      _showMessage('Payment amount is not available.');
 
       return;
     }
@@ -140,62 +123,52 @@ class _DriverJobStatusPageState
     // ----------------------------------------------------------
 
     final bool? confirmed = await showDialog<bool>(
-  context: context,
-  builder: (context) {
-    return AlertDialog(
-      backgroundColor: RoadRescueColors.surface,
-      title: const Text(
-        'Confirm Payment',
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      content: Text(
-        'Confirm payment of ${_formatAmount(_jobAmount!)} for the roadside assistance service?',
-        style: const TextStyle(
-          color: Colors.white70,
-          height: 1.5,
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context, false);
-          },
-          child: const Text(
-            'Cancel',
-            style: TextStyle(
-              color: Colors.white54,
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: RoadRescueColors.surface,
+          title: const Text(
+            'Confirm Payment',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: Text(
+            'Confirm payment of ${_formatAmount(_jobAmount!)} for the roadside assistance service?',
+            style: const TextStyle(color: Colors.white70, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white54),
+              ),
             ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context, true);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: RoadRescueColors.accent,
-            foregroundColor: Colors.black,
-          ),
-          child: const Text('Pay Now'),
-        ),
-      ],
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: RoadRescueColors.accent,
+                foregroundColor: Colors.black,
+              ),
+              child: const Text('Pay Now'),
+            ),
+          ],
+        );
+      },
     );
-  },
-);
 
-if (confirmed == true && mounted) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => PaymentPage(
-        requestId: widget.requestId,
-        amount: _jobAmount!,
-      ),
-    ),
-  );
-}
+    if (confirmed == true && mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              PaymentPage(requestId: widget.requestId, amount: _jobAmount!),
+        ),
+      );
+    }
 
     if (confirmed != true) {
       return;
@@ -214,33 +187,23 @@ if (confirmed == true && mounted) {
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'paymentStatus': 'paid',
-        'paymentPaidBy':
-            widget.userData['uid'],
-        'paymentPaidAt':
-            FieldValue.serverTimestamp(),
-        'paymentUpdatedAt':
-            FieldValue.serverTimestamp(),
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      });
+            'paymentStatus': 'paid',
+            'paymentPaidBy': widget.userData['uid'],
+            'paymentPaidAt': FieldValue.serverTimestamp(),
+            'paymentUpdatedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       if (!mounted) {
         return;
       }
 
-      _showMessage(
-        'Payment completed successfully.',
-      );
+      _showMessage('Payment completed successfully.');
     } catch (e) {
-      debugPrint(
-        'Payment error: $e',
-      );
+      debugPrint('Payment error: $e');
 
       if (mounted) {
-        _showMessage(
-          'Unable to complete payment.',
-        );
+        _showMessage('Unable to complete payment.');
       }
     } finally {
       if (mounted) {
@@ -255,9 +218,7 @@ if (confirmed == true && mounted) {
   // FORMAT AMOUNT
   // ============================================================
 
-  String _formatAmount(
-    double amount,
-  ) {
+  String _formatAmount(double amount) {
     return 'LKR ${amount.toStringAsFixed(2)}';
   }
 
@@ -297,11 +258,10 @@ if (confirmed == true && mounted) {
         return 'Your roadside assistance provider has accepted your request.';
 
       case 'on_the_way':
-        return '$_providerName is travelling to your location.'
-            .replaceFirst(
-              '\$ ',
-              '',
-            );
+        return '$_providerName is travelling to your location.'.replaceFirst(
+          '\$ ',
+          '',
+        );
 
       case 'arrived':
         return 'The roadside assistance provider has arrived at your location.';
@@ -376,8 +336,7 @@ if (confirmed == true && mounted) {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          RoadRescueColors.background,
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -386,54 +345,31 @@ if (confirmed == true && mounted) {
             Expanded(
               child: _isLoading
                   ? const Center(
-                      child:
-                          CircularProgressIndicator(
-                        color:
-                            RoadRescueColors.accent,
+                      child: CircularProgressIndicator(
+                        color: RoadRescueColors.accent,
                       ),
                     )
                   : SingleChildScrollView(
-                      padding:
-                          const EdgeInsets
-                              .fromLTRB(
-                        20,
-                        10,
-                        20,
-                        30,
-                      ),
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
                       child: Column(
                         children: [
                           _buildProviderCard(),
 
-                          const SizedBox(
-                            height: 18,
-                          ),
+                          const SizedBox(height: 18),
 
                           _buildStatusCard(),
 
-                          const SizedBox(
-                            height: 18,
-                          ),
+                          const SizedBox(height: 18),
 
                           _buildProgress(),
 
-                          const SizedBox(
-                            height: 20,
-                          ),
+                          const SizedBox(height: 20),
 
-                          if (_status ==
-                                  'completed' &&
-                              _jobAmount !=
-                                  null)
+                          if (_status == 'completed' && _jobAmount != null)
                             _buildPaymentCard(),
 
-                          if (_status ==
-                                  'completed' &&
-                              _jobAmount !=
-                                  null)
-                            const SizedBox(
-                              height: 20,
-                            ),
+                          if (_status == 'completed' && _jobAmount != null)
+                            const SizedBox(height: 20),
 
                           _buildBackButton(),
                         ],
@@ -453,13 +389,7 @@ if (confirmed == true && mounted) {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        12,
-        12,
-        20,
-        15,
-      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 20, 15),
       child: Row(
         children: [
           IconButton(
@@ -475,25 +405,20 @@ if (confirmed == true && mounted) {
           const SizedBox(width: 5),
           const Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Job Status',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 SizedBox(height: 2),
                 Text(
                   'Track your roadside assistance',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -510,13 +435,10 @@ if (confirmed == true && mounted) {
   Widget _buildProviderCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color:
-            RoadRescueColors.surface,
-        borderRadius:
-            BorderRadius.circular(20),
+        color: RoadRescueColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
@@ -524,31 +446,23 @@ if (confirmed == true && mounted) {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color:
-                  RoadRescueColors.accent
-                      .withOpacity(0.12),
-              borderRadius:
-                  BorderRadius.circular(15),
+              color: RoadRescueColors.accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(
               Icons.support_agent_rounded,
-              color:
-                  RoadRescueColors.accent,
+              color: RoadRescueColors.accent,
               size: 27,
             ),
           ),
           const SizedBox(width: 13),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Roadside Provider',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 10,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 10),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -556,17 +470,13 @@ if (confirmed == true && mounted) {
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   widget.issue,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -583,13 +493,10 @@ if (confirmed == true && mounted) {
   Widget _buildStatusCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color:
-            RoadRescueColors.surface,
-        borderRadius:
-            BorderRadius.circular(20),
+        color: RoadRescueColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
@@ -597,15 +504,12 @@ if (confirmed == true && mounted) {
             width: 66,
             height: 66,
             decoration: BoxDecoration(
-              color:
-                  RoadRescueColors.accent
-                      .withOpacity(0.10),
+              color: RoadRescueColors.accent.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _statusIcon(),
-              color:
-                  RoadRescueColors.accent,
+              color: RoadRescueColors.accent,
               size: 32,
             ),
           ),
@@ -616,8 +520,7 @@ if (confirmed == true && mounted) {
             style: const TextStyle(
               color: Colors.white,
               fontSize: 19,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
@@ -648,67 +551,47 @@ if (confirmed == true && mounted) {
       'Completed',
     ];
 
-    final int current =
-        _statusIndex();
+    final int current = _statusIndex();
 
     return Container(
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color:
-            RoadRescueColors.surface,
-        borderRadius:
-            BorderRadius.circular(20),
+        color: RoadRescueColors.surface,
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        children:
-            List.generate(
-          labels.length,
-          (index) {
-            final bool active =
-                index <= current;
+        children: List.generate(labels.length, (index) {
+          final bool active = index <= current;
 
-            return Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: 27,
-                    height: 27,
-                    decoration:
-                        BoxDecoration(
-                      color: active
-                          ? RoadRescueColors.accent
-                          : Colors.white10,
-                      shape:
-                          BoxShape.circle,
-                    ),
-                    child: Icon(
-                      active
-                          ? Icons.check
-                          : Icons.circle,
-                      color: active
-                          ? Colors.black
-                          : Colors.white24,
-                      size: 15,
-                    ),
+          return Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 27,
+                  height: 27,
+                  decoration: BoxDecoration(
+                    color: active ? RoadRescueColors.accent : Colors.white10,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 7),
-                  Text(
-                    labels[index],
-                    textAlign:
-                        TextAlign.center,
-                    style: TextStyle(
-                      color: active
-                          ? Colors.white
-                          : Colors.white30,
-                      fontSize: 8,
-                    ),
+                  child: Icon(
+                    active ? Icons.check : Icons.circle,
+                    color: active ? Colors.black : Colors.white24,
+                    size: 15,
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: active ? Colors.white : Colors.white30,
+                    fontSize: 8,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -718,25 +601,20 @@ if (confirmed == true && mounted) {
   // ============================================================
 
   Widget _buildPaymentCard() {
-    final bool paid =
-        _paymentStatus == 'paid';
+    final bool paid = _paymentStatus == 'paid';
 
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color:
-            RoadRescueColors.surface,
-        borderRadius:
-            BorderRadius.circular(20),
+        color: RoadRescueColors.surface,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: RoadRescueColors.accent.withOpacity(0.15),
+          color: RoadRescueColors.accent.withValues(alpha: 0.15),
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -744,42 +622,32 @@ if (confirmed == true && mounted) {
                 width: 45,
                 height: 45,
                 decoration: BoxDecoration(
-                  color: RoadRescueColors.accent.withOpacity(0.10),
-                  borderRadius:
-                      BorderRadius.circular(
-                    13,
-                  ),
+                  color: RoadRescueColors.accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
-                  Icons
-                      .account_balance_wallet_outlined,
-                  color:
-                      RoadRescueColors.accent,
+                  Icons.account_balance_wallet_outlined,
+                  color: RoadRescueColors.accent,
                   size: 24,
                 ),
               ),
               const SizedBox(width: 11),
               const Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Payment Required',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 3),
                     Text(
                       'Roadside assistance service',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                      ),
+                      style: TextStyle(color: Colors.white38, fontSize: 10),
                     ),
                   ],
                 ),
@@ -791,35 +659,25 @@ if (confirmed == true && mounted) {
 
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color:
-                  RoadRescueColors.background,
-              borderRadius:
-                  BorderRadius.circular(15),
+              color: RoadRescueColors.background,
+              borderRadius: BorderRadius.circular(15),
             ),
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Amount to Pay',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 10,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 10),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _formatAmount(
-                    _jobAmount!,
-                  ),
+                  _formatAmount(_jobAmount!),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 25,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -833,47 +691,30 @@ if (confirmed == true && mounted) {
               width: double.infinity,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed:
-                    _isPaying
-                        ? null
-                        : _payNow,
+                onPressed: _isPaying ? null : _payNow,
                 icon: _isPaying
                     ? const SizedBox(
                         width: 19,
                         height: 19,
-                        child:
-                            CircularProgressIndicator(
+                        child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: Colors.black,
                         ),
                       )
-                    : const Icon(
-                        Icons
-                            .payments_rounded,
-                      ),
+                    : const Icon(Icons.payments_rounded),
                 label: Text(
-                  _isPaying
-                      ? 'Processing...'
-                      : 'Pay Now',
-                  style:
-                      const TextStyle(
-                    fontWeight:
-                        FontWeight.bold,
+                  _isPaying ? 'Processing...' : 'Pay Now',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
                 ),
-                style:
-                    ElevatedButton.styleFrom(
+                style: ElevatedButton.styleFrom(
                   backgroundColor: RoadRescueColors.accent,
-                  foregroundColor:
-                      Colors.black,
+                  foregroundColor: Colors.black,
                   elevation: 0,
-                  shape:
-                      RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(
-                      14,
-                    ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
@@ -881,24 +722,16 @@ if (confirmed == true && mounted) {
           else
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
-                color:
-                    Colors.greenAccent
-                        .withOpacity(0.08),
-                borderRadius:
-                    BorderRadius.circular(
-                  13,
-                ),
+                color: Colors.greenAccent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(13),
               ),
               child: const Row(
                 children: [
                   Icon(
-                    Icons
-                        .check_circle_rounded,
-                    color:
-                        Colors.greenAccent,
+                    Icons.check_circle_rounded,
+                    color: Colors.greenAccent,
                     size: 21,
                   ),
                   SizedBox(width: 9),
@@ -906,11 +739,9 @@ if (confirmed == true && mounted) {
                     child: Text(
                       'Payment completed successfully.',
                       style: TextStyle(
-                        color:
-                            Colors.greenAccent,
+                        color: Colors.greenAccent,
                         fontSize: 12,
-                        fontWeight:
-                            FontWeight.w600,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -934,26 +765,16 @@ if (confirmed == true && mounted) {
         onPressed: () {
           Navigator.pop(context);
         },
-        style:
-            OutlinedButton.styleFrom(
-          foregroundColor:
-              Colors.white,
-          side:
-              const BorderSide(
-            color: Colors.white24,
-          ),
-          shape:
-              RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(14),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white,
+          side: const BorderSide(color: Colors.white24),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
           ),
         ),
         child: const Text(
           'Back',
-          style: TextStyle(
-            fontWeight:
-                FontWeight.w600,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -963,21 +784,16 @@ if (confirmed == true && mounted) {
   // MESSAGE
   // ============================================================
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-        backgroundColor:
-            RoadRescueColors.surface,
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }

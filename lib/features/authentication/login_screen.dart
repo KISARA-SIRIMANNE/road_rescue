@@ -15,32 +15,19 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // ============================================================
-  // FIREBASE
-  // ============================================================
-
+  // Firebase
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ============================================================
-  // CONTROLLERS
-  // ============================================================
-
+  // Controllers
   final TextEditingController _emailController = TextEditingController();
-
   final TextEditingController _passwordController = TextEditingController();
 
-  // ============================================================
-  // STATE
-  // ============================================================
-
+  // State
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // ============================================================
-  // COLORS
-  // ============================================================
-
+  // Colors
   static const Color backgroundColor = RoadRescueColors.background;
   static const Color cardColor = RoadRescueColors.surface;
   static const Color yellowColor = RoadRescueColors.accent;
@@ -48,15 +35,10 @@ class _LoginScreenState extends State<LoginScreen> {
   static const Color greyColor = RoadRescueColors.muted;
   static const Color borderColor = RoadRescueColors.border;
 
-  // ============================================================
-  // DISPOSE
-  // ============================================================
-
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-
     super.dispose();
   }
 
@@ -69,10 +51,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final String email = _emailController.text.trim();
     final String password = _passwordController.text;
-
-    // ------------------------------------------------------------
-    // VALIDATION
-    // ------------------------------------------------------------
 
     if (email.isEmpty) {
       _showError('Please enter your email address.');
@@ -89,21 +67,17 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // ------------------------------------------------------------
-    // START LOADING
-    // ------------------------------------------------------------
-
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // ----------------------------------------------------------
-      // FIREBASE AUTHENTICATION
-      // ----------------------------------------------------------
-
-      final UserCredential userCredential = await _auth
-          .signInWithEmailAndPassword(email: email, password: password);
+      // Authenticate with Firebase.
+      final UserCredential userCredential =
+          await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
       final User? user = userCredential.user;
 
@@ -112,70 +86,56 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // ----------------------------------------------------------
-      // GET USER DATA FROM FIRESTORE
-      // ----------------------------------------------------------
-
-      final DocumentSnapshot userDocument = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      // Retrieve the user's Firestore profile.
+      final DocumentSnapshot<Map<String, dynamic>> userDocument =
+          await _firestore.collection('users').doc(user.uid).get();
 
       if (!userDocument.exists) {
         _showError('Your account information could not be found.');
-
         await _auth.signOut();
         return;
       }
 
       final Map<String, dynamic> userData = {
-        ...(userDocument.data() as Map<String, dynamic>),
+        ...?userDocument.data(),
         'uid': user.uid,
         'email': user.email,
       };
 
-      final String role = userData['role']?.toString() ?? '';
+      final Object? storedRole = userData['role'] ??
+          userData['userRole'] ??
+          userData['accountType'] ??
+          userData['userType'];
 
-      // ----------------------------------------------------------
-      // CHECK ROLE
-      // ----------------------------------------------------------
+      final String role = _resolveRole(userData);
 
       if (!mounted) return;
 
-      // ----------------------------------------------------------
-      // VEHICLE OWNER
-      // ----------------------------------------------------------
-
+      // Vehicle owner dashboard.
       if (role == 'vehicle_owner') {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => VehicleOwnerHomePage(userData: userData),
+            builder: (context) =>
+                VehicleOwnerHomePage(userData: userData),
           ),
         );
-
         return;
       }
 
-      // ----------------------------------------------------------
-      // ROADSIDE PROVIDER
-      // ----------------------------------------------------------
-
+      // Roadside assistance provider dashboard.
       if (role == 'roadside_provider') {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => RoadsideProviderHomePage(userData: userData),
+            builder: (context) =>
+                RoadsideProviderHomePage(userData: userData),
           ),
         );
-
         return;
       }
 
-      // ----------------------------------------------------------
-      // INSURANCE PROVIDER
-      // ----------------------------------------------------------
-
+      // Insurance provider dashboard.
       if (role == 'insurance_provider') {
         Navigator.pushReplacement(
           context,
@@ -183,15 +143,43 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (context) => const InsuranceDashboardPage(),
           ),
         );
-
         return;
       }
 
-      // ----------------------------------------------------------
-      // UNKNOWN ROLE
-      // ----------------------------------------------------------
+      // Allow existing accounts with no role to select their account type.
+      if (role.isEmpty) {
+        final String? selectedRole = await _chooseMissingAccountRole();
 
-      _showError('Your account role is not recognized.');
+        if (selectedRole == null || !mounted) return;
+
+        await _firestore.collection('users').doc(user.uid).set(
+          {
+            'uid': user.uid,
+            'email': user.email,
+            'role': selectedRole,
+          },
+          SetOptions(merge: true),
+        );
+
+        if (!mounted) return;
+
+        userData['role'] = selectedRole;
+        _navigateToRole(selectedRole, userData);
+        return;
+      }
+
+      // Unknown role.
+      final String roleLabel =
+          storedRole?.toString().trim().isNotEmpty == true
+              ? storedRole.toString().trim()
+              : 'missing';
+
+      debugPrint(
+        'Login role not recognized: "$roleLabel"; '
+        'profile fields: ${userData.keys.join(', ')}',
+      );
+
+      _showError('Account role "$roleLabel" is not recognized.');
 
       await _auth.signOut();
     } on FirebaseAuthException catch (e) {
@@ -223,7 +211,8 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
 
         case 'network-request-failed':
-          message = 'Network error. Please check your internet connection.';
+          message =
+              'Network error. Please check your internet connection.';
           break;
 
         default:
@@ -232,8 +221,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _showError(message);
     } on FirebaseException catch (e) {
-      _showError(e.message ?? 'A Firebase error occurred. Please try again.');
+      _showError(
+        e.message ?? 'A Firebase error occurred. Please try again.',
+      );
     } catch (e) {
+      debugPrint('Login error: $e');
       _showError('Something went wrong. Please try again.');
     } finally {
       if (mounted) {
@@ -242,6 +234,200 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     }
+  }
+
+  // ============================================================
+  // ROLE RESOLUTION
+  // ============================================================
+
+  String _resolveRole(Map<String, dynamic> userData) {
+    final String explicitRole = _normalizeRole(
+      userData['role'] ??
+          userData['userRole'] ??
+          userData['accountType'] ??
+          userData['userType'],
+    );
+
+    if (const {
+      'vehicle_owner',
+      'roadside_provider',
+      'insurance_provider',
+    }.contains(explicitRole)) {
+      return explicitRole;
+    }
+
+    // Recover roles from existing registration profile fields.
+    if (_hasAnyField(userData, const {
+      'insuranceCompanyId',
+      'companyId',
+      'companyName',
+    })) {
+      return 'insurance_provider';
+    }
+
+    if (_hasAnyField(userData, const {
+      'workshopLocation',
+      'serviceArea',
+      'providerType',
+    })) {
+      return 'roadside_provider';
+    }
+
+    if (_hasAnyField(userData, const {
+      'vehicleType',
+      'vehicleNumber',
+      'vehiclePlate',
+      'contactNumber',
+    })) {
+      return 'vehicle_owner';
+    }
+
+    return explicitRole;
+  }
+
+  bool _hasAnyField(
+    Map<String, dynamic> data,
+    Set<String> fields,
+  ) {
+    return fields.any(
+      (field) =>
+          data[field] != null &&
+          data[field].toString().trim().isNotEmpty,
+    );
+  }
+
+  String _normalizeRole(Object? rawRole) {
+    final String role = rawRole
+            ?.toString()
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'[\s-]+'), '_') ??
+        '';
+
+    switch (role) {
+      case 'vehicle_owner':
+      case 'vehicleowner':
+      case 'owner':
+      case 'customer':
+      case 'motorist':
+        return 'vehicle_owner';
+
+      case 'roadside_provider':
+      case 'roadside_assistance_provider':
+      case 'roadside_assistance':
+      case 'roadsideprovider':
+      case 'serviceprovider':
+      case 'service_provider':
+      case 'provider':
+      case 'mechanic':
+      case 'workshop':
+      case 'garage':
+      case 'towing_provider':
+        return 'roadside_provider';
+
+      case 'insurance_provider':
+      case 'insurancecompany':
+      case 'insurance_company':
+      case 'insurer':
+      case 'insurance_agent':
+      case 'insurance':
+        return 'insurance_provider';
+
+      default:
+        return role;
+    }
+  }
+
+  // ============================================================
+  // MISSING ROLE DIALOG
+  // ============================================================
+
+  Future<String?> _chooseMissingAccountRole() {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text(
+          'Complete your account',
+          style: TextStyle(color: whiteColor),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Choose the account type you selected when you registered.',
+              style: TextStyle(color: greyColor),
+            ),
+            const SizedBox(height: 12),
+            _roleChoice(
+              dialogContext,
+              'Vehicle owner',
+              'vehicle_owner',
+            ),
+            _roleChoice(
+              dialogContext,
+              'Roadside assistance provider',
+              'roadside_provider',
+            ),
+            _roleChoice(
+              dialogContext,
+              'Insurance provider',
+              'insurance_provider',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _roleChoice(
+    BuildContext context,
+    String title,
+    String role,
+  ) {
+    return TextButton(
+      onPressed: () => Navigator.pop(context, role),
+      child: Text(
+        title,
+        style: const TextStyle(color: yellowColor),
+      ),
+    );
+  }
+
+  // ============================================================
+  // ROLE NAVIGATION
+  // ============================================================
+
+  void _navigateToRole(
+    String role,
+    Map<String, dynamic> userData,
+  ) {
+    final Widget page;
+
+    switch (role) {
+      case 'vehicle_owner':
+        page = VehicleOwnerHomePage(userData: userData);
+        break;
+
+      case 'roadside_provider':
+        page = RoadsideProviderHomePage(userData: userData);
+        break;
+
+      case 'insurance_provider':
+        page = const InsuranceDashboardPage();
+        break;
+
+      default:
+        _showError('Unable to open the selected account dashboard.');
+        return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => page),
+    );
   }
 
   // ============================================================
@@ -280,38 +466,27 @@ class _LoginScreenState extends State<LoginScreen> {
             FocusScope.of(context).unfocus();
           },
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 28,
+              vertical: 30,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildBackButton(),
-
                 const SizedBox(height: 36),
-
                 _buildLogo(),
-
                 const SizedBox(height: 42),
-
                 _buildHeader(),
-
                 const SizedBox(height: 34),
-
                 _buildEmailField(),
-
                 const SizedBox(height: 18),
-
                 _buildPasswordField(),
-
                 const SizedBox(height: 12),
-
                 _buildForgotPassword(),
-
                 const SizedBox(height: 30),
-
                 _buildLoginButton(),
-
                 const SizedBox(height: 28),
-
                 _buildRegisterText(),
               ],
             ),
@@ -330,7 +505,11 @@ class _LoginScreenState extends State<LoginScreen> {
       onPressed: () {
         Navigator.pop(context);
       },
-      icon: const Icon(Icons.arrow_back_ios_new, color: whiteColor, size: 20),
+      icon: const Icon(
+        Icons.arrow_back_ios_new,
+        color: whiteColor,
+        size: 20,
+      ),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(),
     );
@@ -361,9 +540,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-
         const SizedBox(width: 13),
-
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -389,9 +566,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 4),
-
             const Text(
               'ALWAYS THERE FOR YOU',
               style: TextStyle(
@@ -424,12 +599,14 @@ class _LoginScreenState extends State<LoginScreen> {
             height: 1.15,
           ),
         ),
-
         SizedBox(height: 8),
-
         Text(
           'Log in to continue using RoadRescue.',
-          style: TextStyle(color: greyColor, fontSize: 14, height: 1.5),
+          style: TextStyle(
+            color: greyColor,
+            fontSize: 14,
+            height: 1.5,
+          ),
         ),
       ],
     );
@@ -451,17 +628,21 @@ class _LoginScreenState extends State<LoginScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-
         const SizedBox(height: 9),
-
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
-          style: const TextStyle(color: whiteColor, fontSize: 14),
+          style: const TextStyle(
+            color: whiteColor,
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: 'Enter your email',
-            hintStyle: const TextStyle(color: greyColor, fontSize: 14),
+            hintStyle: const TextStyle(
+              color: greyColor,
+              fontSize: 14,
+            ),
             prefixIcon: const Icon(
               Icons.email_outlined,
               color: greyColor,
@@ -483,7 +664,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(color: yellowColor, width: 1.4),
+              borderSide: const BorderSide(
+                color: yellowColor,
+                width: 1.4,
+              ),
             ),
           ),
         ),
@@ -507,18 +691,22 @@ class _LoginScreenState extends State<LoginScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-
         const SizedBox(height: 9),
-
         TextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _loginUser(),
-          style: const TextStyle(color: whiteColor, fontSize: 14),
+          style: const TextStyle(
+            color: whiteColor,
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: 'Enter your password',
-            hintStyle: const TextStyle(color: greyColor, fontSize: 14),
+            hintStyle: const TextStyle(
+              color: greyColor,
+              fontSize: 14,
+            ),
             prefixIcon: const Icon(
               Icons.lock_outline,
               color: greyColor,
@@ -554,7 +742,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(color: yellowColor, width: 1.4),
+              borderSide: const BorderSide(
+                color: yellowColor,
+                width: 1.4,
+              ),
             ),
           ),
         ),
@@ -570,9 +761,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        onPressed: () {
-          _showError('Password reset will be added soon.');
-        },
+        onPressed: _resetPassword,
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
           minimumSize: Size.zero,
@@ -590,6 +779,40 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _resetPassword() async {
+    final String email = _emailController.text.trim();
+
+    if (email.isEmpty ||
+        !RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email)) {
+      _showError('Enter a valid email address to reset your password.');
+      return;
+    }
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Password reset email sent. Please check your inbox.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    } on FirebaseAuthException catch (e) {
+      _showError(
+        e.message ?? 'Unable to send the password reset email.',
+      );
+    } catch (e) {
+      debugPrint('Password reset error: $e');
+      _showError('Something went wrong. Please try again.');
+    }
+  }
+
   // ============================================================
   // LOGIN BUTTON
   // ============================================================
@@ -603,7 +826,8 @@ class _LoginScreenState extends State<LoginScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: yellowColor,
           foregroundColor: backgroundColor,
-          disabledBackgroundColor: yellowColor.withOpacity(0.5),
+          disabledBackgroundColor:
+              yellowColor.withValues(alpha: 0.5),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -629,9 +853,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
                   Container(
                     width: 22,
                     height: 22,
@@ -662,9 +884,11 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           const Text(
             "Don't have an account? ",
-            style: TextStyle(color: greyColor, fontSize: 13),
+            style: TextStyle(
+              color: greyColor,
+              fontSize: 13,
+            ),
           ),
-
           GestureDetector(
             onTap: () {
               Navigator.pop(context);
@@ -679,105 +903,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ============================================================
-// TEMPORARY ROLE HOME PLACEHOLDER
-// ============================================================
-//
-// This is kept for the Roadside Assistance Provider and
-// Insurance Provider until we create their home pages.
-//
-// Vehicle owners are sent directly to:
-// VehicleOwnerHomePage
-// ============================================================
-
-class RoleHomePlaceholder extends StatelessWidget {
-  final String role;
-  final Map<String, dynamic> userData;
-
-  const RoleHomePlaceholder({
-    super.key,
-    required this.role,
-    required this.userData,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    String roleName;
-
-    switch (role) {
-      case 'roadside_provider':
-        roleName = 'Roadside Assistance Provider';
-        break;
-
-      case 'insurance_provider':
-        roleName = 'Insurance Provider';
-        break;
-
-      default:
-        roleName = 'User';
-    }
-
-    return Scaffold(
-      backgroundColor: RoadRescueColors.background,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: RoadRescueColors.accent,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child: const Icon(
-                    Icons.check,
-                    color: RoadRescueColors.background,
-                    size: 42,
-                  ),
-                ),
-
-                const SizedBox(height: 25),
-
-                const Text(
-                  'Login Successful',
-                  style: TextStyle(
-                    color: RoadRescueColors.foreground,
-                    fontSize: 27,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-
-                Text(
-                  roleName,
-                  style: const TextStyle(
-                    color: RoadRescueColors.accent,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                const Text(
-                  'Your home page will be available here.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: RoadRescueColors.muted, fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

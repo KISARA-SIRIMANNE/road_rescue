@@ -322,7 +322,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: yellowColor.withOpacity(0.12),
+            color: yellowColor.withValues(alpha: 0.12),
             blurRadius: 25,
             offset: const Offset(0, 10),
           ),
@@ -337,7 +337,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: backgroundColor.withOpacity(0.12),
+                  color: backgroundColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
@@ -355,7 +355,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: backgroundColor.withOpacity(0.10),
+                  color: backgroundColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Row(
@@ -393,7 +393,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
           Text(
             'Request assistance and get help from a nearby provider.',
             style: TextStyle(
-              color: backgroundColor.withOpacity(0.65),
+              color: backgroundColor.withValues(alpha: 0.65),
               fontSize: 12.5,
               height: 1.45,
             ),
@@ -552,7 +552,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: yellowColor.withOpacity(0.09),
+                color: yellowColor.withValues(alpha: 0.09),
                 borderRadius: BorderRadius.circular(11),
               ),
               child: Icon(icon, color: yellowColor, size: 21),
@@ -602,7 +602,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
             width: 55,
             height: 55,
             decoration: BoxDecoration(
-              color: yellowColor.withOpacity(0.09),
+              color: yellowColor.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(
@@ -1134,7 +1134,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: yellowColor.withOpacity(0.1),
+                  color: yellowColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
@@ -1263,10 +1263,10 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                       width: 88,
                       height: 88,
                       decoration: BoxDecoration(
-                        color: yellowColor.withOpacity(0.12),
+                        color: yellowColor.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: yellowColor.withOpacity(0.35),
+                          color: yellowColor.withValues(alpha: 0.35),
                           width: 1.5,
                         ),
                         image: _profilePhotoUrl.isNotEmpty
@@ -1362,7 +1362,9 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: yellowColor,
                       foregroundColor: backgroundColor,
-                      disabledBackgroundColor: yellowColor.withOpacity(0.4),
+                      disabledBackgroundColor: yellowColor.withValues(
+                        alpha: 0.4,
+                      ),
                       disabledForegroundColor: Colors.black54,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -1464,7 +1466,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: yellowColor.withOpacity(0.08),
+              color: yellowColor.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(11),
             ),
             child: Icon(icon, color: yellowColor, size: 21),
@@ -1513,7 +1515,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
         height: 68,
         backgroundColor: cardColor,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: yellowColor.withOpacity(0.12),
+        indicatorColor: yellowColor.withValues(alpha: 0.12),
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() {

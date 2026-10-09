@@ -25,14 +25,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   // CONTROLLERS
   // ============================================================
 
-  final TextEditingController _nameController =
-      TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
 
-  final TextEditingController _emailController =
-      TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
 
-  final TextEditingController _vehicleTypeController =
-      TextEditingController();
+  final TextEditingController _vehicleTypeController = TextEditingController();
 
   final TextEditingController _contactNumberController =
       TextEditingController();
@@ -40,8 +37,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final TextEditingController _workshopLocationController =
       TextEditingController();
 
-  final TextEditingController _passwordController =
-      TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   final TextEditingController _confirmPasswordController =
       TextEditingController();
@@ -141,9 +137,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
 
-    if (!RegExp(
-      r'^[\w\.-]+@[\w\.-]+\.\w+$',
-    ).hasMatch(email)) {
+    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email)) {
       _showError('Please enter a valid email address.');
       return;
     }
@@ -154,9 +148,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     if (password.length < 6) {
-      _showError(
-        'Password must contain at least 6 characters.',
-      );
+      _showError('Password must contain at least 6 characters.');
       return;
     }
 
@@ -183,18 +175,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       // CREATE FIREBASE AUTH ACCOUNT
       // ----------------------------------------------------------
 
-      final UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential userCredential = await _auth
+          .createUserWithEmailAndPassword(email: email, password: password);
 
       final User? user = userCredential.user;
 
       if (user == null) {
-        throw Exception(
-          'Unable to create the user account.',
-        );
+        throw Exception('Unable to create the user account.');
       }
 
       // ----------------------------------------------------------
@@ -213,14 +200,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       // ----------------------------------------------------------
 
       if (_selectedRole == 'vehicle_owner') {
-        userData['name'] =
-            _nameController.text.trim();
+        userData['name'] = _nameController.text.trim();
 
-        userData['vehicleType'] =
-            _vehicleTypeController.text.trim();
+        userData['vehicleType'] = _vehicleTypeController.text.trim();
 
-        userData['contactNumber'] =
-            _contactNumberController.text.trim();
+        userData['contactNumber'] = _contactNumberController.text.trim();
       }
 
       // ----------------------------------------------------------
@@ -228,11 +212,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       // ----------------------------------------------------------
 
       if (_selectedRole == 'roadside_provider') {
-        userData['name'] =
-            _nameController.text.trim();
+        userData['name'] = _nameController.text.trim();
 
-        userData['workshopLocation'] =
-            _workshopLocationController.text.trim();
+        userData['workshopLocation'] = _workshopLocationController.text.trim();
       }
 
       // ----------------------------------------------------------
@@ -249,10 +231,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       // SAVE USER DATA TO FIRESTORE
       // ----------------------------------------------------------
 
-      await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .set(userData);
+      await _firestore.collection('users').doc(user.uid).set(userData);
 
       // ----------------------------------------------------------
       // REGISTRATION SUCCESS
@@ -270,27 +249,22 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => const LoginScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
       );
     } on FirebaseAuthException catch (e) {
       String message;
 
       switch (e.code) {
         case 'email-already-in-use':
-          message =
-              'An account already exists with this email address.';
+          message = 'An account already exists with this email address.';
           break;
 
         case 'invalid-email':
-          message =
-              'The email address is not valid.';
+          message = 'The email address is not valid.';
           break;
 
         case 'weak-password':
-          message =
-              'The password is too weak. Please use a stronger password.';
+          message = 'The password is too weak. Please use a stronger password.';
           break;
 
         case 'operation-not-allowed':
@@ -299,26 +273,19 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           break;
 
         case 'network-request-failed':
-          message =
-              'Network error. Please check your internet connection.';
+          message = 'Network error. Please check your internet connection.';
           break;
 
         default:
           message =
-              e.message ??
-              'Unable to create your account. Please try again.';
+              e.message ?? 'Unable to create your account. Please try again.';
       }
 
       _showError(message);
     } on FirebaseException catch (e) {
-      _showError(
-        e.message ??
-            'A Firebase error occurred. Please try again.',
-      );
+      _showError(e.message ?? 'A Firebase error occurred. Please try again.');
     } catch (e) {
-      _showError(
-        'Something went wrong. Please try again.',
-      );
+      _showError('Something went wrong. Please try again.');
     } finally {
       if (mounted) {
         setState(() {
@@ -344,19 +311,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           ),
           title: const Text(
             'Registration Successful',
-            style: TextStyle(
-              color: whiteColor,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Your RoadRescue account has been created successfully. '
             'Please log in to continue.',
-            style: TextStyle(
-              color: greyColor,
-              fontSize: 14,
-              height: 1.5,
-            ),
+            style: TextStyle(color: greyColor, fontSize: 14, height: 1.5),
           ),
           actions: [
             TextButton(
@@ -413,12 +373,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             FocusScope.of(context).unfocus();
           },
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(
-              28,
-              24,
-              28,
-              40,
-            ),
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 40),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -476,11 +431,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       onPressed: () {
         Navigator.pop(context);
       },
-      icon: const Icon(
-        Icons.arrow_back_ios_new,
-        color: whiteColor,
-        size: 20,
-      ),
+      icon: const Icon(Icons.arrow_back_ios_new, color: whiteColor, size: 20),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(),
     );
@@ -579,11 +530,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
         Text(
           'Create your RoadRescue account to get started.',
-          style: TextStyle(
-            color: greyColor,
-            fontSize: 14,
-            height: 1.5,
-          ),
+          style: TextStyle(color: greyColor, fontSize: 14, height: 1.5),
         ),
       ],
     );
@@ -655,14 +602,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(15),
         decoration: BoxDecoration(
-          color: isSelected
-              ? yellowColor.withOpacity(0.08)
-              : cardColor,
+          color: isSelected ? yellowColor.withValues(alpha: 0.08) : cardColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected
-                ? yellowColor
-                : borderColor,
+            color: isSelected ? yellowColor : borderColor,
             width: isSelected ? 1.3 : 1,
           ),
         ),
@@ -672,16 +615,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: isSelected
-                    ? yellowColor
-                    : backgroundColor,
+                color: isSelected ? yellowColor : backgroundColor,
                 borderRadius: BorderRadius.circular(11),
               ),
               child: Icon(
                 icon,
-                color: isSelected
-                    ? backgroundColor
-                    : greyColor,
+                color: isSelected ? backgroundColor : greyColor,
                 size: 22,
               ),
             ),
@@ -690,15 +629,12 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
             Expanded(
               child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
                     style: TextStyle(
-                      color: isSelected
-                          ? yellowColor
-                          : whiteColor,
+                      color: isSelected ? yellowColor : whiteColor,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -708,10 +644,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
                   Text(
                     description,
-                    style: const TextStyle(
-                      color: greyColor,
-                      fontSize: 11,
-                    ),
+                    style: const TextStyle(color: greyColor, fontSize: 11),
                   ),
                 ],
               ),
@@ -721,9 +654,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
               isSelected
                   ? Icons.radio_button_checked
                   : Icons.radio_button_unchecked,
-              color: isSelected
-                  ? yellowColor
-                  : greyColor,
+              color: isSelected ? yellowColor : greyColor,
               size: 21,
             ),
           ],
@@ -796,7 +727,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     }
 
     return DropdownButtonFormField<String>(
-      value: _selectedInsuranceCompanyId,
+      initialValue: _selectedInsuranceCompanyId,
       isExpanded: true,
       dropdownColor: cardColor,
       style: const TextStyle(color: whiteColor),
@@ -807,10 +738,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       hint: const Text('Select insurance company'),
       items: insuranceCompanies
           .map(
-            (company) => DropdownMenuItem(
-              value: company.id,
-              child: Text(company.name),
-            ),
+            (company) =>
+                DropdownMenuItem(value: company.id, child: Text(company.name)),
           )
           .toList(),
       onChanged: (value) {
@@ -877,8 +806,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       suffixIcon: IconButton(
         onPressed: () {
           setState(() {
-            _obscureConfirmPassword =
-                !_obscureConfirmPassword;
+            _obscureConfirmPassword = !_obscureConfirmPassword;
           });
         },
         icon: Icon(
@@ -923,47 +851,29 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           controller: controller,
           keyboardType: textInputType,
           obscureText: obscureText,
-          style: const TextStyle(
-            color: whiteColor,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: whiteColor, fontSize: 14),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(
-              color: greyColor,
-              fontSize: 14,
-            ),
-            prefixIcon: Icon(
-              icon,
-              color: greyColor,
-              size: 21,
-            ),
+            hintStyle: const TextStyle(color: greyColor, fontSize: 14),
+            prefixIcon: Icon(icon, color: greyColor, size: 21),
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: cardColor,
-            contentPadding:
-                const EdgeInsets.symmetric(
+            contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 17,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: borderColor,
-              ),
+              borderSide: const BorderSide(color: borderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: borderColor,
-              ),
+              borderSide: const BorderSide(color: borderColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: yellowColor,
-                width: 1.4,
-              ),
+              borderSide: const BorderSide(color: yellowColor, width: 1.4),
             ),
           ),
         ),
@@ -984,8 +894,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: yellowColor,
           foregroundColor: backgroundColor,
-          disabledBackgroundColor:
-              yellowColor.withOpacity(0.5),
+          disabledBackgroundColor: yellowColor.withValues(alpha: 0.5),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -1001,8 +910,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               )
             : Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
                     'Create Account',
@@ -1020,8 +928,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     height: 22,
                     decoration: BoxDecoration(
                       color: backgroundColor,
-                      borderRadius:
-                          BorderRadius.circular(11),
+                      borderRadius: BorderRadius.circular(11),
                     ),
                     child: const Icon(
                       Icons.arrow_forward,
@@ -1046,20 +953,14 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         children: [
           const Text(
             'Already have an account? ',
-            style: TextStyle(
-              color: greyColor,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: greyColor, fontSize: 13),
           ),
 
           GestureDetector(
             onTap: () {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const LoginScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
               );
             },
             child: const Text(

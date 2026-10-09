@@ -13,9 +13,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase.
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await NotificationService.instance.initialize();
 
@@ -37,15 +35,11 @@ class RoadRescueApp extends StatelessWidget {
 
       title: 'RoadRescue',
 
-      // ============================================================== 
+      // ==============================================================
       // THEME
       // ==============================================================
 
       theme: RoadRescueTheme.dark,
-
-      // ============================================================== 
-      // TEMPORARY GOOGLE MAP TEST
-      // ==============================================================
 
       home: const OnboardingPage(),
     );

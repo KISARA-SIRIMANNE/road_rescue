@@ -19,8 +19,7 @@ class InsuranceNotificationsPage extends StatefulWidget {
 class _InsuranceNotificationsPageState
     extends State<InsuranceNotificationsPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const Color backgroundColor = RoadRescueColors.background;
   static const Color cardColor = RoadRescueColors.surface;
@@ -90,8 +89,7 @@ class _InsuranceNotificationsPageState
     } on FirebaseException catch (e) {
       if (mounted) {
         setState(() {
-          _syncError =
-              '${e.code}: ${e.message ?? 'Firebase request failed.'}';
+          _syncError = '${e.code}: ${e.message ?? 'Firebase request failed.'}';
         });
       }
       debugPrint(
@@ -114,8 +112,7 @@ class _InsuranceNotificationsPageState
     }
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>>
-      _notificationStream() {
+  Stream<QuerySnapshot<Map<String, dynamic>>> _notificationStream() {
     final User? user = _auth.currentUser;
 
     if (user == null) {
@@ -128,40 +125,27 @@ class _InsuranceNotificationsPageState
         .snapshots();
   }
 
-  String _getTitle(
-    Map<String, dynamic> data,
-  ) {
+  String _getTitle(Map<String, dynamic> data) {
     return (data['title'] ??
             data['notificationTitle'] ??
             'Insurance Notification')
         .toString();
   }
 
-  String _getMessage(
-    Map<String, dynamic> data,
-  ) {
-    return (data['message'] ??
-            data['body'] ??
-            'You have a new notification.')
+  String _getMessage(Map<String, dynamic> data) {
+    return (data['message'] ?? data['body'] ?? 'You have a new notification.')
         .toString();
   }
 
-  bool _isRead(
-    Map<String, dynamic> data,
-  ) {
-    return data['read'] == true ||
-        data['isRead'] == true;
+  bool _isRead(Map<String, dynamic> data) {
+    return data['read'] == true || data['isRead'] == true;
   }
 
-  bool _isDeleted(
-    Map<String, dynamic> data,
-  ) {
+  bool _isDeleted(Map<String, dynamic> data) {
     return data['isDeleted'] == true;
   }
 
-  DateTime _getDate(
-    dynamic value,
-  ) {
+  DateTime _getDate(dynamic value) {
     if (value is Timestamp) {
       return value.toDate();
     }
@@ -171,36 +155,28 @@ class _InsuranceNotificationsPageState
     }
 
     if (value is String) {
-      return DateTime.tryParse(value) ??
-          DateTime(2000);
+      return DateTime.tryParse(value) ?? DateTime(2000);
     }
 
     return DateTime(2000);
   }
 
-  String _formatDate(
-    dynamic value,
-  ) {
+  String _formatDate(dynamic value) {
     final DateTime date = _getDate(value);
 
     if (date.year == 2000) {
       return 'Recently';
     }
 
-    final String day =
-        date.day.toString().padLeft(2, '0');
+    final String day = date.day.toString().padLeft(2, '0');
 
-    final String month =
-        date.month.toString().padLeft(2, '0');
+    final String month = date.month.toString().padLeft(2, '0');
 
     return '$day/$month/${date.year}';
   }
 
-  IconData _getNotificationIcon(
-    Map<String, dynamic> data,
-  ) {
-    final String type =
-        (data['type'] ?? '').toString().toLowerCase();
+  IconData _getNotificationIcon(Map<String, dynamic> data) {
+    final String type = (data['type'] ?? '').toString().toLowerCase();
 
     if (type.contains('approved')) {
       return Icons.check_circle_outline;
@@ -221,11 +197,8 @@ class _InsuranceNotificationsPageState
     return Icons.notifications_none;
   }
 
-  Color _getNotificationColor(
-    Map<String, dynamic> data,
-  ) {
-    final String type =
-        (data['type'] ?? '').toString().toLowerCase();
+  Color _getNotificationColor(Map<String, dynamic> data) {
+    final String type = (data['type'] ?? '').toString().toLowerCase();
 
     if (type.contains('approved')) {
       return Colors.green;
@@ -272,21 +245,14 @@ class _InsuranceNotificationsPageState
     ];
   }
 
-  Future<void> _markAsRead(
-    String documentId,
-  ) async {
+  Future<void> _markAsRead(String documentId) async {
     try {
-      await _firestore
-          .collection('notifications')
-          .doc(documentId)
-          .update({
+      await _firestore.collection('notifications').doc(documentId).update({
         'read': true,
         'isRead': true,
       });
     } catch (e) {
-      debugPrint(
-        'Notification read update error: $e',
-      );
+      debugPrint('Notification read update error: $e');
     }
   }
 
@@ -305,20 +271,16 @@ class _InsuranceNotificationsPageState
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ClaimDetailsVerificationPage(
-          claimId: claimId,
-        ),
+        builder: (context) => ClaimDetailsVerificationPage(claimId: claimId),
       ),
     );
   }
 
   Future<void> _markAllAsRead(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>>
-        documents,
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> documents,
   ) async {
     try {
-      final WriteBatch batch =
-          _firestore.batch();
+      final WriteBatch batch = _firestore.batch();
 
       bool hasUnread = false;
 
@@ -328,24 +290,15 @@ class _InsuranceNotificationsPageState
         if (!_isRead(data)) {
           hasUnread = true;
 
-          batch.update(
-            doc.reference,
-            {
-              'read': true,
-              'isRead': true,
-            },
-          );
+          batch.update(doc.reference, {'read': true, 'isRead': true});
         }
-
       }
 
       if (hasUnread) {
         await batch.commit();
       }
     } catch (e) {
-      debugPrint(
-        'Mark all notifications error: $e',
-      );
+      debugPrint('Mark all notifications error: $e');
     }
   }
 
@@ -367,10 +320,7 @@ class _InsuranceNotificationsPageState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text(
-              'Cancel',
-              style: TextStyle(color: greyColor),
-            ),
+            child: const Text('Cancel', style: TextStyle(color: greyColor)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
@@ -395,10 +345,7 @@ class _InsuranceNotificationsPageState
           : e.message ?? 'Unable to delete the notification.';
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.redAccent,
-        ),
+        SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
       );
     } catch (e) {
       if (!mounted) return;
@@ -414,9 +361,7 @@ class _InsuranceNotificationsPageState
   }
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
@@ -449,18 +394,11 @@ class _InsuranceNotificationsPageState
                       color: yellowColor,
                     ),
                   )
-                : const Icon(
-                    Icons.refresh_rounded,
-                    color: whiteColor,
-                  ),
+                : const Icon(Icons.refresh_rounded, color: whiteColor),
           ),
-          StreamBuilder<
-              QuerySnapshot<Map<String, dynamic>>>(
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: _notificationStream(),
-            builder: (
-              context,
-              snapshot,
-            ) {
+            builder: (context, snapshot) {
               if (!snapshot.hasData) {
                 return const SizedBox.shrink();
               }
@@ -469,9 +407,7 @@ class _InsuranceNotificationsPageState
                   .where((doc) => !_isDeleted(doc.data()))
                   .toList();
 
-              final hasUnread = docs.any(
-                (doc) => !_isRead(doc.data()),
-              );
+              final hasUnread = docs.any((doc) => !_isRead(doc.data()));
 
               if (!hasUnread) {
                 return const SizedBox.shrink();
@@ -494,19 +430,12 @@ class _InsuranceNotificationsPageState
           ),
         ],
       ),
-      body: StreamBuilder<
-          QuerySnapshot<Map<String, dynamic>>>(
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _notificationStream(),
-        builder: (
-          context,
-          snapshot,
-        ) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
-              child: CircularProgressIndicator(
-                color: yellowColor,
-              ),
+              child: CircularProgressIndicator(color: yellowColor),
             );
           }
 
@@ -515,8 +444,7 @@ class _InsuranceNotificationsPageState
               'Insurance notifications stream error: ${snapshot.error}',
             );
             return _buildErrorState(
-              message:
-                  'Unable to load notifications. Check your account access and try again.',
+              message: 'Unable to load notifications. Check your account access and try again.',
             );
           }
 
@@ -532,47 +460,26 @@ class _InsuranceNotificationsPageState
 
           if (documents.isEmpty) {
             if (_syncError != null) {
-              return _buildErrorState(
-                message: _syncError!,
-              );
+              return _buildErrorState(message: _syncError!);
             }
             return _buildEmptyState();
           }
 
           final sortedDocuments =
-              List<QueryDocumentSnapshot<
-                  Map<String, dynamic>>>.from(
-            documents,
-          );
+              List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(documents);
 
-          sortedDocuments.sort(
-            (a, b) {
-              final DateTime dateA =
-                  _getDate(
-                a.data()['createdAt'],
-              );
+          sortedDocuments.sort((a, b) {
+            final DateTime dateA = _getDate(a.data()['createdAt']);
 
-              final DateTime dateB =
-                  _getDate(
-                b.data()['createdAt'],
-              );
+            final DateTime dateB = _getDate(b.data()['createdAt']);
 
-              return dateB.compareTo(dateA);
-            },
-          );
+            return dateB.compareTo(dateA);
+          });
 
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              30,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 30),
             itemCount: sortedDocuments.length + 1,
-            itemBuilder: (
-              context,
-              index,
-            ) {
+            itemBuilder: (context, index) {
               if (index == 0) {
                 final unreadCount = sortedDocuments
                     .where((doc) => !_isRead(doc.data()))
@@ -584,12 +491,9 @@ class _InsuranceNotificationsPageState
                 );
               }
 
-              final doc =
-                  sortedDocuments[index - 1];
+              final doc = sortedDocuments[index - 1];
 
-              return _buildNotificationCard(
-                doc,
-              );
+              return _buildNotificationCard(doc);
             },
           );
         },
@@ -615,7 +519,7 @@ class _InsuranceNotificationsPageState
             height: 40,
             width: 40,
             decoration: BoxDecoration(
-              color: yellowColor.withOpacity(0.12),
+              color: yellowColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -642,10 +546,7 @@ class _InsuranceNotificationsPageState
                 const SizedBox(height: 3),
                 Text(
                   '$totalCount notification${totalCount == 1 ? '' : 's'} in your inbox',
-                  style: const TextStyle(
-                    color: greyColor,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: greyColor, fontSize: 11),
                 ),
               ],
             ),
@@ -662,17 +563,13 @@ class _InsuranceNotificationsPageState
   }
 
   Widget _buildNotificationCard(
-    QueryDocumentSnapshot<
-            Map<String, dynamic>>
-        document,
+    QueryDocumentSnapshot<Map<String, dynamic>> document,
   ) {
-    final Map<String, dynamic> data =
-        document.data();
+    final Map<String, dynamic> data = document.data();
 
     final bool isRead = _isRead(data);
 
-    final Color iconColor =
-        _getNotificationColor(data);
+    final Color iconColor = _getNotificationColor(data);
 
     return Semantics(
       button: true,
@@ -683,161 +580,158 @@ class _InsuranceNotificationsPageState
           _openNotification(document);
         },
         child: Container(
-        margin: const EdgeInsets.only(
-          bottom: 12,
-        ),
-        padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: isRead ? borderColor : yellowColor.withOpacity(0.5)),
-          boxShadow: isRead
-              ? null
-              : [
-                  BoxShadow(
-                    color: yellowColor.withOpacity(0.08),
-                    blurRadius: 14,
-                    spreadRadius: 1,
-                  ),
-                ],
-        ),
-        child: Row(
-          crossAxisAlignment:
-              CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 50,
-              width: 50,
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.12),
-                borderRadius:
-                    BorderRadius.circular(13),
-              ),
-              child: Icon(
-                _getNotificationIcon(data),
-                color: iconColor,
-                size: 24,
-              ),
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isRead ? borderColor : yellowColor.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _getTitle(data),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: whiteColor,
-                                  fontSize: 14,
-                                  fontWeight: isRead
-                                      ? FontWeight.w500
-                                      : FontWeight.bold,
+            boxShadow: isRead
+                ? null
+                : [
+                    BoxShadow(
+                      color: yellowColor.withValues(alpha: 0.08),
+                      blurRadius: 14,
+                      spreadRadius: 1,
+                    ),
+                  ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 50,
+                width: 50,
+                decoration: BoxDecoration(
+                  color: iconColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  _getNotificationIcon(data),
+                  color: iconColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  _getTitle(data),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: whiteColor,
+                                    fontSize: 14,
+                                    fontWeight: isRead
+                                        ? FontWeight.w500
+                                        : FontWeight.bold,
+                                  ),
                                 ),
                               ),
-                            ),
-                            if (!isRead) ...[
-                              const SizedBox(width: 7),
-                              Container(
-                                height: 7,
-                                width: 7,
-                                decoration: const BoxDecoration(
-                                  color: yellowColor,
-                                  shape: BoxShape.circle,
+                              if (!isRead) ...[
+                                const SizedBox(width: 7),
+                                Container(
+                                  height: 7,
+                                  width: 7,
+                                  decoration: const BoxDecoration(
+                                    color: yellowColor,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Delete notification',
+                          onPressed: () {
+                            _deleteNotification(document);
+                          },
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            color: greyColor,
+                            size: 21,
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 30,
+                            minHeight: 30,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: iconColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        _getTypeLabel(data),
+                        style: TextStyle(
+                          color: iconColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
                         ),
                       ),
-                      IconButton(
-                        tooltip: 'Delete notification',
-                        onPressed: () {
-                          _deleteNotification(document);
-                        },
-                        icon: const Icon(
-                          Icons.delete_outline_rounded,
-                          color: greyColor,
-                          size: 21,
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 30,
-                          minHeight: 30,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7,
-                      vertical: 3,
                     ),
-                    decoration: BoxDecoration(
-                      color: iconColor.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      _getTypeLabel(data),
-                      style: TextStyle(
-                        color: iconColor,
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.6,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    _getMessage(data),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: greyColor,
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
-                  ),
-                  ..._buildClaimReference(data),
-                  const SizedBox(height: 9),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.schedule_rounded,
-                        color: greyColor.withOpacity(0.75),
-                        size: 13,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatDate(data['createdAt']),
-                        style: const TextStyle(
-                          color: greyColor,
-                          fontSize: 10,
-                        ),
-                      ),
-                      const Spacer(),
-                      const Icon(
-                        Icons.arrow_forward_ios_rounded,
+                    const SizedBox(height: 7),
+                    Text(
+                      _getMessage(data),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
                         color: greyColor,
-                        size: 12,
+                        fontSize: 12,
+                        height: 1.4,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    ..._buildClaimReference(data),
+                    const SizedBox(height: 9),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.schedule_rounded,
+                          color: greyColor.withValues(alpha: 0.75),
+                          size: 13,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatDate(data['createdAt']),
+                          style: const TextStyle(
+                            color: greyColor,
+                            fontSize: 10,
+                          ),
+                        ),
+                        const Spacer(),
+                        const Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          color: greyColor,
+                          size: 12,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -847,15 +741,13 @@ class _InsuranceNotificationsPageState
       child: Padding(
         padding: const EdgeInsets.all(30),
         child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               height: 85,
               width: 85,
               decoration: BoxDecoration(
-                color: yellowColor
-                    .withOpacity(0.08),
+                color: yellowColor.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -878,11 +770,7 @@ class _InsuranceNotificationsPageState
               'You are all caught up. New claim '
               'notifications will appear here.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: greyColor,
-                fontSize: 13,
-                height: 1.5,
-              ),
+              style: TextStyle(color: greyColor, fontSize: 13, height: 1.5),
             ),
           ],
         ),
@@ -891,21 +779,15 @@ class _InsuranceNotificationsPageState
   }
 
   Widget _buildErrorState({
-    String message =
-        'Please check your connection and try again.',
+    String message = 'Please check your connection and try again.',
   }) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(30),
         child: Column(
-          mainAxisAlignment:
-              MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              color: Colors.redAccent,
-              size: 55,
-            ),
+            Icon(Icons.error_outline, color: Colors.redAccent, size: 55),
             SizedBox(height: 15),
             Text(
               'Unable to Load Notifications',
@@ -919,10 +801,7 @@ class _InsuranceNotificationsPageState
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: greyColor,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: greyColor, fontSize: 13),
             ),
           ],
         ),

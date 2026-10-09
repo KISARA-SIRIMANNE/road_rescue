@@ -21,9 +21,42 @@ service cloud.firestore {
       allow update: if request.auth != null
         && request.auth.uid == userId
         && (
-          resource.data.role != 'insurance_provider'
-          || request.resource.data.diff(resource.data).affectedKeys()
-              .hasNone(['insuranceCompanyId', 'companyName'])
+          (
+            !resource.data.keys().hasAny(['role'])
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['role', 'fcmToken', 'fcmTokenUpdatedAt'])
+            && (
+              !request.resource.data.diff(resource.data).affectedKeys()
+                .hasAny(['role'])
+              || request.resource.data.role in [
+                'vehicle_owner', 'roadside_provider', 'insurance_provider'
+              ]
+            )
+          )
+          ||
+          (
+            resource.data.keys().hasAny(['role'])
+            && request.resource.data.role == resource.data.role
+            && (
+              resource.data.role != 'insurance_provider'
+              || request.resource.data.diff(resource.data).affectedKeys()
+                  .hasNone(['insuranceCompanyId', 'companyName'])
+              || (
+                !resource.data.keys().hasAny(['insuranceCompanyId'])
+                && request.resource.data.keys().hasAll([
+                  'insuranceCompanyId', 'companyName'
+                ])
+                && request.resource.data.insuranceCompanyId in [
+                  'sri_lanka_insurance_general', 'ceylinco_general',
+                  'fairfirst', 'allianz_lanka', 'janashakthi',
+                  'peoples_insurance', 'hnb_general', 'lolc_general',
+                  'amana_takaful', 'continental_lanka'
+                ]
+                && request.resource.data.diff(resource.data).affectedKeys()
+                    .hasOnly(['insuranceCompanyId', 'companyName'])
+              )
+            )
+          )
         );
 
       allow read: if request.auth != null
@@ -122,6 +155,36 @@ service cloud.firestore {
             && resource.data.insuranceReviewedBy == request.auth.uid
           )
         );
+
+      match /messages/{messageId} {
+        function isRequestParticipant() {
+          let requestPath =
+            /databases/$(database)/documents/assistance_requests/$(requestId);
+          return request.auth != null
+            && exists(requestPath)
+            && (
+              get(requestPath).data.userId == request.auth.uid
+              || get(requestPath).data.providerId == request.auth.uid
+            );
+        }
+
+        allow read: if isRequestParticipant();
+
+        allow create: if isRequestParticipant()
+          && request.resource.data.keys().hasAll([
+            'text', 'senderId', 'senderName', 'createdAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'text', 'senderId', 'senderName', 'createdAt'
+          ])
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.senderName is string
+          && request.resource.data.senderName.size() <= 80
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+      }
     }
 
     match /notifications/{notificationId} {

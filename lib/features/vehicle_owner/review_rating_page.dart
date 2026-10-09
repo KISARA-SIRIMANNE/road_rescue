@@ -201,7 +201,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _yellowColor.withOpacity(0.15)),
+        border: Border.all(color: _yellowColor.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
@@ -209,7 +209,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: _yellowColor.withOpacity(0.12),
+              color: _yellowColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child:

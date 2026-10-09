@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:road_rescue/theme/road_rescue_theme.dart';
+
 import 'roadside_provider_home_page.dart';
 
 class JobStatusPage extends StatefulWidget {
@@ -20,48 +21,26 @@ class JobStatusPage extends StatefulWidget {
 }
 
 class _JobStatusPageState extends State<JobStatusPage> {
-  // ============================================================
-  // FIREBASE
-  // ============================================================
-
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   StreamSubscription<DocumentSnapshot>? _jobSubscription;
 
-  // ============================================================
-  // CONTROLLERS
-  // ============================================================
-
   final TextEditingController _amountController = TextEditingController();
 
-  // ============================================================
-  // STATE
-  // ============================================================
-
   String _status = 'accepted';
-
   String _driverName = 'Vehicle Owner';
-
   String _vehicleType = 'Vehicle';
-
   String _issueType = 'Assistance';
-
   String _paymentStatus = 'not_applicable';
 
   double? _jobAmount;
 
   bool _isUpdating = false;
-
   bool _isLoading = true;
-
-  // ============================================================
-  // INIT
-  // ============================================================
 
   @override
   void initState() {
     super.initState();
-
     _listenToJob();
   }
 
@@ -76,11 +55,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
         .snapshots()
         .listen(
       (DocumentSnapshot snapshot) {
-        if (!mounted) {
-          return;
-        }
-
-        if (!snapshot.exists) {
+        if (!mounted || !snapshot.exists) {
           return;
         }
 
@@ -99,16 +74,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
 
         setState(() {
           _status = data['status']?.toString() ?? 'accepted';
-
           _driverName = data['userName']?.toString() ?? 'Vehicle Owner';
-
           _vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
-
           _issueType = data['issueType']?.toString() ?? 'Assistance';
-
           _paymentStatus =
               data['paymentStatus']?.toString() ?? 'not_applicable';
-
           _isLoading = false;
         });
       },
@@ -157,10 +127,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
 
       if (newStatus == 'completed') {
         updateData['completedAt'] = FieldValue.serverTimestamp();
-
-        // Payment becomes available after the service is completed.
         updateData['paymentStatus'] = 'pending';
-
         updateData['paymentUpdatedAt'] = FieldValue.serverTimestamp();
       }
 
@@ -269,7 +236,8 @@ class _JobStatusPageState extends State<JobStatusPage> {
             ),
           ),
           content: Text(
-            'Have you actually received the payment of ${_formatAmount(_jobAmount!)} from the customer?',
+            'Have you actually received the payment of '
+            '${_formatAmount(_jobAmount!)} from the customer?',
             style: const TextStyle(
               color: Colors.white70,
               height: 1.5,
@@ -344,9 +312,8 @@ class _JobStatusPageState extends State<JobStatusPage> {
 
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (context) => RoadsideProviderHomePage(
-          userData: widget.userData,
-        ),
+        builder: (context) =>
+            RoadsideProviderHomePage(userData: widget.userData),
       ),
       (route) => false,
     );
@@ -754,45 +721,42 @@ class _JobStatusPageState extends State<JobStatusPage> {
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
-        children: List.generate(
-          labels.length,
-          (index) {
-            final bool completed = index <= currentIndex;
+        children: List.generate(labels.length, (index) {
+          final bool completed = index <= currentIndex;
 
-            return Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    width: 27,
-                    height: 27,
-                    decoration: BoxDecoration(
-                      color: completed
-                          ? RoadRescueColors.accent
-                          : Colors.white10,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      completed ? Icons.check : Icons.circle,
-                      color: completed ? Colors.black : Colors.white24,
-                      size: 15,
-                    ),
+          return Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 27,
+                  height: 27,
+                  decoration: BoxDecoration(
+                    color: completed
+                        ? RoadRescueColors.accent
+                        : Colors.white10,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(height: 7),
-                  Text(
-                    labels[index],
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: completed ? Colors.white : Colors.white30,
-                      fontSize: 8,
-                      fontWeight:
-                          completed ? FontWeight.w600 : FontWeight.normal,
-                    ),
+                  child: Icon(
+                    completed ? Icons.check : Icons.circle,
+                    color: completed ? Colors.black : Colors.white24,
+                    size: 15,
                   ),
-                ],
-              ),
-            );
-          },
-        ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: completed ? Colors.white : Colors.white30,
+                    fontSize: 8,
+                    fontWeight:
+                        completed ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ),
     );
   }
@@ -974,9 +938,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
               _buildPaymentStatusBadge(),
             ],
           ),
-
           const SizedBox(height: 18),
-
           if (!completed)
             const Text(
               'Payment details become available after the job is completed.',
@@ -994,9 +956,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 fontSize: 10,
               ),
             ),
-
             const SizedBox(height: 8),
-
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(
@@ -1016,9 +976,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 ),
               ),
             ),
-
             const SizedBox(height: 10),
-
             SizedBox(
               width: double.infinity,
               height: 44,
@@ -1034,9 +992,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 child: const Text('Save Amount'),
               ),
             ),
-
             const SizedBox(height: 12),
-
             if (_paymentStatus == 'pending')
               SizedBox(
                 width: double.infinity,
@@ -1055,13 +1011,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
                   ),
                 ),
               ),
-
             if (_paymentStatus == 'paid') ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withOpacity(0.08),
+                  color: Colors.greenAccent.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -1075,7 +1030,8 @@ class _JobStatusPageState extends State<JobStatusPage> {
                     Expanded(
                       child: Text(
                         _jobAmount != null
-                            ? 'Payment received: ${_formatAmount(_jobAmount!)}'
+                            ? 'Payment received: '
+                                '${_formatAmount(_jobAmount!)}'
                             : 'Payment received',
                         style: const TextStyle(
                           color: Colors.greenAccent,
@@ -1087,9 +1043,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                   ],
                 ),
               ),
-
               const SizedBox(height: 14),
-
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -1153,7 +1107,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
         vertical: 6,
       ),
       decoration: BoxDecoration(
-        color: textColor.withOpacity(0.10),
+        color: textColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
@@ -1193,7 +1147,6 @@ class _JobStatusPageState extends State<JobStatusPage> {
   void dispose() {
     _jobSubscription?.cancel();
     _amountController.dispose();
-
     super.dispose();
   }
 }

@@ -686,7 +686,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
   Widget _buildLoadingOverlay() {
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(0.45),
+        color: Colors.black.withValues(alpha: 0.45),
         child: const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -715,7 +715,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
 
     return Positioned.fill(
       child: Container(
-        color: RoadRescueColors.background.withOpacity(0.90),
+        color: RoadRescueColors.background.withValues(alpha: 0.90),
         padding: const EdgeInsets.all(24),
         child: Center(
           child: Container(
@@ -732,7 +732,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
                   width: 64,
                   height: 64,
                   decoration: BoxDecoration(
-                    color: RoadRescueColors.accent.withOpacity(0.12),
+                    color: RoadRescueColors.accent.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(
@@ -851,7 +851,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
         border: Border.all(
           color: _isInsuranceClaim
               ? RoadRescueColors.accent
-              : Colors.white.withOpacity(0.06),
+              : Colors.white.withValues(alpha: 0.06),
         ),
       ),
       child: Column(
@@ -863,7 +863,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: RoadRescueColors.accent.withOpacity(0.12),
+                  color: RoadRescueColors.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(
@@ -894,20 +894,17 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
               ),
               Switch(
                 value: _isInsuranceClaim,
-                activeColor: RoadRescueColors.accent,
+                activeThumbColor: RoadRescueColors.accent,
                 onChanged: (value) {
-                  setState(() {
-                    _isInsuranceClaim = value;
-                  });
+                  setState(() => _isInsuranceClaim = value);
                 },
               ),
             ],
           ),
           if (_isInsuranceClaim) ...[
             const SizedBox(height: 18),
-
             DropdownButtonFormField<String>(
-              value: _selectedInsuranceCompanyId,
+              initialValue: _selectedInsuranceCompanyId,
               isExpanded: true,
               dropdownColor: RoadRescueColors.surface,
               style: const TextStyle(color: Colors.white),
@@ -922,16 +919,14 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
               hint: const Text('Select insurance company'),
               items: insuranceCompanies
                   .map(
-                    (company) => DropdownMenuItem(
+                    (company) => DropdownMenuItem<String>(
                       value: company.id,
                       child: Text(company.name),
                     ),
                   )
                   .toList(),
               onChanged: (value) {
-                setState(() {
-                  _selectedInsuranceCompanyId = value;
-                });
+                setState(() => _selectedInsuranceCompanyId = value);
               },
             ),
             _buildInsuranceTextField(
@@ -979,7 +974,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.06)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -1032,7 +1027,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
                     width: 46,
                     height: 46,
                     decoration: BoxDecoration(
-                      color: RoadRescueColors.accent.withOpacity(0.12),
+                      color: RoadRescueColors.accent.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
