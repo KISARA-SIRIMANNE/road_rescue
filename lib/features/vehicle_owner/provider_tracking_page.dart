@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+
 import 'driver_job_status_page.dart';
 
 class ProviderTrackingPage extends StatefulWidget {
@@ -23,21 +24,17 @@ class ProviderTrackingPage extends StatefulWidget {
   });
 
   @override
-  State<ProviderTrackingPage> createState() =>
-      _ProviderTrackingPageState();
+  State<ProviderTrackingPage> createState() => _ProviderTrackingPageState();
 }
 
-class _ProviderTrackingPageState
-    extends State<ProviderTrackingPage> {
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ============================================================
   // GOOGLE ROUTES API
   // ============================================================
 
-  static const String _routesApiKey =
-      String.fromEnvironment('ROUTES_API_KEY');
+  static const String _routesApiKey = String.fromEnvironment('ROUTES_API_KEY');
 
   static const String _routesEndpoint =
       'https://routes.googleapis.com/directions/v2:computeRoutes';
@@ -56,8 +53,6 @@ class _ProviderTrackingPageState
 
   double? _providerLatitude;
   double? _providerLongitude;
-
-  double? _distanceToProvider;
 
   // ============================================================
   // ROUTE INFORMATION
@@ -86,18 +81,13 @@ class _ProviderTrackingPageState
   static const double _routeUpdateDistanceMeters = 150;
 
   // Minimum time between route API requests.
-  static const Duration _routeUpdateInterval =
-      Duration(seconds: 15);
+  static const Duration _routeUpdateInterval = Duration(seconds: 15);
 
   // ============================================================
   // REQUEST STATE
   // ============================================================
 
-  String _requestStatus = 'accepted';
-
   bool _isLoading = true;
-
-  bool _isTracking = false;
 
   bool _isCancelling = false;
 
@@ -105,10 +95,7 @@ class _ProviderTrackingPageState
 
   final Set<Marker> _markers = {};
 
-  static const LatLng _defaultLocation = LatLng(
-    6.9271,
-    79.8612,
-  );
+  static const LatLng _defaultLocation = LatLng(6.9271, 79.8612);
 
   // ============================================================
   // INIT
@@ -122,9 +109,7 @@ class _ProviderTrackingPageState
     _startRequestListener();
 
     if (_routesApiKey.isEmpty) {
-      debugPrint(
-        'WARNING: ROUTES_API_KEY was not provided.',
-      );
+      debugPrint('WARNING: ROUTES_API_KEY was not provided.');
     }
   }
 
@@ -134,13 +119,10 @@ class _ProviderTrackingPageState
 
   Future<void> _startDriverLocationTracking() async {
     try {
-      final bool serviceEnabled =
-          await Geolocator.isLocationServiceEnabled();
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {
-        _showMessage(
-          'Location services are disabled.',
-        );
+        _showMessage('Location services are disabled.');
 
         if (mounted) {
           setState(() {
@@ -151,20 +133,15 @@ class _ProviderTrackingPageState
         return;
       }
 
-      LocationPermission permission =
-          await Geolocator.checkPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
-        permission =
-            await Geolocator.requestPermission();
+        permission = await Geolocator.requestPermission();
       }
 
       if (permission == LocationPermission.denied ||
-          permission ==
-              LocationPermission.deniedForever) {
-        _showMessage(
-          'Location permission is required for tracking.',
-        );
+          permission == LocationPermission.deniedForever) {
+        _showMessage('Location permission is required for tracking.');
 
         if (mounted) {
           setState(() {
@@ -175,8 +152,7 @@ class _ProviderTrackingPageState
         return;
       }
 
-      final Position position =
-          await Geolocator.getCurrentPosition(
+      final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
@@ -187,66 +163,50 @@ class _ProviderTrackingPageState
       setState(() {
         _currentPosition = position;
         _isLoading = false;
-        _isTracking = true;
       });
 
       _updateDriverMarker(position);
-      _calculateDistance();
 
       await _updateDriverLocation(position);
 
-      await _requestRouteUpdate(
-        force: true,
-      );
+      await _requestRouteUpdate(force: true);
 
       await _moveCameraToDriver();
 
-      const LocationSettings settings =
-          LocationSettings(
+      const LocationSettings settings = LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 10,
       );
 
       _positionSubscription =
-          Geolocator.getPositionStream(
-        locationSettings: settings,
-      ).listen(
-        (Position position) async {
-          if (!mounted) return;
+          Geolocator.getPositionStream(locationSettings: settings).listen(
+            (Position position) async {
+              if (!mounted) return;
 
-          setState(() {
-            _currentPosition = position;
-          });
+              setState(() {
+                _currentPosition = position;
+              });
 
-          _updateDriverMarker(position);
+              _updateDriverMarker(position);
 
-          _calculateDistance();
+              await _updateDriverLocation(position);
 
-          await _updateDriverLocation(position);
-
-          await _requestRouteUpdate();
-        },
-        onError: (error) {
-          debugPrint(
-            'Driver location stream error: $error',
+              await _requestRouteUpdate();
+            },
+            onError: (error) {
+              debugPrint('Driver location stream error: $error');
+            },
           );
-        },
-      );
     } catch (e) {
-      debugPrint(
-        'Error starting driver location: $e',
-      );
+      debugPrint('Error starting driver location: $e');
 
       if (!mounted) return;
 
       setState(() {
         _isLoading = false;
-        _isTracking = false;
       });
 
-      _showMessage(
-        'Unable to start live location tracking.',
-      );
+      _showMessage('Unable to start live location tracking.');
     }
   }
 
@@ -254,22 +214,18 @@ class _ProviderTrackingPageState
   // UPDATE DRIVER LOCATION IN FIRESTORE
   // ============================================================
 
-  Future<void> _updateDriverLocation(
-    Position position,
-  ) async {
+  Future<void> _updateDriverLocation(Position position) async {
     try {
       await _firestore
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'latitude': position.latitude,
-        'longitude': position.longitude,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+            'latitude': position.latitude,
+            'longitude': position.longitude,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
     } catch (e) {
-      debugPrint(
-        'Failed to update driver location: $e',
-      );
+      debugPrint('Failed to update driver location: $e');
     }
   }
 
@@ -280,132 +236,120 @@ class _ProviderTrackingPageState
   void _startRequestListener() {
     _requestSubscription?.cancel();
 
-  _requestSubscription = _firestore
-      .collection('assistance_requests')
-      .doc(widget.requestId)
-      .snapshots()
-      .listen(
-    (DocumentSnapshot snapshot) async {
-      if (!snapshot.exists) {
-        return;
-      }
+    _requestSubscription = _firestore
+        .collection('assistance_requests')
+        .doc(widget.requestId)
+        .snapshots()
+        .listen(
+          (DocumentSnapshot snapshot) async {
+            if (!snapshot.exists) {
+              return;
+            }
 
-      final Map<String, dynamic> data =
-          snapshot.data() as Map<String, dynamic>;
+            final Map<String, dynamic> data =
+                snapshot.data() as Map<String, dynamic>;
 
-      final String status =
-          data['status']?.toString() ?? 'accepted';
+            final String status = data['status']?.toString() ?? 'accepted';
 
-      double? providerLatitude;
-      double? providerLongitude;
+            double? providerLatitude;
+            double? providerLongitude;
 
-      if (data['providerLatitude'] != null) {
-        providerLatitude =
-            (data['providerLatitude'] as num).toDouble();
-      }
+            if (data['providerLatitude'] != null) {
+              providerLatitude = (data['providerLatitude'] as num).toDouble();
+            }
 
-      if (data['providerLongitude'] != null) {
-        providerLongitude =
-            (data['providerLongitude'] as num).toDouble();
-      }
+            if (data['providerLongitude'] != null) {
+              providerLongitude = (data['providerLongitude'] as num).toDouble();
+            }
 
-      if (!mounted) {
-        return;
-      }
+            if (!mounted) {
+              return;
+            }
 
-      setState(() {
-        _requestStatus = status;
-        _providerLatitude = providerLatitude;
-        _providerLongitude = providerLongitude;
-      });
+            setState(() {
+              _providerLatitude = providerLatitude;
+              _providerLongitude = providerLongitude;
+            });
 
-      // Update provider marker.
-      _updateProviderMarker();
+            // Update provider marker.
+            _updateProviderMarker();
 
-      // Update straight-line distance.
-      _calculateDistance();
+            // Update straight-line distance.
 
-      // ========================================================
-      // PROVIDER HAS ARRIVED
-      // ========================================================
-      //
-      // Provider side changes:
-      //
-      //     status = "arrived"
-      //
-      // Firestore sends that change to this page immediately.
-      // We then move the driver to DriverJobStatusPage.
-      // ========================================================
+            // ========================================================
+            // PROVIDER HAS ARRIVED
+            // ========================================================
+            //
+            // Provider side changes:
+            //
+            //     status = "arrived"
+            //
+            // Firestore sends that change to this page immediately.
+            // We then move the driver to DriverJobStatusPage.
+            // ========================================================
 
-      if (status == 'arrived' &&
-          !_hasNavigatedToDriverJobStatus) {
-        _hasNavigatedToDriverJobStatus = true;
+            if (status == 'arrived' && !_hasNavigatedToDriverJobStatus) {
+              _hasNavigatedToDriverJobStatus = true;
 
-        debugPrint(
-          'Provider has arrived. '
-          'Navigating driver to Job Status page.',
+              debugPrint(
+                'Provider has arrived. '
+                'Navigating driver to Job Status page.',
+              );
+
+              // Stop driver's GPS tracking.
+              await _stopTracking();
+
+              // Stop listening to the request because we are
+              // leaving this page.
+              await _requestSubscription?.cancel();
+
+              _requestSubscription = null;
+
+              if (!mounted) {
+                return;
+              }
+
+              _navigateToDriverJobStatus(data);
+
+              return;
+            }
+
+            // ========================================================
+            // UPDATE ROAD ROUTE
+            // ========================================================
+
+            await _requestRouteUpdate();
+          },
+          onError: (error) {
+            debugPrint('Request tracking listener error: $error');
+          },
         );
-
-        // Stop driver's GPS tracking.
-        await _stopTracking();
-
-        // Stop listening to the request because we are
-        // leaving this page.
-        await _requestSubscription?.cancel();
-
-        _requestSubscription = null;
-
-        if (!mounted) {
-          return;
-        }
-
-        _navigateToDriverJobStatus(data);
-
-        return;
-      }
-
-      // ========================================================
-      // UPDATE ROAD ROUTE
-      // ========================================================
-
-      await _requestRouteUpdate();
-    },
-    onError: (error) {
-      debugPrint(
-        'Request tracking listener error: $error',
-      );
-    },
-  );
   }
   // ============================================================
-// NAVIGATE TO DRIVER JOB STATUS
-// ============================================================
+  // NAVIGATE TO DRIVER JOB STATUS
+  // ============================================================
 
-void _navigateToDriverJobStatus(
-  Map<String, dynamic> requestData,
-) {
-  if (!mounted) {
-    return;
-  }
+  void _navigateToDriverJobStatus(Map<String, dynamic> requestData) {
+    if (!mounted) {
+      return;
+    }
 
-  Navigator.of(context).pushReplacement(
-    MaterialPageRoute(
-      builder: (context) => DriverJobStatusPage(
-        requestId: widget.requestId,
-        userData: widget.userData,
-        issue: widget.issue,
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => DriverJobStatusPage(
+          requestId: widget.requestId,
+          userData: widget.userData,
+          issue: widget.issue,
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   // ============================================================
   // ROUTES API
   // ============================================================
 
-  Future<void> _requestRouteUpdate({
-    bool force = false,
-  }) async {
+  Future<void> _requestRouteUpdate({bool force = false}) async {
     if (_currentPosition == null ||
         _providerLatitude == null ||
         _providerLongitude == null) {
@@ -413,9 +357,7 @@ void _navigateToDriverJobStatus(
     }
 
     if (_routesApiKey.isEmpty) {
-      debugPrint(
-        'Routes API key is missing.',
-      );
+      debugPrint('Routes API key is missing.');
       return;
     }
 
@@ -423,17 +365,13 @@ void _navigateToDriverJobStatus(
       return;
     }
 
-    final double driverLat =
-        _currentPosition!.latitude;
+    final double driverLat = _currentPosition!.latitude;
 
-    final double driverLng =
-        _currentPosition!.longitude;
+    final double driverLng = _currentPosition!.longitude;
 
-    final double providerLat =
-        _providerLatitude!;
+    final double providerLat = _providerLatitude!;
 
-    final double providerLng =
-        _providerLongitude!;
+    final double providerLng = _providerLongitude!;
 
     final DateTime now = DateTime.now();
 
@@ -443,8 +381,7 @@ void _navigateToDriverJobStatus(
 
     if (!force &&
         _lastRouteRequestTime != null &&
-        now.difference(_lastRouteRequestTime!) <
-            _routeUpdateInterval) {
+        now.difference(_lastRouteRequestTime!) < _routeUpdateInterval) {
       return;
     }
 
@@ -457,26 +394,22 @@ void _navigateToDriverJobStatus(
         _lastRouteDriverLongitude != null &&
         _lastRouteProviderLatitude != null &&
         _lastRouteProviderLongitude != null) {
-      final double driverMovement =
-          Geolocator.distanceBetween(
+      final double driverMovement = Geolocator.distanceBetween(
         _lastRouteDriverLatitude!,
         _lastRouteDriverLongitude!,
         driverLat,
         driverLng,
       );
 
-      final double providerMovement =
-          Geolocator.distanceBetween(
+      final double providerMovement = Geolocator.distanceBetween(
         _lastRouteProviderLatitude!,
         _lastRouteProviderLongitude!,
         providerLat,
         providerLng,
       );
 
-      if (driverMovement <
-              _routeUpdateDistanceMeters &&
-          providerMovement <
-              _routeUpdateDistanceMeters) {
+      if (driverMovement < _routeUpdateDistanceMeters &&
+          providerMovement < _routeUpdateDistanceMeters) {
         return;
       }
     }
@@ -493,20 +426,13 @@ void _navigateToDriverJobStatus(
       final HttpClient client = HttpClient();
 
       try {
-        final HttpClientRequest request =
-            await client.postUrl(
+        final HttpClientRequest request = await client.postUrl(
           Uri.parse(_routesEndpoint),
         );
 
-        request.headers.set(
-          HttpHeaders.contentTypeHeader,
-          'application/json',
-        );
+        request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
 
-        request.headers.set(
-          'X-Goog-Api-Key',
-          _routesApiKey,
-        );
+        request.headers.set('X-Goog-Api-Key', _routesApiKey);
 
         request.headers.set(
           'X-Goog-FieldMask',
@@ -516,18 +442,12 @@ void _navigateToDriverJobStatus(
         final Map<String, dynamic> body = {
           'origin': {
             'location': {
-              'latLng': {
-                'latitude': driverLat,
-                'longitude': driverLng,
-              },
+              'latLng': {'latitude': driverLat, 'longitude': driverLng},
             },
           },
           'destination': {
             'location': {
-              'latLng': {
-                'latitude': providerLat,
-                'longitude': providerLng,
-              },
+              'latLng': {'latitude': providerLat, 'longitude': providerLng},
             },
           },
           'travelMode': 'DRIVE',
@@ -538,89 +458,62 @@ void _navigateToDriverJobStatus(
 
         request.write(jsonEncode(body));
 
-        final HttpClientResponse response =
-            await request.close();
+        final HttpClientResponse response = await request.close();
 
-        final String responseBody =
-            await response.transform(
-          utf8.decoder,
-        ).join();
+        final String responseBody = await response
+            .transform(utf8.decoder)
+            .join();
 
-        debugPrint(
-          'Routes API status: ${response.statusCode}',
-        );
+        debugPrint('Routes API status: ${response.statusCode}');
 
         if (response.statusCode != 200) {
-          debugPrint(
-            'Routes API error: $responseBody',
-          );
+          debugPrint('Routes API error: $responseBody');
 
           return;
         }
 
         final Map<String, dynamic> json =
-            jsonDecode(responseBody)
-                as Map<String, dynamic>;
+            jsonDecode(responseBody) as Map<String, dynamic>;
 
-        final List<dynamic>? routes =
-            json['routes'] as List<dynamic>?;
+        final List<dynamic>? routes = json['routes'] as List<dynamic>?;
 
         if (routes == null || routes.isEmpty) {
-          debugPrint(
-            'Routes API returned no routes.',
-          );
+          debugPrint('Routes API returned no routes.');
           return;
         }
 
-        final Map<String, dynamic> route =
-            routes.first as Map<String, dynamic>;
+        final Map<String, dynamic> route = routes.first as Map<String, dynamic>;
 
         final int distanceMeters =
-            (route['distanceMeters'] as num?)
-                    ?.toInt() ??
-                0;
+            (route['distanceMeters'] as num?)?.toInt() ?? 0;
 
-        final String duration =
-            route['duration']?.toString() ?? '0s';
+        final String duration = route['duration']?.toString() ?? '0s';
 
         final Map<String, dynamic> polyline =
-            route['polyline']
-                    as Map<String, dynamic>? ??
-                {};
+            route['polyline'] as Map<String, dynamic>? ?? {};
 
-        final String? encodedPolyline =
-            polyline['encodedPolyline']
-                ?.toString();
+        final String? encodedPolyline = polyline['encodedPolyline']?.toString();
 
-        if (encodedPolyline == null ||
-            encodedPolyline.isEmpty) {
-          debugPrint(
-            'Routes API returned no polyline.',
-          );
+        if (encodedPolyline == null || encodedPolyline.isEmpty) {
+          debugPrint('Routes API returned no polyline.');
           return;
         }
 
-        final List<LatLng> routePoints =
-            _decodePolyline(encodedPolyline);
+        final List<LatLng> routePoints = _decodePolyline(encodedPolyline);
 
         if (routePoints.isEmpty) {
-          debugPrint(
-            'Unable to decode route polyline.',
-          );
+          debugPrint('Unable to decode route polyline.');
           return;
         }
 
-        final int durationSeconds =
-            _parseDurationSeconds(duration);
+        final int durationSeconds = _parseDurationSeconds(duration);
 
-        final String eta =
-            _formatEta(durationSeconds);
+        final String eta = _formatEta(durationSeconds);
 
         if (!mounted) return;
 
         setState(() {
-          _routeDistanceMeters =
-              distanceMeters.toDouble();
+          _routeDistanceMeters = distanceMeters.toDouble();
 
           _routeEta = eta;
 
@@ -628,10 +521,7 @@ void _navigateToDriverJobStatus(
 
           _polylines.add(
             Polyline(
-              polylineId:
-                  const PolylineId(
-                'provider_route',
-              ),
+              polylineId: const PolylineId('provider_route'),
               points: routePoints,
               color: const Color(0xFFF6E900),
               width: 6,
@@ -644,26 +534,20 @@ void _navigateToDriverJobStatus(
 
         _lastRouteRequestTime = now;
 
-        _lastRouteDriverLatitude =
-            driverLat;
+        _lastRouteDriverLatitude = driverLat;
 
-        _lastRouteDriverLongitude =
-            driverLng;
+        _lastRouteDriverLongitude = driverLng;
 
-        _lastRouteProviderLatitude =
-            providerLat;
+        _lastRouteProviderLatitude = providerLat;
 
-        _lastRouteProviderLongitude =
-            providerLng;
+        _lastRouteProviderLongitude = providerLng;
 
         await _fitBothLocations();
       } finally {
         client.close();
       }
     } catch (e) {
-      debugPrint(
-        'Routes API request failed: $e',
-      );
+      debugPrint('Routes API request failed: $e');
     } finally {
       _routeRequestInProgress = false;
 
@@ -679,9 +563,7 @@ void _navigateToDriverJobStatus(
   // POLYLINE DECODER
   // ============================================================
 
-  List<LatLng> _decodePolyline(
-    String encoded,
-  ) {
+  List<LatLng> _decodePolyline(String encoded) {
     final List<LatLng> points = [];
 
     int index = 0;
@@ -697,11 +579,9 @@ void _navigateToDriverJobStatus(
           return points;
         }
 
-        final int byte =
-            encoded.codeUnitAt(index++) - 63;
+        final int byte = encoded.codeUnitAt(index++) - 63;
 
-        result |=
-            (byte & 0x1f) << shift;
+        result |= (byte & 0x1f) << shift;
 
         shift += 5;
 
@@ -710,10 +590,9 @@ void _navigateToDriverJobStatus(
         }
       }
 
-      final int latitudeChange =
-          (result & 1) != 0
-              ? ~(result >> 1)
-              : (result >> 1);
+      final int latitudeChange = (result & 1) != 0
+          ? ~(result >> 1)
+          : (result >> 1);
 
       latitude += latitudeChange;
 
@@ -725,11 +604,9 @@ void _navigateToDriverJobStatus(
           return points;
         }
 
-        final int byte =
-            encoded.codeUnitAt(index++) - 63;
+        final int byte = encoded.codeUnitAt(index++) - 63;
 
-        result |=
-            (byte & 0x1f) << shift;
+        result |= (byte & 0x1f) << shift;
 
         shift += 5;
 
@@ -738,19 +615,13 @@ void _navigateToDriverJobStatus(
         }
       }
 
-      final int longitudeChange =
-          (result & 1) != 0
-              ? ~(result >> 1)
-              : (result >> 1);
+      final int longitudeChange = (result & 1) != 0
+          ? ~(result >> 1)
+          : (result >> 1);
 
       longitude += longitudeChange;
 
-      points.add(
-        LatLng(
-          latitude / 1e5,
-          longitude / 1e5,
-        ),
-      );
+      points.add(LatLng(latitude / 1e5, longitude / 1e5));
     }
 
     return points;
@@ -760,26 +631,18 @@ void _navigateToDriverJobStatus(
   // DURATION
   // ============================================================
 
-  int _parseDurationSeconds(
-    String duration,
-  ) {
-    final String value =
-        duration.replaceAll('s', '');
+  int _parseDurationSeconds(String duration) {
+    final String value = duration.replaceAll('s', '');
 
-    return double.tryParse(value)
-            ?.round() ??
-        0;
+    return double.tryParse(value)?.round() ?? 0;
   }
 
-  String _formatEta(
-    int seconds,
-  ) {
+  String _formatEta(int seconds) {
     if (seconds <= 0) {
       return 'Calculating...';
     }
 
-    final int minutes =
-        (seconds / 60).ceil();
+    final int minutes = (seconds / 60).ceil();
 
     if (minutes < 1) {
       return '<1 min';
@@ -796,36 +659,22 @@ void _navigateToDriverJobStatus(
   // DRIVER MARKER
   // ============================================================
 
-  void _updateDriverMarker(
-    Position position,
-  ) {
-    final LatLng location = LatLng(
-      position.latitude,
-      position.longitude,
-    );
+  void _updateDriverMarker(Position position) {
+    final LatLng location = LatLng(position.latitude, position.longitude);
 
     if (!mounted) return;
 
     setState(() {
       _markers.removeWhere(
-        (marker) =>
-            marker.markerId.value ==
-            'vehicle_owner',
+        (marker) => marker.markerId.value == 'vehicle_owner',
       );
 
       _markers.add(
         Marker(
-          markerId:
-              const MarkerId(
-            'vehicle_owner',
-          ),
+          markerId: const MarkerId('vehicle_owner'),
           position: location,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueBlue,
-          ),
-          infoWindow:
-              const InfoWindow(
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          infoWindow: const InfoWindow(
             title: 'Your Location',
             snippet: 'Live location',
           ),
@@ -839,13 +688,11 @@ void _navigateToDriverJobStatus(
   // ============================================================
 
   void _updateProviderMarker() {
-    if (_providerLatitude == null ||
-        _providerLongitude == null) {
+    if (_providerLatitude == null || _providerLongitude == null) {
       return;
     }
 
-    final LatLng providerLocation =
-        LatLng(
+    final LatLng providerLocation = LatLng(
       _providerLatitude!,
       _providerLongitude!,
     );
@@ -854,26 +701,17 @@ void _navigateToDriverJobStatus(
 
     setState(() {
       _markers.removeWhere(
-        (marker) =>
-            marker.markerId.value ==
-            'roadside_provider',
+        (marker) => marker.markerId.value == 'roadside_provider',
       );
 
       _markers.add(
         Marker(
-          markerId:
-              const MarkerId(
-            'roadside_provider',
-          ),
+          markerId: const MarkerId('roadside_provider'),
           position: providerLocation,
-          icon:
-              BitmapDescriptor.defaultMarkerWithHue(
-            BitmapDescriptor.hueRed,
-          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           infoWindow: InfoWindow(
             title: widget.providerName,
-            snippet:
-                'Roadside assistance provider',
+            snippet: 'Roadside assistance provider',
           ),
         ),
       );
@@ -883,42 +721,6 @@ void _navigateToDriverJobStatus(
   // ============================================================
   // DISTANCE
   // ============================================================
-
-  void _calculateDistance() {
-    if (_currentPosition == null ||
-        _providerLatitude == null ||
-        _providerLongitude == null) {
-      return;
-    }
-
-    final double distance =
-        Geolocator.distanceBetween(
-      _currentPosition!.latitude,
-      _currentPosition!.longitude,
-      _providerLatitude!,
-      _providerLongitude!,
-    );
-
-    if (!mounted) return;
-
-    setState(() {
-      _distanceToProvider = distance;
-    });
-  }
-
-  String _formatDistance(
-    double? distance,
-  ) {
-    if (distance == null) {
-      return 'Calculating...';
-    }
-
-    if (distance < 1000) {
-      return '${distance.round()} m away';
-    }
-
-    return '${(distance / 1000).toStringAsFixed(1)} km away';
-  }
 
   String _formatRouteDistance() {
     if (_routeDistanceMeters == null) {
@@ -937,8 +739,7 @@ void _navigateToDriverJobStatus(
   // ============================================================
 
   Future<void> _moveCameraToDriver() async {
-    if (_mapController == null ||
-        _currentPosition == null) {
+    if (_mapController == null || _currentPosition == null) {
       return;
     }
 
@@ -967,53 +768,33 @@ void _navigateToDriverJobStatus(
       return;
     }
 
-    final double minLat =
-        _currentPosition!.latitude <
-                _providerLatitude!
-            ? _currentPosition!.latitude
-            : _providerLatitude!;
+    final double minLat = _currentPosition!.latitude < _providerLatitude!
+        ? _currentPosition!.latitude
+        : _providerLatitude!;
 
-    final double maxLat =
-        _currentPosition!.latitude >
-                _providerLatitude!
-            ? _currentPosition!.latitude
-            : _providerLatitude!;
+    final double maxLat = _currentPosition!.latitude > _providerLatitude!
+        ? _currentPosition!.latitude
+        : _providerLatitude!;
 
-    final double minLng =
-        _currentPosition!.longitude <
-                _providerLongitude!
-            ? _currentPosition!.longitude
-            : _providerLongitude!;
+    final double minLng = _currentPosition!.longitude < _providerLongitude!
+        ? _currentPosition!.longitude
+        : _providerLongitude!;
 
-    final double maxLng =
-        _currentPosition!.longitude >
-                _providerLongitude!
-            ? _currentPosition!.longitude
-            : _providerLongitude!;
+    final double maxLng = _currentPosition!.longitude > _providerLongitude!
+        ? _currentPosition!.longitude
+        : _providerLongitude!;
 
-    final LatLngBounds bounds =
-        LatLngBounds(
-      southwest: LatLng(
-        minLat,
-        minLng,
-      ),
-      northeast: LatLng(
-        maxLat,
-        maxLng,
-      ),
+    final LatLngBounds bounds = LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
     );
 
     try {
       await _mapController!.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          bounds,
-          100,
-        ),
+        CameraUpdate.newLatLngBounds(bounds, 100),
       );
     } catch (e) {
-      debugPrint(
-        'Unable to fit map bounds: $e',
-      );
+      debugPrint('Unable to fit map bounds: $e');
     }
   }
 
@@ -1021,9 +802,7 @@ void _navigateToDriverJobStatus(
   // MAP CREATED
   // ============================================================
 
-  void _onMapCreated(
-    GoogleMapController controller,
-  ) {
+  void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
 
     if (_providerLatitude != null &&
@@ -1051,10 +830,9 @@ void _navigateToDriverJobStatus(
           .collection('assistance_requests')
           .doc(widget.requestId)
           .update({
-        'status': 'cancelled',
-        'updatedAt':
-            FieldValue.serverTimestamp(),
-      });
+            'status': 'cancelled',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
 
       await _stopTracking();
 
@@ -1062,9 +840,7 @@ void _navigateToDriverJobStatus(
 
       Navigator.pop(context);
     } catch (e) {
-      debugPrint(
-        'Cancel request error: $e',
-      );
+      debugPrint('Cancel request error: $e');
 
       if (!mounted) return;
 
@@ -1072,9 +848,7 @@ void _navigateToDriverJobStatus(
         _isCancelling = false;
       });
 
-      _showMessage(
-        'Unable to cancel the request.',
-      );
+      _showMessage('Unable to cancel the request.');
     }
   }
 
@@ -1088,9 +862,7 @@ void _navigateToDriverJobStatus(
     _positionSubscription = null;
 
     if (mounted) {
-      setState(() {
-        _isTracking = false;
-      });
+      setState(() {});
     }
   }
 
@@ -1099,55 +871,35 @@ void _navigateToDriverJobStatus(
   // ============================================================
 
   Future<void> _showCancelDialog() async {
-    final bool? confirmed =
-        await showDialog<bool>(
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor:
-              const Color(0xFF11181C),
+          backgroundColor: const Color(0xFF11181C),
           title: const Text(
             'Cancel Request?',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Are you sure you want to cancel your roadside assistance request?',
-            style: TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  context,
-                  false,
-                );
+                Navigator.pop(context, false);
               },
-              child: const Text(
-                'No',
-                style: TextStyle(
-                  color: Colors.white70,
-                ),
-              ),
+              child: const Text('No', style: TextStyle(color: Colors.white70)),
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  context,
-                  true,
-                );
+                Navigator.pop(context, true);
               },
               child: const Text(
                 'Cancel Request',
                 style: TextStyle(
                   color: Color(0xFFF6E900),
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -1165,19 +917,14 @@ void _navigateToDriverJobStatus(
   // MESSAGE
   // ============================================================
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-        backgroundColor:
-            const Color(0xFF151D21),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF151D21),
       ),
     );
   }
@@ -1202,8 +949,7 @@ void _navigateToDriverJobStatus(
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF05090B),
+      backgroundColor: const Color(0xFF05090B),
       body: SafeArea(
         child: Column(
           children: [
@@ -1214,13 +960,11 @@ void _navigateToDriverJobStatus(
                 children: [
                   _buildMap(),
 
-                  if (_isLoading)
-                    _buildLoading(),
+                  if (_isLoading) _buildLoading(),
 
                   _buildLiveIndicator(),
 
-                  if (_isRouteLoading)
-                    _buildRouteLoadingIndicator(),
+                  if (_isRouteLoading) _buildRouteLoadingIndicator(),
 
                   _buildMyLocationButton(),
                 ],
@@ -1241,19 +985,13 @@ void _navigateToDriverJobStatus(
   Widget _buildTopBar() {
     return Container(
       height: 64,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF05090B),
       child: Row(
         children: [
           IconButton(
             onPressed: _showCancelDialog,
-            icon: const Icon(
-              Icons.close,
-              color: Colors.white,
-            ),
+            icon: const Icon(Icons.close, color: Colors.white),
           ),
 
           const Expanded(
@@ -1262,8 +1000,7 @@ void _navigateToDriverJobStatus(
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 19,
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
@@ -1277,8 +1014,7 @@ void _navigateToDriverJobStatus(
   // ============================================================
 
   Widget _buildMap() {
-    LatLng location =
-        _defaultLocation;
+    LatLng location = _defaultLocation;
 
     if (_currentPosition != null) {
       location = LatLng(
@@ -1288,13 +1024,8 @@ void _navigateToDriverJobStatus(
     }
 
     return GoogleMap(
-      initialCameraPosition:
-          CameraPosition(
-        target: location,
-        zoom: 15,
-      ),
-      onMapCreated:
-          _onMapCreated,
+      initialCameraPosition: CameraPosition(target: location, zoom: 15),
+      onMapCreated: _onMapCreated,
       markers: _markers,
       polylines: _polylines,
       myLocationEnabled: true,
@@ -1312,14 +1043,9 @@ void _navigateToDriverJobStatus(
   Widget _buildLoading() {
     return Positioned.fill(
       child: Container(
-        color: Colors.black
-            .withOpacity(0.45),
+        color: Colors.black.withValues(alpha: 0.45),
         child: const Center(
-          child:
-              CircularProgressIndicator(
-            color:
-                Color(0xFFF6E900),
-          ),
+          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
         ),
       ),
     );
@@ -1334,39 +1060,26 @@ void _navigateToDriverJobStatus(
       top: 72,
       right: 18,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
-        decoration:
-            BoxDecoration(
-          color:
-              const Color(0xFF11181C),
-          borderRadius:
-              BorderRadius.circular(20),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF11181C),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: const Row(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
               width: 12,
               height: 12,
-              child:
-                  CircularProgressIndicator(
+              child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color:
-                    Color(0xFFF6E900),
+                color: Color(0xFFF6E900),
               ),
             ),
             SizedBox(width: 7),
             Text(
               'Updating route',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 11,
-              ),
+              style: TextStyle(color: Colors.white70, fontSize: 11),
             ),
           ],
         ),
@@ -1383,42 +1096,29 @@ void _navigateToDriverJobStatus(
       top: 18,
       left: 18,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
-        decoration:
-            BoxDecoration(
-          color:
-              const Color(0xFF11181C),
-          borderRadius:
-              BorderRadius.circular(20),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF11181C),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 9,
               height: 9,
-              decoration:
-                  const BoxDecoration(
-                color:
-                    Colors.greenAccent,
-                shape:
-                    BoxShape.circle,
+              decoration: const BoxDecoration(
+                color: Colors.greenAccent,
+                shape: BoxShape.circle,
               ),
             ),
             const SizedBox(width: 7),
             const Text(
               'LIVE TRACKING',
               style: TextStyle(
-                color:
-                    Colors.greenAccent,
+                color: Colors.greenAccent,
                 fontSize: 11,
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -1436,23 +1136,17 @@ void _navigateToDriverJobStatus(
       right: 18,
       bottom: 18,
       child: GestureDetector(
-        onTap:
-            _moveCameraToDriver,
+        onTap: _moveCameraToDriver,
         child: Container(
           width: 52,
           height: 52,
-          decoration:
-              BoxDecoration(
-            color:
-                const Color(0xFF11181C),
-            borderRadius:
-                BorderRadius.circular(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF11181C),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
-            Icons
-                .my_location_rounded,
-            color:
-                Color(0xFFF6E900),
+            Icons.my_location_rounded,
+            color: Color(0xFFF6E900),
           ),
         ),
       ),
@@ -1465,45 +1159,28 @@ void _navigateToDriverJobStatus(
 
   Widget _buildBottomPanel() {
     final bool providerFound =
-        _providerLatitude != null &&
-            _providerLongitude != null;
+        _providerLatitude != null && _providerLongitude != null;
 
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        20,
-      ),
-      decoration:
-          const BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+      decoration: const BoxDecoration(
         color: Color(0xFF11181C),
-        borderRadius:
-            BorderRadius.only(
-          topLeft:
-              Radius.circular(26),
-          topRight:
-              Radius.circular(26),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(26),
+          topRight: Radius.circular(26),
         ),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
             child: Container(
               width: 40,
               height: 4,
-              decoration:
-                  BoxDecoration(
-                color:
-                    Colors.white24,
-                borderRadius:
-                    BorderRadius.circular(
-                  20,
-                ),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
           ),
@@ -1515,21 +1192,13 @@ void _navigateToDriverJobStatus(
               Container(
                 width: 48,
                 height: 48,
-                decoration:
-                    BoxDecoration(
-                  color:
-                      const Color(
-                    0xFFF6E900,
-                  ).withOpacity(0.12),
-                  borderRadius:
-                      BorderRadius.circular(
-                    15,
-                  ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.local_shipping,
-                  color:
-                      Color(0xFFF6E900),
+                  color: Color(0xFFF6E900),
                   size: 27,
                 ),
               ),
@@ -1538,19 +1207,14 @@ void _navigateToDriverJobStatus(
 
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      providerFound
-                          ? widget.providerName
-                          : 'Roadside Provider',
-                      style:
-                          const TextStyle(
+                      providerFound ? widget.providerName : 'Roadside Provider',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 17,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
@@ -1560,8 +1224,7 @@ void _navigateToDriverJobStatus(
                       providerFound
                           ? 'Your provider is on the way'
                           : 'Waiting for provider location...',
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 13,
                       ),
@@ -1577,63 +1240,40 @@ void _navigateToDriverJobStatus(
           // ====================================================
           // ETA + DISTANCE
           // ====================================================
-
           Row(
             children: [
               Expanded(
                 child: Container(
-                  padding:
-                      const EdgeInsets.all(
-                    14,
-                  ),
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(
-                      0xFF05090B,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(
-                      14,
-                    ),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF05090B),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.timer_outlined,
-                        color:
-                            Color(0xFFF6E900),
+                        color: Color(0xFFF6E900),
                         size: 22,
                       ),
-                      const SizedBox(
-                        width: 10,
-                      ),
+                      const SizedBox(width: 10),
                       Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'ETA',
-                            style:
-                                TextStyle(
-                              color:
-                                  Colors.white54,
+                            style: TextStyle(
+                              color: Colors.white54,
                               fontSize: 11,
                             ),
                           ),
-                          const SizedBox(
-                            height: 2,
-                          ),
+                          const SizedBox(height: 2),
                           Text(
                             _routeEta,
-                            style:
-                                const TextStyle(
-                              color:
-                                  Colors.white,
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontSize: 16,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -1647,59 +1287,36 @@ void _navigateToDriverJobStatus(
 
               Expanded(
                 child: Container(
-                  padding:
-                      const EdgeInsets.all(
-                    14,
-                  ),
-                  decoration:
-                      BoxDecoration(
-                    color:
-                        const Color(
-                      0xFF05090B,
-                    ),
-                    borderRadius:
-                        BorderRadius.circular(
-                      14,
-                    ),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF05090B),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
                       const Icon(
-                        Icons
-                            .near_me_outlined,
-                        color:
-                            Colors.greenAccent,
+                        Icons.near_me_outlined,
+                        color: Colors.greenAccent,
                         size: 21,
                       ),
-                      const SizedBox(
-                        width: 10,
-                      ),
+                      const SizedBox(width: 10),
                       Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment
-                                .start,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
                             'DISTANCE',
-                            style:
-                                TextStyle(
-                              color:
-                                  Colors.white54,
+                            style: TextStyle(
+                              color: Colors.white54,
                               fontSize: 11,
                             ),
                           ),
-                          const SizedBox(
-                            height: 2,
-                          ),
+                          const SizedBox(height: 2),
                           Text(
                             _formatRouteDistance(),
-                            style:
-                                const TextStyle(
-                              color:
-                                  Colors.white,
+                            style: const TextStyle(
+                              color: Colors.white,
                               fontSize: 16,
-                              fontWeight:
-                                  FontWeight.bold,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                         ],
@@ -1717,8 +1334,7 @@ void _navigateToDriverJobStatus(
             children: [
               const Icon(
                 Icons.location_on_outlined,
-                color:
-                    Colors.greenAccent,
+                color: Colors.greenAccent,
                 size: 18,
               ),
               const SizedBox(width: 7),
@@ -1727,12 +1343,7 @@ void _navigateToDriverJobStatus(
                   _routeDistanceMeters != null
                       ? 'Route and provider location are updated in real time.'
                       : 'Calculating the best route to your location...',
-                  style:
-                      const TextStyle(
-                    color:
-                        Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               ),
             ],
@@ -1743,47 +1354,27 @@ void _navigateToDriverJobStatus(
           SizedBox(
             width: double.infinity,
             height: 50,
-            child:
-                OutlinedButton(
-              onPressed:
-                  _isCancelling
-                      ? null
-                      : _showCancelDialog,
-              style:
-                  OutlinedButton.styleFrom(
-                foregroundColor:
-                    Colors.white,
-                side:
-                    const BorderSide(
-                  color:
-                      Colors.white24,
-                ),
-                shape:
-                    RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(
-                    14,
-                  ),
+            child: OutlinedButton(
+              onPressed: _isCancelling ? null : _showCancelDialog,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               child: _isCancelling
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child:
-                          CircularProgressIndicator(
+                      child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color:
-                            Colors.white,
+                        color: Colors.white,
                       ),
                     )
                   : const Text(
                       'Cancel Request',
-                      style:
-                          TextStyle(
-                        fontWeight:
-                            FontWeight.w600,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.w600),
                     ),
             ),
           ),

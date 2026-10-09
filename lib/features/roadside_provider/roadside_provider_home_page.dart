@@ -58,6 +58,8 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
   StreamSubscription<Position>? _positionSubscription;
   StreamSubscription<QuerySnapshot>? _requestSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _activeJobSubscription;
 
   // Currently accepted assistance request.
   String? _activeRequestId;
@@ -589,6 +591,8 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       }
 
       if (activeDocument == null) {
+        await _activeJobSubscription?.cancel();
+        _activeJobSubscription = null;
         setState(() {
           _activeRequestId = null;
           _activeJobData = null;
@@ -607,6 +611,8 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         _isLoadingActiveJob = false;
       });
 
+      _startActiveJobListener();
+
       debugPrint('Active job loaded: $_activeRequestId');
     } catch (e) {
       debugPrint('Error loading active job: $e');
@@ -622,24 +628,23 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   }
 
   void _startActiveJobListener() {
+    unawaited(_activeJobSubscription?.cancel() ?? Future<void>.value());
     final String? requestId = _activeRequestId;
 
     if (requestId == null || requestId.isEmpty) {
       return;
     }
 
-    _firestore
+    _activeJobSubscription = _firestore
         .collection('assistance_requests')
         .doc(requestId)
         .snapshots()
         .listen(
-          (DocumentSnapshot snapshot) {
-            if (!snapshot.exists) {
+          (DocumentSnapshot<Map<String, dynamic>> snapshot) {
+            final data = snapshot.data();
+            if (!snapshot.exists || data == null) {
               return;
             }
-
-            final Map<String, dynamic> data =
-                snapshot.data() as Map<String, dynamic>;
 
             final String status = data['status']?.toString() ?? '';
 
@@ -652,8 +657,8 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             });
 
             if (status == 'completed') {
-              _loadProviderStatistics();
-              _loadJobHistory();
+              unawaited(_loadProviderStatistics());
+              unawaited(_loadJobHistory());
             }
           },
           onError: (error) {
@@ -1601,7 +1606,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: _yellowColor.withOpacity(0.12),
+              color: _yellowColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(15),
             ),
             child: Icon(
@@ -1656,12 +1661,12 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: _isOnline
-              ? Colors.greenAccent.withOpacity(0.12)
-              : Colors.white.withOpacity(0.05),
+              ? Colors.greenAccent.withValues(alpha: 0.12)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _isOnline
-                ? Colors.greenAccent.withOpacity(0.35)
+                ? Colors.greenAccent.withValues(alpha: 0.35)
                 : Colors.white12,
           ),
         ),
@@ -1782,7 +1787,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.04)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
       ),
       child: Row(
         children: [
@@ -1790,7 +1795,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: _yellowColor.withOpacity(0.12),
+              color: _yellowColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(18),
             ),
             child: Icon(Icons.person_rounded, color: _yellowColor, size: 29),
@@ -1842,12 +1847,14 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _isOnline ? Colors.greenAccent.withOpacity(0.07) : _cardColor,
+        color: _isOnline
+            ? Colors.greenAccent.withValues(alpha: 0.07)
+            : _cardColor,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: _isOnline
-              ? Colors.greenAccent.withOpacity(0.18)
-              : Colors.white.withOpacity(0.04),
+              ? Colors.greenAccent.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.04),
         ),
       ),
       child: Row(
@@ -1857,8 +1864,8 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             height: 45,
             decoration: BoxDecoration(
               color: _isOnline
-                  ? Colors.greenAccent.withOpacity(0.12)
-                  : Colors.white.withOpacity(0.05),
+                  ? Colors.greenAccent.withValues(alpha: 0.12)
+                  : Colors.white.withValues(alpha: 0.05),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -1940,7 +1947,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _yellowColor.withOpacity(0.20)),
+        border: Border.all(color: _yellowColor.withValues(alpha: 0.20)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1951,7 +1958,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: _yellowColor.withOpacity(0.12),
+                  color: _yellowColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
@@ -2126,7 +2133,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: _yellowColor.withOpacity(0.10),
+        color: _yellowColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
@@ -2228,7 +2235,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: Colors.greenAccent.withOpacity(0.10),
+                  color: Colors.greenAccent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
@@ -2410,7 +2417,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 62,
             height: 62,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.04),
+              color: Colors.white.withValues(alpha: 0.04),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -2478,7 +2485,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.04)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2489,7 +2496,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: _yellowColor.withOpacity(0.10),
+                  color: _yellowColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
@@ -2525,7 +2532,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.orangeAccent.withOpacity(0.10),
+                  color: Colors.orangeAccent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -2704,6 +2711,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         widget.userData['workshopLocation'] = trimmedLocation;
       });
 
+      if (!dialogContext.mounted) return;
       if (Navigator.canPop(dialogContext)) {
         Navigator.pop(dialogContext);
       }
@@ -2941,7 +2949,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: _yellowColor.withOpacity(0.12),
+                  color: _yellowColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -3151,9 +3159,9 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         children: [
@@ -3161,7 +3169,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              color: _yellowColor.withOpacity(0.10),
+              color: _yellowColor.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(11),
             ),
             child: Icon(icon, color: _yellowColor, size: 20),
@@ -3251,10 +3259,10 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                       width: 88,
                       height: 88,
                       decoration: BoxDecoration(
-                        color: _yellowColor.withOpacity(0.12),
+                        color: _yellowColor.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _yellowColor.withOpacity(0.35),
+                          color: _yellowColor.withValues(alpha: 0.35),
                           width: 1.5,
                         ),
                         image: _profilePhotoUrl.isNotEmpty
@@ -3370,7 +3378,9 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _yellowColor,
                       foregroundColor: Colors.black,
-                      disabledBackgroundColor: _yellowColor.withOpacity(0.4),
+                      disabledBackgroundColor: _yellowColor.withValues(
+                        alpha: 0.4,
+                      ),
                       disabledForegroundColor: Colors.black54,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
@@ -3563,7 +3573,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: _yellowColor.withOpacity(0.12),
+                  color: _yellowColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -3714,9 +3724,9 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.04),
+        color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3725,7 +3735,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: statusBackgroundColor.withOpacity(0.12),
+              color: statusBackgroundColor.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -3769,7 +3779,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: statusBackgroundColor.withOpacity(0.10),
+                        color: statusBackgroundColor.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
@@ -3833,7 +3843,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
+              color: Colors.white.withValues(alpha: 0.05),
               borderRadius: BorderRadius.circular(13),
             ),
             child: Icon(icon, color: _yellowColor, size: 22),
@@ -3873,7 +3883,9 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       decoration: BoxDecoration(
         color: _backgroundColor,
-        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.04))),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
+        ),
       ),
       child: Row(
         children: [
@@ -3934,7 +3946,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
               decoration: BoxDecoration(
                 color: selected
-                    ? _yellowColor.withOpacity(0.12)
+                    ? _yellowColor.withValues(alpha: 0.12)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(15),
               ),
@@ -4067,6 +4079,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   void dispose() {
     _positionSubscription?.cancel();
     _requestSubscription?.cancel();
+    _activeJobSubscription?.cancel();
 
     super.dispose();
   }
