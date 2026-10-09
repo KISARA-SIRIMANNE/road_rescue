@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../vehicle_owner/vehicle_owner_home_page.dart';
+import '../insurance/insurance_dashboard_page.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,11 +24,9 @@ class _LoginScreenState extends State<LoginScreen> {
   // CONTROLLERS
   // ============================================================
 
-  final TextEditingController _emailController =
-      TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
 
-  final TextEditingController _passwordController =
-      TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
 
   // ============================================================
   // STATE
@@ -78,9 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    if (!RegExp(
-      r'^[\w\.-]+@[\w\.-]+\.\w+$',
-    ).hasMatch(email)) {
+    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email)) {
       _showError('Please enter a valid email address.');
       return;
     }
@@ -103,18 +100,13 @@ class _LoginScreenState extends State<LoginScreen> {
       // FIREBASE AUTHENTICATION
       // ----------------------------------------------------------
 
-      final UserCredential userCredential =
-          await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final UserCredential userCredential = await _auth
+          .signInWithEmailAndPassword(email: email, password: password);
 
       final User? user = userCredential.user;
 
       if (user == null) {
-        _showError(
-          'Unable to retrieve your account information.',
-        );
+        _showError('Unable to retrieve your account information.');
         return;
       }
 
@@ -122,26 +114,25 @@ class _LoginScreenState extends State<LoginScreen> {
       // GET USER DATA FROM FIRESTORE
       // ----------------------------------------------------------
 
-      final DocumentSnapshot userDocument =
-          await _firestore
-              .collection('users')
-              .doc(user.uid)
-              .get();
+      final DocumentSnapshot userDocument = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
       if (!userDocument.exists) {
-        _showError(
-          'Your account information could not be found.',
-        );
+        _showError('Your account information could not be found.');
 
         await _auth.signOut();
         return;
       }
 
-      final Map<String, dynamic> userData =
-          userDocument.data() as Map<String, dynamic>;
+      final Map<String, dynamic> userData = {
+        ...(userDocument.data() as Map<String, dynamic>),
+        'uid': user.uid,
+        'email': user.email,
+      };
 
-      final String role =
-          userData['role']?.toString() ?? '';
+      final String role = userData['role']?.toString() ?? '';
 
       // ----------------------------------------------------------
       // CHECK ROLE
@@ -157,9 +148,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => VehicleOwnerHomePage(
-              userData: userData,
-            ),
+            builder: (context) => VehicleOwnerHomePage(userData: userData),
           ),
         );
 
@@ -174,10 +163,8 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => RoleHomePlaceholder(
-              role: role,
-              userData: userData,
-            ),
+            builder: (context) =>
+                RoleHomePlaceholder(role: role, userData: userData),
           ),
         );
 
@@ -192,10 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => RoleHomePlaceholder(
-              role: role,
-              userData: userData,
-            ),
+            builder: (context) => const InsuranceDashboardPage(),
           ),
         );
 
@@ -206,9 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // UNKNOWN ROLE
       // ----------------------------------------------------------
 
-      _showError(
-        'Your account role is not recognized.',
-      );
+      _showError('Your account role is not recognized.');
 
       await _auth.signOut();
     } on FirebaseAuthException catch (e) {
@@ -216,56 +198,42 @@ class _LoginScreenState extends State<LoginScreen> {
 
       switch (e.code) {
         case 'invalid-credential':
-          message =
-              'Incorrect email or password.';
+          message = 'Incorrect email or password.';
           break;
 
         case 'invalid-email':
-          message =
-              'The email address is not valid.';
+          message = 'The email address is not valid.';
           break;
 
         case 'user-disabled':
-          message =
-              'This account has been disabled.';
+          message = 'This account has been disabled.';
           break;
 
         case 'user-not-found':
-          message =
-              'No account was found with this email.';
+          message = 'No account was found with this email.';
           break;
 
         case 'wrong-password':
-          message =
-              'Incorrect password.';
+          message = 'Incorrect password.';
           break;
 
         case 'too-many-requests':
-          message =
-              'Too many login attempts. Please try again later.';
+          message = 'Too many login attempts. Please try again later.';
           break;
 
         case 'network-request-failed':
-          message =
-              'Network error. Please check your internet connection.';
+          message = 'Network error. Please check your internet connection.';
           break;
 
         default:
-          message =
-              e.message ??
-              'Unable to log in. Please try again.';
+          message = e.message ?? 'Unable to log in. Please try again.';
       }
 
       _showError(message);
     } on FirebaseException catch (e) {
-      _showError(
-        e.message ??
-            'A Firebase error occurred. Please try again.',
-      );
+      _showError(e.message ?? 'A Firebase error occurred. Please try again.');
     } catch (e) {
-      _showError(
-        'Something went wrong. Please try again.',
-      );
+      _showError('Something went wrong. Please try again.');
     } finally {
       if (mounted) {
         setState(() {
@@ -311,10 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
             FocusScope.of(context).unfocus();
           },
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 28,
-              vertical: 30,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -364,11 +329,7 @@ class _LoginScreenState extends State<LoginScreen> {
       onPressed: () {
         Navigator.pop(context);
       },
-      icon: const Icon(
-        Icons.arrow_back_ios_new,
-        color: whiteColor,
-        size: 20,
-      ),
+      icon: const Icon(Icons.arrow_back_ios_new, color: whiteColor, size: 20),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(),
     );
@@ -467,11 +428,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         Text(
           'Log in to continue using RoadRescue.',
-          style: TextStyle(
-            color: greyColor,
-            fontSize: 14,
-            height: 1.5,
-          ),
+          style: TextStyle(color: greyColor, fontSize: 14, height: 1.5),
         ),
       ],
     );
@@ -500,16 +457,10 @@ class _LoginScreenState extends State<LoginScreen> {
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
-          style: const TextStyle(
-            color: whiteColor,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: whiteColor, fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Enter your email',
-            hintStyle: const TextStyle(
-              color: greyColor,
-              fontSize: 14,
-            ),
+            hintStyle: const TextStyle(color: greyColor, fontSize: 14),
             prefixIcon: const Icon(
               Icons.email_outlined,
               color: greyColor,
@@ -523,22 +474,15 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: borderColor,
-              ),
+              borderSide: const BorderSide(color: borderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: borderColor,
-              ),
+              borderSide: const BorderSide(color: borderColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: yellowColor,
-                width: 1.4,
-              ),
+              borderSide: const BorderSide(color: yellowColor, width: 1.4),
             ),
           ),
         ),
@@ -570,16 +514,10 @@ class _LoginScreenState extends State<LoginScreen> {
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _loginUser(),
-          style: const TextStyle(
-            color: whiteColor,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: whiteColor, fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Enter your password',
-            hintStyle: const TextStyle(
-              color: greyColor,
-              fontSize: 14,
-            ),
+            hintStyle: const TextStyle(color: greyColor, fontSize: 14),
             prefixIcon: const Icon(
               Icons.lock_outline,
               color: greyColor,
@@ -588,8 +526,7 @@ class _LoginScreenState extends State<LoginScreen> {
             suffixIcon: IconButton(
               onPressed: () {
                 setState(() {
-                  _obscurePassword =
-                      !_obscurePassword;
+                  _obscurePassword = !_obscurePassword;
                 });
               },
               icon: Icon(
@@ -608,22 +545,15 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: borderColor,
-              ),
+              borderSide: const BorderSide(color: borderColor),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: borderColor,
-              ),
+              borderSide: const BorderSide(color: borderColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(
-                color: yellowColor,
-                width: 1.4,
-              ),
+              borderSide: const BorderSide(color: yellowColor, width: 1.4),
             ),
           ),
         ),
@@ -640,15 +570,12 @@ class _LoginScreenState extends State<LoginScreen> {
       alignment: Alignment.centerRight,
       child: TextButton(
         onPressed: () {
-          _showError(
-            'Password reset will be added soon.',
-          );
+          _showError('Password reset will be added soon.');
         },
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
           minimumSize: Size.zero,
-          tapTargetSize:
-              MaterialTapTargetSize.shrinkWrap,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: const Text(
           'Forgot Password?',
@@ -671,13 +598,11 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed:
-            _isLoading ? null : _loginUser,
+        onPressed: _isLoading ? null : _loginUser,
         style: ElevatedButton.styleFrom(
           backgroundColor: yellowColor,
           foregroundColor: backgroundColor,
-          disabledBackgroundColor:
-              yellowColor.withOpacity(0.5),
+          disabledBackgroundColor: yellowColor.withOpacity(0.5),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -693,8 +618,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               )
             : Row(
-                mainAxisAlignment:
-                    MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Text(
                     'Log In',
@@ -712,8 +636,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 22,
                     decoration: BoxDecoration(
                       color: backgroundColor,
-                      borderRadius:
-                          BorderRadius.circular(11),
+                      borderRadius: BorderRadius.circular(11),
                     ),
                     child: const Icon(
                       Icons.arrow_forward,
@@ -738,10 +661,7 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           const Text(
             "Don't have an account? ",
-            style: TextStyle(
-              color: greyColor,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: greyColor, fontSize: 13),
           ),
 
           GestureDetector(
@@ -790,8 +710,7 @@ class RoleHomePlaceholder extends StatelessWidget {
 
     switch (role) {
       case 'roadside_provider':
-        roleName =
-            'Roadside Assistance Provider';
+        roleName = 'Roadside Assistance Provider';
         break;
 
       case 'insurance_provider':
@@ -803,23 +722,20 @@ class RoleHomePlaceholder extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF101214),
+      backgroundColor: const Color(0xFF101214),
       body: SafeArea(
         child: Center(
           child: Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
-              mainAxisAlignment:
-                  MainAxisAlignment.center,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
                     color: const Color(0xFFF6E900),
-                    borderRadius:
-                        BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(22),
                   ),
                   child: const Icon(
                     Icons.check,
@@ -855,10 +771,7 @@ class RoleHomePlaceholder extends StatelessWidget {
                 const Text(
                   'Your home page will be available here.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF929AA2),
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Color(0xFF929AA2), fontSize: 14),
                 ),
               ],
             ),
