@@ -21,12 +21,12 @@ class _VehicleOwnerHomePageState
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF101214);
-  static const Color cardColor = Color(0xFF181B1E);
-  static const Color yellowColor = Color(0xFFF6E900);
+  static const Color backgroundColor = Color(0xFF05090B);
+  static const Color cardColor = Color(0xFF11181C);
+  static const Color yellowColor = Color(0xFFFFD21F);
   static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color greyColor = Color(0xFF929AA2);
-  static const Color borderColor = Color(0xFF30353A);
+  static const Color greyColor = Color(0xFFA5ADB3);
+  static const Color borderColor = Color(0xFF263036);
 
   // ============================================================
   // STATE
