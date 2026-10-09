@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'review_rating_page.dart';
 
 class PaymentPage extends StatefulWidget {
@@ -190,9 +191,9 @@ class _PaymentPageState extends State<PaymentPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF05090B),
+        backgroundColor: RoadRescueColors.background,
         elevation: 0,
         centerTitle: true,
         title: const Text(
@@ -430,7 +431,7 @@ class _PaymentPageState extends State<PaymentPage> {
                         _isProcessing ? null : _processPayment,
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
-                          const Color(0xFFFFD21F),
+                          RoadRescueColors.accent,
                       foregroundColor: Colors.black,
                       disabledBackgroundColor:
                           Colors.grey.shade800,
@@ -498,17 +499,17 @@ class _PaymentPageState extends State<PaymentPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFFFD21F).withOpacity(0.25),
+          color: RoadRescueColors.accent.withOpacity(0.25),
         ),
       ),
       child: Column(
         children: [
           Icon(
             Icons.account_balance_wallet_outlined,
-            color: const Color(0xFFFFD21F),
+            color: RoadRescueColors.accent,
             size: 34,
           ),
 
@@ -572,7 +573,7 @@ class _PaymentPageState extends State<PaymentPage> {
         color: Colors.white,
         fontSize: 15,
       ),
-      cursorColor: const Color(0xFFFFD21F),
+      cursorColor: RoadRescueColors.accent,
       validator: validator,
       decoration: InputDecoration(
         counterText: '',
@@ -586,11 +587,11 @@ class _PaymentPageState extends State<PaymentPage> {
         ),
         prefixIcon: Icon(
           icon,
-          color: const Color(0xFFFFD21F),
+          color: RoadRescueColors.accent,
         ),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: const Color(0xFF10171B),
+        fillColor: RoadRescueColors.elevatedSurface,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
@@ -600,7 +601,7 @@ class _PaymentPageState extends State<PaymentPage> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(
-            color: Color(0xFFFFD21F),
+            color: RoadRescueColors.accent,
             width: 1.5,
           ),
         ),
@@ -625,7 +626,7 @@ class _PaymentPageState extends State<PaymentPage> {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: Colors.grey.shade800,
@@ -637,7 +638,7 @@ class _PaymentPageState extends State<PaymentPage> {
         children: [
           const Icon(
             Icons.shield_outlined,
-            color: Color(0xFFFFD21F),
+            color: RoadRescueColors.accent,
             size: 22,
           ),
 
@@ -677,7 +678,7 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Widget _buildPaymentSuccessPage() {
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -734,7 +735,7 @@ class _PaymentPageState extends State<PaymentPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF11181C),
+                    color: RoadRescueColors.surface,
                     borderRadius:
                         BorderRadius.circular(18),
                   ),
@@ -783,7 +784,7 @@ class _PaymentPageState extends State<PaymentPage> {
     },
     style: ElevatedButton.styleFrom(
       backgroundColor:
-          const Color(0xFFFFD21F),
+          RoadRescueColors.accent,
       foregroundColor: Colors.black,
       elevation: 0,
       shape: RoundedRectangleBorder(

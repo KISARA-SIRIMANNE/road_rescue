@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:road_rescue/features/vehicle_owner/location_confirmation_page.dart';
 import '../../services/insurance_company.dart';
 
@@ -96,7 +97,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }
@@ -106,7 +107,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF11181C),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Request Ready',
             style: TextStyle(
@@ -129,7 +130,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               child: const Text(
                 'OK',
                 style: TextStyle(
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -146,9 +147,9 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         widget.userData['name']?.toString() ?? 'Driver';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF05090B),
+        backgroundColor: RoadRescueColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(
@@ -180,7 +181,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF11181C),
+                  color: RoadRescueColors.surface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: Colors.white.withOpacity(0.06),
@@ -192,7 +193,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                       width: 54,
                       height: 54,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF6E900),
+                        color: RoadRescueColors.accent,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Icon(
@@ -279,13 +280,13 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               DropdownButtonFormField<String>(
                 value: _selectedInsuranceCompanyId,
                 isExpanded: true,
-                dropdownColor: const Color(0xFF191C20),
+                dropdownColor: RoadRescueColors.surface,
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Select insurance company',
                   hintStyle: const TextStyle(color: Colors.white54),
                   filled: true,
-                  fillColor: const Color(0xFF191C20),
+                  fillColor: RoadRescueColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
@@ -319,7 +320,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 child: ElevatedButton(
                   onPressed: _submitRequest,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF6E900),
+                    backgroundColor: RoadRescueColors.accent,
                     foregroundColor: Colors.black,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -381,12 +382,12 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF11181C),
+              ? RoadRescueColors.accent.withOpacity(0.10)
+              : RoadRescueColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFF6E900)
+                ? RoadRescueColors.accent
                 : Colors.white.withOpacity(0.06),
             width: isSelected ? 1.5 : 1,
           ),
@@ -398,8 +399,8 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               height: 50,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFFF6E900)
-                    : const Color(0xFF151D21),
+                    ? RoadRescueColors.accent
+                    : RoadRescueColors.surface,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(
@@ -417,7 +418,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                     title,
                     style: TextStyle(
                       color: isSelected
-                          ? const Color(0xFFF6E900)
+                          ? RoadRescueColors.accent
                           : Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -442,11 +443,11 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected
-                    ? const Color(0xFFF6E900)
+                    ? RoadRescueColors.accent
                     : Colors.transparent,
                 border: Border.all(
                   color: isSelected
-                      ? const Color(0xFFF6E900)
+                      ? RoadRescueColors.accent
                       : Colors.white38,
                   width: 2,
                 ),
@@ -475,12 +476,12 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF11181C),
+              ? RoadRescueColors.accent.withOpacity(0.10)
+              : RoadRescueColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFF6E900)
+                ? RoadRescueColors.accent
                 : Colors.white.withOpacity(0.06),
             width: isSelected ? 1.5 : 1,
           ),
@@ -494,8 +495,8 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   height: 50,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFFF6E900)
-                        : const Color(0xFF151D21),
+                        ? RoadRescueColors.accent
+                        : RoadRescueColors.surface,
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Icon(
@@ -551,7 +552,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                     color: Colors.white38,
                   ),
                   filled: true,
-                  fillColor: const Color(0xFF10171B),
+                  fillColor: RoadRescueColors.elevatedSurface,
                   contentPadding: const EdgeInsets.all(16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -568,7 +569,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                       Radius.circular(14),
                     ),
                     borderSide: BorderSide(
-                      color: Color(0xFFF6E900),
+                      color: RoadRescueColors.accent,
                       width: 1.5,
                     ),
                   ),

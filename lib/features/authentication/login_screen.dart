@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import '../vehicle_owner/vehicle_owner_home_page.dart';
 import '../insurance/insurance_dashboard_page.dart';
@@ -40,12 +41,12 @@ class _LoginScreenState extends State<LoginScreen> {
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF05090B);
-  static const Color cardColor = Color(0xFF11181C);
-  static const Color yellowColor = Color(0xFFFFD21F);
-  static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color greyColor = Color(0xFFA5ADB3);
-  static const Color borderColor = Color(0xFF263036);
+  static const Color backgroundColor = RoadRescueColors.background;
+  static const Color cardColor = RoadRescueColors.surface;
+  static const Color yellowColor = RoadRescueColors.accent;
+  static const Color whiteColor = RoadRescueColors.foreground;
+  static const Color greyColor = RoadRescueColors.muted;
+  static const Color borderColor = RoadRescueColors.border;
 
   // ============================================================
   // DISPOSE
@@ -722,7 +723,7 @@ class RoleHomePlaceholder extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF101214),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -734,12 +735,12 @@ class RoleHomePlaceholder extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF6E900),
+                    color: RoadRescueColors.accent,
                     borderRadius: BorderRadius.circular(22),
                   ),
                   child: const Icon(
                     Icons.check,
-                    color: Color(0xFF05090B),
+                    color: RoadRescueColors.background,
                     size: 42,
                   ),
                 ),
@@ -749,7 +750,7 @@ class RoleHomePlaceholder extends StatelessWidget {
                 const Text(
                   'Login Successful',
                   style: TextStyle(
-                    color: Color(0xFFF5F7F8),
+                    color: RoadRescueColors.foreground,
                     fontSize: 27,
                     fontWeight: FontWeight.bold,
                   ),
@@ -760,7 +761,7 @@ class RoleHomePlaceholder extends StatelessWidget {
                 Text(
                   roleName,
                   style: const TextStyle(
-                    color: Color(0xFFF6E900),
+                    color: RoadRescueColors.accent,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -771,7 +772,7 @@ class RoleHomePlaceholder extends StatelessWidget {
                 const Text(
                   'Your home page will be available here.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFFA5ADB3), fontSize: 14),
+                  style: TextStyle(color: RoadRescueColors.muted, fontSize: 14),
                 ),
               ],
             ),

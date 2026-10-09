@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import 'vehicle_owner_home_page.dart';
 
@@ -21,11 +22,11 @@ class ReviewRatingPage extends StatefulWidget {
 }
 
 class _ReviewRatingPageState extends State<ReviewRatingPage> {
-  final Color _backgroundColor = const Color(0xFF05090B);
+  final Color _backgroundColor = RoadRescueColors.background;
 
-  final Color _cardColor = const Color(0xFF11181C);
+  final Color _cardColor = RoadRescueColors.surface;
 
-  final Color _yellowColor = const Color(0xFFFFD21F);
+  final Color _yellowColor = RoadRescueColors.accent;
 
   final TextEditingController _reviewController = TextEditingController();
 
@@ -111,9 +112,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (context) => VehicleOwnerHomePage(
-            userData: userData,
-          ),
+          builder: (context) => VehicleOwnerHomePage(userData: userData),
         ),
         (route) => false,
       );
@@ -178,10 +177,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
               Text(
                 'Your feedback helps us improve RoadRescue.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.grey.shade400,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 14),
               ),
               const SizedBox(height: 24),
               _buildRatingSection(),
@@ -205,9 +201,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: _yellowColor.withOpacity(0.15),
-        ),
+        border: Border.all(color: _yellowColor.withOpacity(0.15)),
       ),
       child: Row(
         children: [
@@ -218,7 +212,8 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
               color: _yellowColor.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
-            child: widget.providerPhotoUrl != null &&
+            child:
+                widget.providerPhotoUrl != null &&
                     widget.providerPhotoUrl!.isNotEmpty
                 ? ClipOval(
                     child: Image.network(
@@ -235,11 +230,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
                       },
                     ),
                   )
-                : Icon(
-                    Icons.person_rounded,
-                    color: _yellowColor,
-                    size: 30,
-                  ),
+                : Icon(Icons.person_rounded, color: _yellowColor, size: 30),
           ),
           const SizedBox(width: 15),
           Expanded(
@@ -248,10 +239,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
               children: [
                 Text(
                   'Roadside Assistance Provider',
-                  style: TextStyle(
-                    color: Colors.grey.shade400,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
                 ),
                 const SizedBox(height: 5),
                 Text(
@@ -277,40 +265,35 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(
-            5,
-            (index) {
-              final int rating = index + 1;
+          children: List.generate(5, (index) {
+            final int rating = index + 1;
 
-              return GestureDetector(
-                onTap: () {
-                  _selectRating(rating);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 5),
-                  child: AnimatedScale(
-                    scale: _selectedRating == rating ? 1.15 : 1.0,
-                    duration: const Duration(milliseconds: 150),
-                    child: Icon(
-                      rating <= _selectedRating
-                          ? Icons.star_rounded
-                          : Icons.star_border_rounded,
-                      color: _yellowColor,
-                      size: 48,
-                    ),
+            return GestureDetector(
+              onTap: () {
+                _selectRating(rating);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: AnimatedScale(
+                  scale: _selectedRating == rating ? 1.15 : 1.0,
+                  duration: const Duration(milliseconds: 150),
+                  child: Icon(
+                    rating <= _selectedRating
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: _yellowColor,
+                    size: 48,
                   ),
                 ),
-              );
-            },
-          ),
+              ),
+            );
+          }),
         ),
         const SizedBox(height: 12),
         Text(
           _ratingText(),
           style: TextStyle(
-            color: _selectedRating == 0
-                ? Colors.grey.shade500
-                : _yellowColor,
+            color: _selectedRating == 0 ? Colors.grey.shade500 : _yellowColor,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -352,39 +335,37 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
         Wrap(
           spacing: 9,
           runSpacing: 9,
-          children: _availableTags.map(
-            (tag) {
-              final bool selected = _selectedTags.contains(tag);
+          children: _availableTags.map((tag) {
+            final bool selected = _selectedTags.contains(tag);
 
-              return GestureDetector(
-                onTap: () {
-                  _toggleTag(tag);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected ? _yellowColor : _cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: selected ? _yellowColor : Colors.white12,
-                    ),
-                  ),
-                  child: Text(
-                    tag,
-                    style: TextStyle(
-                      color: selected ? Colors.black : Colors.grey.shade300,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+            return GestureDetector(
+              onTap: () {
+                _toggleTag(tag);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: selected ? _yellowColor : _cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: selected ? _yellowColor : Colors.white12,
                   ),
                 ),
-              );
-            },
-          ).toList(),
+                child: Text(
+                  tag,
+                  style: TextStyle(
+                    color: selected ? Colors.black : Colors.grey.shade300,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );
@@ -407,15 +388,10 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
           controller: _reviewController,
           maxLines: 5,
           maxLength: 500,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: Colors.white, fontSize: 14),
           decoration: InputDecoration(
             hintText: 'Tell us about your experience...',
-            hintStyle: TextStyle(
-              color: Colors.grey.shade600,
-            ),
+            hintStyle: TextStyle(color: Colors.grey.shade600),
             filled: true,
             fillColor: _cardColor,
             contentPadding: const EdgeInsets.all(16),
@@ -425,16 +401,11 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: Colors.white12,
-              ),
+              borderSide: const BorderSide(color: Colors.white12),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(
-                color: _yellowColor,
-                width: 1.2,
-              ),
+              borderSide: BorderSide(color: _yellowColor, width: 1.2),
             ),
           ),
         ),
@@ -458,10 +429,7 @@ class _ReviewRatingPageState extends State<ReviewRatingPage> {
         ),
         child: const Text(
           'Submit Review',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
     );

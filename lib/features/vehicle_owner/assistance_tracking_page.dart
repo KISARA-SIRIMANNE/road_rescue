@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -528,7 +529,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1A1D20),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Cancel Request?',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -551,7 +552,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
               child: const Text(
                 'Cancel Request',
                 style: TextStyle(
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -604,7 +605,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF101214),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -639,7 +640,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      color: const Color(0xFF08090A),
+      color: RoadRescueColors.background,
       child: Row(
         children: [
           IconButton(
@@ -697,7 +698,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       child: Container(
         color: Colors.black.withOpacity(0.45),
         child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
+          child: CircularProgressIndicator(color: RoadRescueColors.accent),
         ),
       ),
     );
@@ -714,7 +715,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF171C20),
+          color: RoadRescueColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -763,12 +764,12 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: const Color(0xFF171C20),
+            color: RoadRescueColors.surface,
             borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
             Icons.my_location_rounded,
-            color: Color(0xFFF6E900),
+            color: RoadRescueColors.accent,
           ),
         ),
       ),
@@ -784,7 +785,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: const BoxDecoration(
-        color: Color(0xFF171C20),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(26),
           topRight: Radius.circular(26),
@@ -819,12 +820,12 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withOpacity(0.12),
+                  color: RoadRescueColors.accent.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.support_agent,
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   size: 27,
                 ),
               ),
@@ -868,7 +869,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF08090A),
+              color: RoadRescueColors.background,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
@@ -936,7 +937,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF08090A),
+                color: RoadRescueColors.background,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
@@ -996,7 +997,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
                     children: [
                       const Icon(
                         Icons.route_rounded,
-                        color: Color(0xFFF6E900),
+                        color: RoadRescueColors.accent,
                         size: 19,
                       ),
 
@@ -1042,7 +1043,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
                 icon: const Icon(Icons.chat_bubble_outline_rounded),
                 label: const Text('Chat with provider'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFF6E900),
+                  foregroundColor: RoadRescueColors.accent,
                   side: const BorderSide(color: Color(0xFF394149)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -1106,7 +1107,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
       context,
       MaterialPageRoute<void>(
         builder: (context) => Scaffold(
-          backgroundColor: const Color(0xFF08090A),
+          backgroundColor: RoadRescueColors.background,
           body: SafeArea(
             child: ProviderChatView(
               requestId: widget.requestId,

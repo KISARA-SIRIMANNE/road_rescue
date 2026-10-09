@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
-const Color _pageCard = Color(0xFF171C20);
+const Color _pageCard = RoadRescueColors.surface;
 const Color _pageBorder = Color(0xFF394149);
-const Color _pageYellow = Color(0xFFF6E900);
-const Color _pageMuted = Color(0xFF929AA2);
+const Color _pageYellow = RoadRescueColors.accent;
+const Color _pageMuted = RoadRescueColors.muted;
 
 double? providerJobFee(Map<String, dynamic> data) {
   final Object? fee =

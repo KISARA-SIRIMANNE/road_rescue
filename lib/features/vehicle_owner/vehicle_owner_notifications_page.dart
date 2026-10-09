@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 class VehicleOwnerNotificationsPage extends StatefulWidget {
   const VehicleOwnerNotificationsPage({super.key});
@@ -15,12 +16,12 @@ class _VehicleOwnerNotificationsPageState
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  static const background = Color(0xFF101214);
-  static const card = Color(0xFF181B1E);
-  static const yellow = Color(0xFFF6E900);
-  static const white = Color(0xFFF5F7F8);
-  static const grey = Color(0xFF929AA2);
-  static const border = Color(0xFF30353A);
+  static const background = RoadRescueColors.background;
+  static const card = RoadRescueColors.surface;
+  static const yellow = RoadRescueColors.accent;
+  static const white = RoadRescueColors.foreground;
+  static const grey = RoadRescueColors.muted;
+  static const border = RoadRescueColors.border;
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _stream() {
     final user = _auth.currentUser;

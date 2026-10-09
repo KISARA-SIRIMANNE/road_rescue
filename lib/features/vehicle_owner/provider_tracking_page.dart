@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'driver_job_status_page.dart';
@@ -633,7 +634,7 @@ void _navigateToDriverJobStatus(
                 'provider_route',
               ),
               points: routePoints,
-              color: const Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               width: 6,
               jointType: JointType.round,
               startCap: Cap.roundCap,
@@ -1105,7 +1106,7 @@ void _navigateToDriverJobStatus(
       builder: (context) {
         return AlertDialog(
           backgroundColor:
-              const Color(0xFF11181C),
+              RoadRescueColors.surface,
           title: const Text(
             'Cancel Request?',
             style: TextStyle(
@@ -1145,7 +1146,7 @@ void _navigateToDriverJobStatus(
               child: const Text(
                 'Cancel Request',
                 style: TextStyle(
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   fontWeight:
                       FontWeight.bold,
                 ),
@@ -1177,7 +1178,7 @@ void _navigateToDriverJobStatus(
         behavior:
             SnackBarBehavior.floating,
         backgroundColor:
-            const Color(0xFF151D21),
+            RoadRescueColors.surface,
       ),
     );
   }
@@ -1203,7 +1204,7 @@ void _navigateToDriverJobStatus(
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
-          const Color(0xFF05090B),
+          RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -1245,7 +1246,7 @@ void _navigateToDriverJobStatus(
           const EdgeInsets.symmetric(
         horizontal: 8,
       ),
-      color: const Color(0xFF05090B),
+      color: RoadRescueColors.background,
       child: Row(
         children: [
           IconButton(
@@ -1318,7 +1319,7 @@ void _navigateToDriverJobStatus(
           child:
               CircularProgressIndicator(
             color:
-                Color(0xFFF6E900),
+                RoadRescueColors.accent,
           ),
         ),
       ),
@@ -1342,7 +1343,7 @@ void _navigateToDriverJobStatus(
         decoration:
             BoxDecoration(
           color:
-              const Color(0xFF11181C),
+              RoadRescueColors.surface,
           borderRadius:
               BorderRadius.circular(20),
         ),
@@ -1357,7 +1358,7 @@ void _navigateToDriverJobStatus(
                   CircularProgressIndicator(
                 strokeWidth: 2,
                 color:
-                    Color(0xFFF6E900),
+                    RoadRescueColors.accent,
               ),
             ),
             SizedBox(width: 7),
@@ -1391,7 +1392,7 @@ void _navigateToDriverJobStatus(
         decoration:
             BoxDecoration(
           color:
-              const Color(0xFF11181C),
+              RoadRescueColors.surface,
           borderRadius:
               BorderRadius.circular(20),
         ),
@@ -1444,7 +1445,7 @@ void _navigateToDriverJobStatus(
           decoration:
               BoxDecoration(
             color:
-                const Color(0xFF11181C),
+                RoadRescueColors.surface,
             borderRadius:
                 BorderRadius.circular(16),
           ),
@@ -1452,7 +1453,7 @@ void _navigateToDriverJobStatus(
             Icons
                 .my_location_rounded,
             color:
-                Color(0xFFF6E900),
+                RoadRescueColors.accent,
           ),
         ),
       ),
@@ -1479,7 +1480,7 @@ void _navigateToDriverJobStatus(
       ),
       decoration:
           const BoxDecoration(
-        color: Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius:
             BorderRadius.only(
           topLeft:
@@ -1517,10 +1518,7 @@ void _navigateToDriverJobStatus(
                 height: 48,
                 decoration:
                     BoxDecoration(
-                  color:
-                      const Color(
-                    0xFFF6E900,
-                  ).withOpacity(0.12),
+                  color: RoadRescueColors.accent.withOpacity(0.12),
                   borderRadius:
                       BorderRadius.circular(
                     15,
@@ -1529,7 +1527,7 @@ void _navigateToDriverJobStatus(
                 child: const Icon(
                   Icons.local_shipping,
                   color:
-                      Color(0xFFF6E900),
+                      RoadRescueColors.accent,
                   size: 27,
                 ),
               ),
@@ -1588,10 +1586,7 @@ void _navigateToDriverJobStatus(
                   ),
                   decoration:
                       BoxDecoration(
-                    color:
-                        const Color(
-                      0xFF05090B,
-                    ),
+                    color: RoadRescueColors.background,
                     borderRadius:
                         BorderRadius.circular(
                       14,
@@ -1602,7 +1597,7 @@ void _navigateToDriverJobStatus(
                       const Icon(
                         Icons.timer_outlined,
                         color:
-                            Color(0xFFF6E900),
+                            RoadRescueColors.accent,
                         size: 22,
                       ),
                       const SizedBox(
@@ -1653,10 +1648,7 @@ void _navigateToDriverJobStatus(
                   ),
                   decoration:
                       BoxDecoration(
-                    color:
-                        const Color(
-                      0xFF05090B,
-                    ),
+                    color: RoadRescueColors.background,
                     borderRadius:
                         BorderRadius.circular(
                       14,

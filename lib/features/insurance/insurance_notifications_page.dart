@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import 'claim_details_verification_page.dart';
 import '../../services/insurance_company.dart';
@@ -21,12 +22,12 @@ class _InsuranceNotificationsPageState
   final FirebaseFirestore _firestore =
       FirebaseFirestore.instance;
 
-  static const Color backgroundColor = Color(0xFF101214);
-  static const Color cardColor = Color(0xFF181B1E);
-  static const Color yellowColor = Color(0xFFF6E900);
-  static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color greyColor = Color(0xFF929AA2);
-  static const Color borderColor = Color(0xFF30353A);
+  static const Color backgroundColor = RoadRescueColors.background;
+  static const Color cardColor = RoadRescueColors.surface;
+  static const Color yellowColor = RoadRescueColors.accent;
+  static const Color whiteColor = RoadRescueColors.foreground;
+  static const Color greyColor = RoadRescueColors.muted;
+  static const Color borderColor = RoadRescueColors.border;
 
   String? _syncError;
   bool _isSyncing = false;

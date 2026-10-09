@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -745,7 +746,7 @@ class _ProviderDirectionsPageState
                 ),
                 points: points,
                 color:
-                    const Color(0xFFF6E900),
+                    RoadRescueColors.accent,
                 width: 6,
                 jointType:
                     JointType.round,
@@ -933,7 +934,7 @@ class _ProviderDirectionsPageState
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
-          const Color(0xFF05090B),
+          RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -1002,7 +1003,7 @@ class _ProviderDirectionsPageState
         16,
       ),
       color:
-          const Color(0xFF05090B),
+          RoadRescueColors.background,
       child: Row(
         children: [
           IconButton(
@@ -1131,7 +1132,7 @@ class _ProviderDirectionsPageState
         child: const Icon(
           Icons.my_location_rounded,
           color:
-              Color(0xFFF6E900),
+              RoadRescueColors.accent,
           size: 23,
         ),
       ),
@@ -1158,7 +1159,7 @@ class _ProviderDirectionsPageState
       ),
       decoration: const BoxDecoration(
         color:
-            Color(0xFF151A1E),
+            RoadRescueColors.surface,
         borderRadius:
             BorderRadius.vertical(
           top: Radius.circular(24),
@@ -1179,7 +1180,7 @@ class _ProviderDirectionsPageState
                 height: 48,
                 decoration: BoxDecoration(
                   color:
-                      const Color(0xFFF6E900)
+                      RoadRescueColors.accent
                           .withOpacity(0.12),
                   borderRadius:
                       BorderRadius.circular(15),
@@ -1188,7 +1189,7 @@ class _ProviderDirectionsPageState
                   Icons
                       .directions_car_filled_rounded,
                   color:
-                      Color(0xFFF6E900),
+                      RoadRescueColors.accent,
                   size: 24,
                 ),
               ),
@@ -1353,7 +1354,7 @@ class _ProviderDirectionsPageState
               style:
                   ElevatedButton.styleFrom(
                 backgroundColor:
-                    const Color(0xFFF6E900),
+                    RoadRescueColors.accent,
                 foregroundColor:
                     Colors.black,
                 disabledBackgroundColor:
@@ -1475,7 +1476,7 @@ class _ProviderDirectionsPageState
           const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color:
-            const Color(0xFF05090B),
+            RoadRescueColors.background,
         borderRadius:
             BorderRadius.circular(14),
       ),
@@ -1484,7 +1485,7 @@ class _ProviderDirectionsPageState
           Icon(
             icon,
             color:
-                const Color(0xFFF6E900),
+                RoadRescueColors.accent,
             size: 22,
           ),
 
@@ -1545,7 +1546,7 @@ class _ProviderDirectionsPageState
         behavior:
             SnackBarBehavior.floating,
         backgroundColor:
-            const Color(0xFF151D21),
+            RoadRescueColors.surface,
       ),
     );
   }

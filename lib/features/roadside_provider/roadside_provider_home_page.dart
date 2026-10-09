@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'provider_directions_page.dart';
@@ -84,11 +85,11 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // COLORS
   // ============================================================
 
-  final Color _backgroundColor = const Color(0xFF05090B);
+  final Color _backgroundColor = RoadRescueColors.background;
 
-  final Color _cardColor = const Color(0xFF11181C);
+  final Color _cardColor = RoadRescueColors.surface;
 
-  final Color _yellowColor = const Color(0xFFFFD21F);
+  final Color _yellowColor = RoadRescueColors.accent;
 
   // ============================================================
   // PROVIDER DATA
@@ -1815,7 +1816,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: 24,
             height: 24,
             child: CircularProgressIndicator(
-              color: Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               strokeWidth: 2,
             ),
           ),
@@ -2133,7 +2134,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
           borderRadius: BorderRadius.circular(18),
         ),
         child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
+          child: CircularProgressIndicator(color: RoadRescueColors.accent),
         ),
       );
     }
@@ -2209,7 +2210,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             )
           else if (_isLoadingRequests)
             const Center(
-              child: CircularProgressIndicator(color: Color(0xFFF6E900)),
+              child: CircularProgressIndicator(color: RoadRescueColors.accent),
             )
           else if (_incomingRequests.isEmpty)
             _buildEmptyRequests()
@@ -3790,7 +3791,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }

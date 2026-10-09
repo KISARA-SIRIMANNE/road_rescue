@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'roadside_provider_home_page.dart';
 
 class JobStatusPage extends StatefulWidget {
@@ -259,7 +260,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF11181C),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Confirm Payment',
             style: TextStyle(
@@ -289,7 +290,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 Navigator.pop(context, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF6E900),
+                backgroundColor: RoadRescueColors.accent,
                 foregroundColor: Colors.black,
               ),
               child: const Text('Yes, Received'),
@@ -513,7 +514,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -522,7 +523,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFFF6E900),
+                        color: RoadRescueColors.accent,
                       ),
                     )
                   : SingleChildScrollView(
@@ -606,7 +607,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -615,12 +616,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withOpacity(0.12),
+              color: RoadRescueColors.accent.withOpacity(0.12),
               borderRadius: BorderRadius.circular(16),
             ),
             child: const Icon(
               Icons.person_rounded,
-              color: Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               size: 27,
             ),
           ),
@@ -662,7 +663,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -671,12 +672,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withOpacity(0.12),
+              color: RoadRescueColors.accent.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _statusIcon(),
-              color: const Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               size: 31,
             ),
           ),
@@ -749,7 +750,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -766,7 +767,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                     height: 27,
                     decoration: BoxDecoration(
                       color: completed
-                          ? const Color(0xFFF6E900)
+                          ? RoadRescueColors.accent
                           : Colors.white10,
                       shape: BoxShape.circle,
                     ),
@@ -842,7 +843,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFF6E900),
+          backgroundColor: RoadRescueColors.accent,
           foregroundColor: Colors.black,
           disabledBackgroundColor: Colors.white10,
           disabledForegroundColor: Colors.white30,
@@ -864,7 +865,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF11181C),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Complete Job?',
             style: TextStyle(
@@ -894,7 +895,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 Navigator.pop(context, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF6E900),
+                backgroundColor: RoadRescueColors.accent,
                 foregroundColor: Colors.black,
               ),
               child: const Text('Complete'),
@@ -920,11 +921,11 @@ class _JobStatusPageState extends State<JobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: completed
-              ? const Color(0xFFF6E900).withOpacity(0.18)
+              ? RoadRescueColors.accent.withOpacity(0.18)
               : Colors.white.withOpacity(0.04),
         ),
       ),
@@ -937,12 +938,12 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withOpacity(0.10),
+                  color: RoadRescueColors.accent.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
                   Icons.account_balance_wallet_outlined,
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   size: 22,
                 ),
               ),
@@ -1008,7 +1009,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                 hintText: 'Enter service amount',
                 hintStyle: const TextStyle(color: Colors.white24),
                 filled: true,
-                fillColor: const Color(0xFF10171B),
+                fillColor: RoadRescueColors.elevatedSurface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -1106,7 +1107,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF6E900),
+                    backgroundColor: RoadRescueColors.accent,
                     foregroundColor: Colors.black,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -1179,7 +1180,7 @@ class _JobStatusPageState extends State<JobStatusPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }

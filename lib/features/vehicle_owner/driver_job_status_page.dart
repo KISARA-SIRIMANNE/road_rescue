@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'payment_page.dart';
 
 class DriverJobStatusPage extends StatefulWidget {
@@ -142,7 +143,7 @@ class _DriverJobStatusPageState
   context: context,
   builder: (context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF11181C),
+      backgroundColor: RoadRescueColors.surface,
       title: const Text(
         'Confirm Payment',
         style: TextStyle(
@@ -174,7 +175,7 @@ class _DriverJobStatusPageState
             Navigator.pop(context, true);
           },
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFF6E900),
+            backgroundColor: RoadRescueColors.accent,
             foregroundColor: Colors.black,
           ),
           child: const Text('Pay Now'),
@@ -376,7 +377,7 @@ if (confirmed == true && mounted) {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor:
-          const Color(0xFF05090B),
+          RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -388,7 +389,7 @@ if (confirmed == true && mounted) {
                       child:
                           CircularProgressIndicator(
                         color:
-                            Color(0xFFF6E900),
+                            RoadRescueColors.accent,
                       ),
                     )
                   : SingleChildScrollView(
@@ -513,7 +514,7 @@ if (confirmed == true && mounted) {
           const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color:
-            const Color(0xFF11181C),
+            RoadRescueColors.surface,
         borderRadius:
             BorderRadius.circular(20),
       ),
@@ -524,7 +525,7 @@ if (confirmed == true && mounted) {
             height: 52,
             decoration: BoxDecoration(
               color:
-                  const Color(0xFFF6E900)
+                  RoadRescueColors.accent
                       .withOpacity(0.12),
               borderRadius:
                   BorderRadius.circular(15),
@@ -532,7 +533,7 @@ if (confirmed == true && mounted) {
             child: const Icon(
               Icons.support_agent_rounded,
               color:
-                  Color(0xFFF6E900),
+                  RoadRescueColors.accent,
               size: 27,
             ),
           ),
@@ -586,7 +587,7 @@ if (confirmed == true && mounted) {
           const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color:
-            const Color(0xFF11181C),
+            RoadRescueColors.surface,
         borderRadius:
             BorderRadius.circular(20),
       ),
@@ -597,14 +598,14 @@ if (confirmed == true && mounted) {
             height: 66,
             decoration: BoxDecoration(
               color:
-                  const Color(0xFFF6E900)
+                  RoadRescueColors.accent
                       .withOpacity(0.10),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _statusIcon(),
               color:
-                  const Color(0xFFF6E900),
+                  RoadRescueColors.accent,
               size: 32,
             ),
           ),
@@ -655,7 +656,7 @@ if (confirmed == true && mounted) {
           const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color:
-            const Color(0xFF11181C),
+            RoadRescueColors.surface,
         borderRadius:
             BorderRadius.circular(20),
       ),
@@ -676,9 +677,7 @@ if (confirmed == true && mounted) {
                     decoration:
                         BoxDecoration(
                       color: active
-                          ? const Color(
-                              0xFFF6E900,
-                            )
+                          ? RoadRescueColors.accent
                           : Colors.white10,
                       shape:
                           BoxShape.circle,
@@ -728,13 +727,11 @@ if (confirmed == true && mounted) {
           const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color:
-            const Color(0xFF11181C),
+            RoadRescueColors.surface,
         borderRadius:
             BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(
-            0xFFF6E900,
-          ).withOpacity(0.15),
+          color: RoadRescueColors.accent.withOpacity(0.15),
         ),
       ),
       child: Column(
@@ -747,10 +744,7 @@ if (confirmed == true && mounted) {
                 width: 45,
                 height: 45,
                 decoration: BoxDecoration(
-                  color:
-                      const Color(
-                    0xFFF6E900,
-                  ).withOpacity(0.10),
+                  color: RoadRescueColors.accent.withOpacity(0.10),
                   borderRadius:
                       BorderRadius.circular(
                     13,
@@ -760,7 +754,7 @@ if (confirmed == true && mounted) {
                   Icons
                       .account_balance_wallet_outlined,
                   color:
-                      Color(0xFFF6E900),
+                      RoadRescueColors.accent,
                   size: 24,
                 ),
               ),
@@ -801,7 +795,7 @@ if (confirmed == true && mounted) {
                 const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color:
-                  const Color(0xFF05090B),
+                  RoadRescueColors.background,
               borderRadius:
                   BorderRadius.circular(15),
             ),
@@ -870,10 +864,7 @@ if (confirmed == true && mounted) {
                 ),
                 style:
                     ElevatedButton.styleFrom(
-                  backgroundColor:
-                      const Color(
-                    0xFFF6E900,
-                  ),
+                  backgroundColor: RoadRescueColors.accent,
                   foregroundColor:
                       Colors.black,
                   elevation: 0,
@@ -986,7 +977,7 @@ if (confirmed == true && mounted) {
         behavior:
             SnackBarBehavior.floating,
         backgroundColor:
-            const Color(0xFF151D21),
+            RoadRescueColors.surface,
       ),
     );
   }
