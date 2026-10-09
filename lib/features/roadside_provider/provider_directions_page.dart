@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -9,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'job_status_page.dart';
+import 'provider_job_flow_pages.dart';
 
 class ProviderDirectionsPage extends StatefulWidget {
   final String requestId;
@@ -1043,7 +1045,48 @@ class _ProviderDirectionsPageState
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'Chat with customer',
+            onPressed: _openCustomerChat,
+            icon: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: Color(0xFFF6E900),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _openCustomerChat() {
+    if (FirebaseAuth.instance.currentUser == null) {
+      _showMessage('Please sign in again to open chat.');
+      return;
+    }
+
+    final String providerName =
+        widget.userData['name']?.toString().trim().isNotEmpty == true
+        ? widget.userData['name'].toString().trim()
+        : 'Roadside Provider';
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          backgroundColor: const Color(0xFF08090A),
+          body: SafeArea(
+            child: ProviderChatView(
+              requestId: widget.requestId,
+              providerName: providerName,
+              requestData: {
+                'userName': _driverName,
+                'vehicleType': _vehicleType,
+                'issueType': _issueType,
+              },
+              onBack: () => Navigator.pop(context),
+              onError: _showMessage,
+            ),
+          ),
+        ),
       ),
     );
   }

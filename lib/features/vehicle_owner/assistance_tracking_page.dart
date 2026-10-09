@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -1092,8 +1093,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
 
   void _openProviderChat() {
     final Map<String, dynamic>? requestData = _requestData;
-    final String? ownerId = widget.userData['uid']?.toString();
-    if (requestData == null || ownerId == null || ownerId.isEmpty) {
+    if (requestData == null || FirebaseAuth.instance.currentUser == null) {
       _showMessage('Could not identify your account for chat.');
       return;
     }
@@ -1112,7 +1112,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage> {
           body: SafeArea(
             child: ProviderChatView(
               requestId: widget.requestId,
-              providerId: ownerId,
               providerName: widget.userData['name']?.toString() ?? 'Customer',
               requestData: requestData,
               chatTitle: 'Chat with provider',

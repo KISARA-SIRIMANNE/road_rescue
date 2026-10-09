@@ -122,6 +122,36 @@ service cloud.firestore {
             && resource.data.insuranceReviewedBy == request.auth.uid
           )
         );
+
+      match /messages/{messageId} {
+        function isRequestParticipant() {
+          let requestPath =
+            /databases/$(database)/documents/assistance_requests/$(requestId);
+          return request.auth != null
+            && exists(requestPath)
+            && (
+              get(requestPath).data.userId == request.auth.uid
+              || get(requestPath).data.providerId == request.auth.uid
+            );
+        }
+
+        allow read: if isRequestParticipant();
+
+        allow create: if isRequestParticipant()
+          && request.resource.data.keys().hasAll([
+            'text', 'senderId', 'senderName', 'createdAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'text', 'senderId', 'senderName', 'createdAt'
+          ])
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.senderName is string
+          && request.resource.data.senderName.size() <= 80
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.createdAt == request.time;
+      }
     }
 
     match /notifications/{notificationId} {
