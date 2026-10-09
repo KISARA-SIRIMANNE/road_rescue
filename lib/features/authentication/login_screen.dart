@@ -372,10 +372,13 @@ class _LoginScreenState extends State<LoginScreen> {
     switch (role) {
       case 'vehicle_owner':
         page = VehicleOwnerHomePage(userData: userData);
+        break;
       case 'roadside_provider':
         page = RoadsideProviderHomePage(userData: userData);
+        break;
       case 'insurance_provider':
         page = const InsuranceDashboardPage();
+        break;
       default:
         return;
     }

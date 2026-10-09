@@ -870,9 +870,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
                   color: Color(0xFFF6E900),
                 ),
               ),
-
               const SizedBox(width: 12),
-
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -893,24 +891,19 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
                   ],
                 ),
               ),
-
               Switch(
                 value: _isInsuranceClaim,
                 activeThumbColor: const Color(0xFFF6E900),
                 onChanged: (value) {
-                  setState(() {
-                    _isInsuranceClaim = value;
-                  });
+                  setState(() => _isInsuranceClaim = value);
                 },
               ),
             ],
           ),
-
           if (_isInsuranceClaim) ...[
             const SizedBox(height: 18),
-
             DropdownButtonFormField<String>(
-              initialValue: _selectedInsuranceCompanyId,
+              value: _selectedInsuranceCompanyId,
               isExpanded: true,
               dropdownColor: const Color(0xFF191C20),
               style: const TextStyle(color: Colors.white),
@@ -925,30 +918,24 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
               hint: const Text('Select insurance company'),
               items: insuranceCompanies
                   .map(
-                    (company) => DropdownMenuItem(
+                    (company) => DropdownMenuItem<String>(
                       value: company.id,
                       child: Text(company.name),
                     ),
                   )
                   .toList(),
               onChanged: (value) {
-                setState(() {
-                  _selectedInsuranceCompanyId = value;
-                });
+                setState(() => _selectedInsuranceCompanyId = value);
               },
             ),
-
             const SizedBox(height: 12),
-
             _buildInsuranceTextField(
               controller: _policyNumberController,
               label: 'Policy Number',
               hint: 'Enter your policy number',
               icon: Icons.badge_outlined,
             ),
-
             const SizedBox(height: 12),
-
             _buildInsuranceTextField(
               controller: _insuranceDescriptionController,
               label: 'Claim Description',

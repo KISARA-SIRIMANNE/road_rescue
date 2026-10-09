@@ -58,8 +58,10 @@ class _VehicleOwnerNotificationsPageState
   Color _statusColor(String status) {
     switch (status) {
       case 'approved':
+      case 'accepted':
         return Colors.greenAccent;
       case 'rejected':
+      case 'declined':
         return Colors.redAccent;
       case 'need_information':
         return Colors.orangeAccent;
@@ -157,7 +159,22 @@ class _VehicleOwnerNotificationsPageState
     final data = document.data();
     final read = _isRead(data);
     final status = (data['status'] ?? '').toString().toLowerCase();
+    final type = (data['type'] ?? '').toString();
     final color = _statusColor(status);
+    final title =
+        data['title']?.toString() ??
+        (type == 'assistance_request_update'
+            ? status == 'accepted'
+                  ? 'Request accepted'
+                  : 'Request declined by a provider'
+            : 'Claim Update');
+    final message =
+        data['message']?.toString() ??
+        (type == 'assistance_request_update'
+            ? status == 'accepted'
+                  ? 'A roadside assistance provider accepted your request.'
+                  : 'A roadside assistance provider declined your request.'
+            : 'Your claim status was updated.');
 
     return Dismissible(
       key: ValueKey(document.id),
@@ -200,9 +217,9 @@ class _VehicleOwnerNotificationsPageState
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: Icon(
-                  status == 'approved'
+                  status == 'approved' || status == 'accepted'
                       ? Icons.check_circle_outline
-                      : status == 'rejected'
+                      : status == 'rejected' || status == 'declined'
                       ? Icons.cancel_outlined
                       : Icons.notifications_active_outlined,
                   color: color,
@@ -217,7 +234,7 @@ class _VehicleOwnerNotificationsPageState
                       children: [
                         Expanded(
                           child: Text(
-                            (data['title'] ?? 'Claim Update').toString(),
+                            title,
                             style: TextStyle(
                               color: white,
                               fontSize: 14,
@@ -240,8 +257,7 @@ class _VehicleOwnerNotificationsPageState
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      (data['message'] ?? 'Your claim status was updated.')
-                          .toString(),
+                      message,
                       style: const TextStyle(
                         color: grey,
                         fontSize: 12,
@@ -268,8 +284,9 @@ class _VehicleOwnerNotificationsPageState
     );
   }
 
-  Widget _empty() =>
-      _message('You are all caught up. New claim updates will appear here.');
+  Widget _empty() => _message(
+    'You are all caught up. Request decisions and claim updates will appear here.',
+  );
 
   Widget _message(String message) {
     return Center(

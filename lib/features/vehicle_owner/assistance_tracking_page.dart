@@ -49,6 +49,14 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
 
   String _status = 'pending';
 
+  // Roadside provider's latest location.
+  double? _providerLatitude;
+  double? _providerLongitude;
+  String? _providerName;
+
+  double? _currentDistance;
+  String _distanceStatus = 'Waiting for provider location';
+
   final Set<Marker> _markers = {};
 
   @override
@@ -63,7 +71,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   void _navigateToProviderTracking(Map<String, dynamic> requestData) {
     if (!mounted) return;
 
-    final providerName =
+    final String providerName =
         requestData['providerName']?.toString() ?? 'Roadside Provider';
 
     Navigator.of(context).pushReplacement(
@@ -287,22 +295,53 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
 
   void _updateMarker(Position position) {
     if (!mounted || !_isValidPosition(position)) return;
-    final LatLng location = LatLng(position.latitude, position.longitude);
 
     setState(() {
-      _markers
-        ..clear()
-        ..add(
-          Marker(
-            markerId: const MarkerId('vehicle_owner'),
-            position: location,
-            infoWindow: const InfoWindow(
-              title: 'Your Location',
-              snippet: 'Live location',
-            ),
+      _markers.removeWhere(
+        (marker) => marker.markerId.value == 'vehicle_owner',
+      );
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('vehicle_owner'),
+          position: LatLng(position.latitude, position.longitude),
+          infoWindow: const InfoWindow(
+            title: 'Your Location',
+            snippet: 'Live location',
           ),
-        );
+        ),
+      );
     });
+
+    _calculateDistance();
+  }
+
+  void _updateProviderMarker() {
+    if (!mounted ||
+        _providerLatitude == null ||
+        _providerLongitude == null) {
+      return;
+    }
+
+    setState(() {
+      _markers.removeWhere(
+        (marker) => marker.markerId.value == 'roadside_provider',
+      );
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('roadside_provider'),
+          position: LatLng(_providerLatitude!, _providerLongitude!),
+          infoWindow: InfoWindow(
+            title: _providerName ?? 'Roadside Provider',
+            snippet: 'Provider live location',
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueYellow,
+          ),
+        ),
+      );
+    });
+
+    _calculateDistance();
   }
 
   // ================================================================
@@ -340,26 +379,91 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
         .doc(widget.requestId)
         .snapshots()
         .listen(
-          (snapshot) async {
-            final data = snapshot.data();
-            final status = data?['status']?.toString();
-            if (!snapshot.exists || data == null || status == null) return;
-            if (!mounted || status.isEmpty) return;
+      (snapshot) async {
+        final data = snapshot.data();
+        final status = data?['status']?.toString();
 
-            setState(() => _status = status);
-            if (status == 'cancelled' || status == 'completed') {
-              await _stopTracking();
-            } else if (status == 'accepted' &&
-                !_hasNavigatedToProviderTracking) {
-              _hasNavigatedToProviderTracking = true;
-              await _stopTracking();
-              if (mounted) _navigateToProviderTracking(data);
-            }
-          },
-          onError: (Object error) {
-            debugPrint('Request status listener error: $error');
-          },
-        );
+        if (!snapshot.exists || data == null || status == null || status.isEmpty) {
+          return;
+        }
+        if (!mounted) return;
+
+        final latitude = data['providerLatitude'];
+        final longitude = data['providerLongitude'];
+
+        setState(() {
+          _status = status;
+          _providerName = data['providerName']?.toString();
+
+          if (latitude is num && longitude is num) {
+            _providerLatitude = latitude.toDouble();
+            _providerLongitude = longitude.toDouble();
+          } else {
+            _providerLatitude = null;
+            _providerLongitude = null;
+          }
+        });
+
+        if (_providerLatitude != null && _providerLongitude != null) {
+          _updateProviderMarker();
+        } else {
+          _calculateDistance();
+        }
+
+        if (status == 'cancelled' || status == 'completed') {
+          await _stopTracking();
+        } else if (status == 'accepted' &&
+            !_hasNavigatedToProviderTracking) {
+          _hasNavigatedToProviderTracking = true;
+          await _stopTracking();
+          if (mounted) _navigateToProviderTracking(data);
+        }
+      },
+      onError: (Object error) {
+        debugPrint('Request status listener error: $error');
+      },
+    );
+  }
+
+  void _calculateDistance() {
+    final currentPosition = _currentPosition;
+    final providerLatitude = _providerLatitude;
+    final providerLongitude = _providerLongitude;
+
+    if (currentPosition == null ||
+        providerLatitude == null ||
+        providerLongitude == null) {
+      if (mounted) {
+        setState(() {
+          _currentDistance = null;
+          _distanceStatus = 'Waiting for provider location';
+        });
+      }
+      return;
+    }
+
+    final double distanceMeters = Geolocator.distanceBetween(
+      currentPosition.latitude,
+      currentPosition.longitude,
+      providerLatitude,
+      providerLongitude,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _currentDistance = distanceMeters;
+      _distanceStatus = distanceMeters < 1000
+          ? '${distanceMeters.round()} m away'
+          : '${(distanceMeters / 1000).toStringAsFixed(1)} km away';
+    });
+  }
+
+  String _formatDistance(double distanceInMeters) {
+    if (distanceInMeters < 1000) {
+      return '${distanceInMeters.round()} m';
+    }
+    return '${(distanceInMeters / 1000).toStringAsFixed(1)} km';
   }
 
   // ================================================================
