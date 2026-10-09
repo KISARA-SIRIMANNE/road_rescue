@@ -4,25 +4,23 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+
 import 'provider_directions_page.dart';
+
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 
 class RoadsideProviderHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const RoadsideProviderHomePage({
-    super.key,
-    required this.userData,
-  });
+  const RoadsideProviderHomePage({super.key, required this.userData});
 
   @override
   State<RoadsideProviderHomePage> createState() =>
       _RoadsideProviderHomePageState();
 }
 
-class _RoadsideProviderHomePageState
-    extends State<RoadsideProviderHomePage> {
+class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // ============================================================
   // STATE
   // ============================================================
@@ -35,7 +33,7 @@ class _RoadsideProviderHomePageState
   bool _isSavingProfile = false;
 
   String _profileName = '';
-  String _profileWorkshopLocation ='';
+  String _profileWorkshopLocation = '';
   String _profilePhotoUrl = '';
 
   bool _isUploadingProfilePhoto = false;
@@ -68,37 +66,29 @@ class _RoadsideProviderHomePageState
 
   bool _isLoadingActiveJob = false;
 
-
   final List<QueryDocumentSnapshot> _incomingRequests = [];
 
   // ============================================================
   // FIREBASE
   // ============================================================
 
-  final FirebaseFirestore _firestore =
-      FirebaseFirestore.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  final FirebaseAuth _auth =
-      FirebaseAuth.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  final FirebaseStorage _storage =
-      FirebaseStorage.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  final ImagePicker _imagePicker =
-      ImagePicker();
+  final ImagePicker _imagePicker = ImagePicker();
 
   // ============================================================
   // COLORS
   // ============================================================
 
-  final Color _backgroundColor =
-      const Color(0xFF05090B);
+  final Color _backgroundColor = const Color(0xFF05090B);
 
-  final Color _cardColor =
-      const Color(0xFF11181C);
+  final Color _cardColor = const Color(0xFF11181C);
 
-  final Color _yellowColor =
-      const Color(0xFFFFD21F);
+  final Color _yellowColor = const Color(0xFFFFD21F);
 
   // ============================================================
   // PROVIDER DATA
@@ -118,7 +108,7 @@ class _RoadsideProviderHomePageState
   }
 
   String get _workshopLocation {
-    if(_profileWorkshopLocation.isNotEmpty) {
+    if (_profileWorkshopLocation.isNotEmpty) {
       return _profileWorkshopLocation;
     }
     return widget.userData['workshopLocation']?.toString() ??
@@ -126,9 +116,7 @@ class _RoadsideProviderHomePageState
   }
 
   String get _providerId {
-    return widget.userData['uid']?.toString() ??
-        _auth.currentUser?.uid ??
-        '';
+    return widget.userData['uid']?.toString() ?? _auth.currentUser?.uid ?? '';
   }
 
   // ============================================================
@@ -140,13 +128,12 @@ class _RoadsideProviderHomePageState
     super.initState();
 
     _profileName =
-      widget.userData['name']?.toString() ??
-      widget.userData['companyName']?.toString() ??
-      'Provider';
+        widget.userData['name']?.toString() ??
+        widget.userData['companyName']?.toString() ??
+        'Provider';
 
     _profileWorkshopLocation =
-      widget.userData['workshopLocation']?.toString() ??
-      'Location not set';
+        widget.userData['workshopLocation']?.toString() ?? 'Location not set';
 
     _loadProviderAvailability();
     _loadProviderStatistics();
@@ -154,7 +141,6 @@ class _RoadsideProviderHomePageState
     _loadJobHistory();
     _loadActiveJob();
   }
-  
 
   Future<void> _loadProfilePhoto() async {
     final String providerId = _providerId;
@@ -173,10 +159,8 @@ class _RoadsideProviderHomePageState
         return;
       }
 
-      final Map<String, dynamic> data =
-          snapshot.data() as Map<String, dynamic>;
-      final String photoUrl =
-          data['profilePhotoUrl']?.toString() ?? '';
+      final Map<String, dynamic> data = snapshot.data() as Map<String, dynamic>;
+      final String photoUrl = data['profilePhotoUrl']?.toString() ?? '';
 
       if (!mounted) {
         return;
@@ -226,8 +210,7 @@ class _RoadsideProviderHomePageState
         SettableMetadata(contentType: 'image/jpeg'),
       );
 
-      final String downloadUrl =
-          await storageReference.getDownloadURL();
+      final String downloadUrl = await storageReference.getDownloadURL();
 
       await _firestore.collection('users').doc(providerId).update({
         'profilePhotoUrl': downloadUrl,
@@ -259,477 +242,425 @@ class _RoadsideProviderHomePageState
   }
 
   Future<void> _loadProviderStatistics() async {
-  final String providerId = _providerId;
+    final String providerId = _providerId;
 
-  if (providerId.isEmpty) {
-    if (mounted) {
-      setState(() {
-        _statisticsError = 'Provider account could not be identified.';
-        _isLoadingStats = false;
-        _hasLoadedAssignedStatistics = false;
-      });
-    }
-    return;
-  }
-
-  if (mounted) {
-    setState(() {
-      _isLoadingStats = true;
-      _statisticsError = null;
-      _hasLoadedAssignedStatistics = false;
-      _hasLoadedDeniedStatistics = false;
-    });
-  }
-
-  try {
-    final QuerySnapshot snapshot = await _firestore
-        .collection('assistance_requests')
-        .where('providerId', isEqualTo: providerId)
-        .get();
-
-    int completed = 0;
-    int active = 0;
-    double earnings = 0.0;
-
-    const List<String> activeStatuses = [
-      'accepted',
-      'on_the_way',
-      'arrived',
-      'in_progress',
-    ];
-
-    for (final DocumentSnapshot document in snapshot.docs) {
-      final Map<String, dynamic> data =
-          document.data() as Map<String, dynamic>;
-
-      final String status =
-          data['status']?.toString() ?? '';
-
-      // Completed jobs
-      if (status == 'completed') {
-        completed++;
-
-        final String paymentStatus =
-            data['paymentStatus']?.toString() ?? '';
-
-        if (paymentStatus == 'paid') {
-          final dynamic amount =
-              data['paidAmount'] ?? data['jobAmount'];
-
-          if (amount is num) {
-            earnings += amount.toDouble();
-          } else if (amount != null) {
-            earnings +=
-                double.tryParse(amount.toString()) ?? 0.0;
-          }
-        }
+    if (providerId.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _statisticsError = 'Provider account could not be identified.';
+          _isLoadingStats = false;
+          _hasLoadedAssignedStatistics = false;
+        });
       }
-
-      // Active jobs
-      if (activeStatuses.contains(status)) {
-        active++;
-      }
-    }
-
-    if (!mounted) {
       return;
     }
 
-    setState(() {
-      _assignedJobs = snapshot.docs.length;
-      _completedJobs = completed;
-      _activeJobs = active;
-      _totalEarnings = earnings;
-      _hasLoadedAssignedStatistics = true;
-    });
-
-    // Load denied requests separately so a deniedBy rules/query failure
-    // does not hide the statistics for jobs assigned to this provider.
-    try {
-      final QuerySnapshot deniedSnapshot = await _firestore
-          .collection('assistance_requests')
-          .where(
-            'deniedBy',
-            arrayContains: providerId,
-          )
-          .get();
-
-      if (!mounted) {
-        return;
-      }
-
+    if (mounted) {
       setState(() {
-        _deniedRequests = deniedSnapshot.docs.length;
-        _hasLoadedDeniedStatistics = true;
-      });
-    } catch (e) {
-      debugPrint('Error loading denied provider requests: $e');
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _statisticsError = _profileLoadErrorMessage(
-          'Denied requests',
-          e,
-        );
+        _isLoadingStats = true;
+        _statisticsError = null;
+        _hasLoadedAssignedStatistics = false;
         _hasLoadedDeniedStatistics = false;
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingStats = false;
-        });
-      }
-    }
-  } catch (e) {
-    debugPrint(
-      'Error loading provider statistics: $e',
-    );
-
-    if (!mounted) {
-      return;
     }
 
-    setState(() {
-      _statisticsError = _profileLoadErrorMessage(
-        'Provider statistics',
-        e,
-      );
-      _hasLoadedAssignedStatistics = false;
-      _isLoadingStats = false;
-    });
-  }
-}
-
-String _profileLoadErrorMessage(String section, Object error) {
-  if (error is FirebaseException) {
-    switch (error.code) {
-      case 'permission-denied':
-        return '$section was blocked by Firestore security rules. '
-            'Allow this signed-in provider to read matching assistance requests.';
-      case 'unauthenticated':
-        return 'Your session has expired. Sign in again to load $section.';
-      case 'unavailable':
-        return 'Firestore is unavailable. Check your internet connection and retry.';
-      case 'failed-precondition':
-        return 'Firestore could not complete $section. Check the Firebase query/index configuration.';
-      default:
-        return '$section failed (${error.code}). '
-            '${error.message ?? 'Please retry.'}';
-    }
-  }
-
-  return '$section failed: $error';
-}
-
-Future<void> _loadJobHistory() async {
-  final String providerId = _providerId;
-
-  if (providerId.isEmpty) {
-    if (mounted) {
-      setState(() {
-        _jobHistoryError = 'Provider account could not be identified.';
-        _isLoadingJobHistory = false;
-      });
-    }
-    return;
-  }
-
-  if (mounted) {
-    setState(() {
-      _isLoadingJobHistory = true;
-      _jobHistoryError = null;
-    });
-  }
-
-  try {
-    // ----------------------------------------------------------
-    // Get requests accepted by this provider
-    // ----------------------------------------------------------
-
-    final QuerySnapshot acceptedSnapshot =
-        await _firestore
-            .collection('assistance_requests')
-            .where(
-              'providerId',
-              isEqualTo: providerId,
-            )
-            .get();
-
-    // ----------------------------------------------------------
-    // Get requests denied by this provider
-    // ----------------------------------------------------------
-
-    QuerySnapshot? deniedSnapshot;
     try {
-      deniedSnapshot = await _firestore
-            .collection('assistance_requests')
-            .where(
-              'deniedBy',
-              arrayContains: providerId,
-            )
-            .get();
-    } catch (e) {
-      debugPrint('Error loading denied job history: $e');
-      if (mounted) {
-        setState(() {
-          _jobHistoryError = _profileLoadErrorMessage(
-            'Declined job history',
-            e,
-          );
-        });
-      }
-    }
+      final QuerySnapshot snapshot = await _firestore
+          .collection('assistance_requests')
+          .where('providerId', isEqualTo: providerId)
+          .get();
 
-    final List<Map<String, dynamic>> history = [];
+      int completed = 0;
+      int active = 0;
+      double earnings = 0.0;
 
-    // ----------------------------------------------------------
-    // Add accepted/provider jobs
-    // ----------------------------------------------------------
+      const List<String> activeStatuses = [
+        'accepted',
+        'on_the_way',
+        'arrived',
+        'in_progress',
+      ];
 
-    for (final QueryDocumentSnapshot document
-        in acceptedSnapshot.docs) {
-      final Map<String, dynamic> data =
-          document.data() as Map<String, dynamic>;
+      for (final DocumentSnapshot document in snapshot.docs) {
+        final Map<String, dynamic> data =
+            document.data() as Map<String, dynamic>;
 
-      final String status =
-          data['status']?.toString() ?? '';
+        final String status = data['status']?.toString() ?? '';
 
-      if (status == 'completed' || status == 'cancelled') {
-        history.add({
-          'requestId': document.id,
-          'type': status,
-          'issueType':
-              data['issueType']?.toString() ??
-                  'Assistance Request',
-          'vehicleType':
-              data['vehicleType']?.toString() ??
-                  'Vehicle',
-          'jobAmount': data['jobAmount'],
-          'createdAt': data['createdAt'],
-          'completedAt': data['completedAt'],
-        });
-      }
-    }
+        // Completed jobs
+        if (status == 'completed') {
+          completed++;
 
-    // ----------------------------------------------------------
-    // Add denied requests
-    // ----------------------------------------------------------
+          final String paymentStatus = data['paymentStatus']?.toString() ?? '';
 
-    for (final QueryDocumentSnapshot document
-        in deniedSnapshot?.docs ?? <QueryDocumentSnapshot>[]) {
-      final Map<String, dynamic> data =
-          document.data() as Map<String, dynamic>;
+          if (paymentStatus == 'paid') {
+            final dynamic amount = data['paidAmount'] ?? data['jobAmount'];
 
-      history.add({
-        'requestId': document.id,
-        'type': 'denied',
-        'issueType':
-            data['issueType']?.toString() ??
-                'Assistance Request',
-        'vehicleType':
-            data['vehicleType']?.toString() ??
-                'Vehicle',
-        'jobAmount': data['jobAmount'],
-        'createdAt': data['createdAt'],
-        'completedAt': null,
-      });
-    }
-
-    // ----------------------------------------------------------
-    // Sort newest first
-    // ----------------------------------------------------------
-
-    history.sort((a, b) {
-      DateTime? getDate(
-        Map<String, dynamic> item,
-      ) {
-        final dynamic value =
-            item['completedAt'] ??
-                item['createdAt'];
-
-        if (value is Timestamp) {
-          return value.toDate();
+            if (amount is num) {
+              earnings += amount.toDouble();
+            } else if (amount != null) {
+              earnings += double.tryParse(amount.toString()) ?? 0.0;
+            }
+          }
         }
 
-        return null;
+        // Active jobs
+        if (activeStatuses.contains(status)) {
+          active++;
+        }
       }
 
-      final DateTime? aDate = getDate(a);
-      final DateTime? bDate = getDate(b);
-
-      if (aDate == null && bDate == null) {
-        return 0;
+      if (!mounted) {
+        return;
       }
 
-      if (aDate == null) {
-        return 1;
-      }
-
-      if (bDate == null) {
-        return -1;
-      }
-
-      return bDate.compareTo(aDate);
-    });
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _jobHistory = history;
-      _isLoadingJobHistory = false;
-    });
-  } catch (e) {
-    debugPrint(
-      'Error loading job history: $e',
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isLoadingJobHistory = false;
-      _jobHistoryError = _profileLoadErrorMessage(
-        'Job history',
-        e,
-      );
-    });
-  }
-}
-
-Future<void> _loadActiveJob() async {
-  final String providerId = _providerId;
-
-  if (providerId.isEmpty) {
-    return;
-  }
-
-  if (mounted) {
-    setState(() {
-      _isLoadingActiveJob = true;
-    });
-  }
-
-  try {
-    const List<String> activeStatuses = [
-      'accepted',
-      'on_the_way',
-      'arrived',
-      'in_progress',
-    ];
-
-    final QuerySnapshot snapshot = await _firestore
-        .collection('assistance_requests')
-        .where(
-          'providerId',
-          isEqualTo: providerId,
-        )
-        .get();
-
-    QueryDocumentSnapshot? activeDocument;
-
-    for (final QueryDocumentSnapshot document
-        in snapshot.docs) {
-      final Map<String, dynamic> data =
-          document.data() as Map<String, dynamic>;
-
-      final String status =
-          data['status']?.toString() ?? '';
-
-      if (activeStatuses.contains(status)) {
-        activeDocument = document;
-        break;
-      }
-    }
-
-    if (!mounted) {
-      return;
-    }
-
-    if (activeDocument == null) {
       setState(() {
-        _activeRequestId = null;
-        _activeJobData = null;
+        _assignedJobs = snapshot.docs.length;
+        _completedJobs = completed;
+        _activeJobs = active;
+        _totalEarnings = earnings;
+        _hasLoadedAssignedStatistics = true;
+      });
+
+      // Load denied requests separately so a deniedBy rules/query failure
+      // does not hide the statistics for jobs assigned to this provider.
+      try {
+        final QuerySnapshot deniedSnapshot = await _firestore
+            .collection('assistance_requests')
+            .where('deniedBy', arrayContains: providerId)
+            .get();
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _deniedRequests = deniedSnapshot.docs.length;
+          _hasLoadedDeniedStatistics = true;
+        });
+      } catch (e) {
+        debugPrint('Error loading denied provider requests: $e');
+
+        if (!mounted) {
+          return;
+        }
+
+        setState(() {
+          _statisticsError = _profileLoadErrorMessage('Denied requests', e);
+          _hasLoadedDeniedStatistics = false;
+        });
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isLoadingStats = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading provider statistics: $e');
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _statisticsError = _profileLoadErrorMessage('Provider statistics', e);
+        _hasLoadedAssignedStatistics = false;
+        _isLoadingStats = false;
+      });
+    }
+  }
+
+  String _profileLoadErrorMessage(String section, Object error) {
+    if (error is FirebaseException) {
+      switch (error.code) {
+        case 'permission-denied':
+          return '$section was blocked by Firestore security rules. '
+              'Allow this signed-in provider to read matching assistance requests.';
+        case 'unauthenticated':
+          return 'Your session has expired. Sign in again to load $section.';
+        case 'unavailable':
+          return 'Firestore is unavailable. Check your internet connection and retry.';
+        case 'failed-precondition':
+          return 'Firestore could not complete $section. Check the Firebase query/index configuration.';
+        default:
+          return '$section failed (${error.code}). '
+              '${error.message ?? 'Please retry.'}';
+      }
+    }
+
+    return '$section failed: $error';
+  }
+
+  Future<void> _loadJobHistory() async {
+    final String providerId = _providerId;
+
+    if (providerId.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _jobHistoryError = 'Provider account could not be identified.';
+          _isLoadingJobHistory = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingJobHistory = true;
+        _jobHistoryError = null;
+      });
+    }
+
+    try {
+      // ----------------------------------------------------------
+      // Get requests accepted by this provider
+      // ----------------------------------------------------------
+
+      final QuerySnapshot acceptedSnapshot = await _firestore
+          .collection('assistance_requests')
+          .where('providerId', isEqualTo: providerId)
+          .get();
+
+      // ----------------------------------------------------------
+      // Get requests denied by this provider
+      // ----------------------------------------------------------
+
+      QuerySnapshot? deniedSnapshot;
+      try {
+        deniedSnapshot = await _firestore
+            .collection('assistance_requests')
+            .where('deniedBy', arrayContains: providerId)
+            .get();
+      } catch (e) {
+        debugPrint('Error loading denied job history: $e');
+        if (mounted) {
+          setState(() {
+            _jobHistoryError = _profileLoadErrorMessage(
+              'Declined job history',
+              e,
+            );
+          });
+        }
+      }
+
+      final List<Map<String, dynamic>> history = [];
+
+      // ----------------------------------------------------------
+      // Add accepted/provider jobs
+      // ----------------------------------------------------------
+
+      for (final QueryDocumentSnapshot document in acceptedSnapshot.docs) {
+        final Map<String, dynamic> data =
+            document.data() as Map<String, dynamic>;
+
+        final String status = data['status']?.toString() ?? '';
+
+        if (status == 'completed' || status == 'cancelled') {
+          history.add({
+            'requestId': document.id,
+            'type': status,
+            'issueType': data['issueType']?.toString() ?? 'Assistance Request',
+            'vehicleType': data['vehicleType']?.toString() ?? 'Vehicle',
+            'jobAmount': data['jobAmount'],
+            'createdAt': data['createdAt'],
+            'completedAt': data['completedAt'],
+          });
+        }
+      }
+
+      // ----------------------------------------------------------
+      // Add denied requests
+      // ----------------------------------------------------------
+
+      for (final QueryDocumentSnapshot document
+          in deniedSnapshot?.docs ?? <QueryDocumentSnapshot>[]) {
+        final Map<String, dynamic> data =
+            document.data() as Map<String, dynamic>;
+
+        history.add({
+          'requestId': document.id,
+          'type': 'denied',
+          'issueType': data['issueType']?.toString() ?? 'Assistance Request',
+          'vehicleType': data['vehicleType']?.toString() ?? 'Vehicle',
+          'jobAmount': data['jobAmount'],
+          'createdAt': data['createdAt'],
+          'completedAt': null,
+        });
+      }
+
+      // ----------------------------------------------------------
+      // Sort newest first
+      // ----------------------------------------------------------
+
+      history.sort((a, b) {
+        DateTime? getDate(Map<String, dynamic> item) {
+          final dynamic value = item['completedAt'] ?? item['createdAt'];
+
+          if (value is Timestamp) {
+            return value.toDate();
+          }
+
+          return null;
+        }
+
+        final DateTime? aDate = getDate(a);
+        final DateTime? bDate = getDate(b);
+
+        if (aDate == null && bDate == null) {
+          return 0;
+        }
+
+        if (aDate == null) {
+          return 1;
+        }
+
+        if (bDate == null) {
+          return -1;
+        }
+
+        return bDate.compareTo(aDate);
+      });
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _jobHistory = history;
+        _isLoadingJobHistory = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading job history: $e');
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoadingJobHistory = false;
+        _jobHistoryError = _profileLoadErrorMessage('Job history', e);
+      });
+    }
+  }
+
+  Future<void> _loadActiveJob() async {
+    final String providerId = _providerId;
+
+    if (providerId.isEmpty) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingActiveJob = true;
+      });
+    }
+
+    try {
+      const List<String> activeStatuses = [
+        'accepted',
+        'on_the_way',
+        'arrived',
+        'in_progress',
+      ];
+
+      final QuerySnapshot snapshot = await _firestore
+          .collection('assistance_requests')
+          .where('providerId', isEqualTo: providerId)
+          .get();
+
+      QueryDocumentSnapshot? activeDocument;
+
+      for (final QueryDocumentSnapshot document in snapshot.docs) {
+        final Map<String, dynamic> data =
+            document.data() as Map<String, dynamic>;
+
+        final String status = data['status']?.toString() ?? '';
+
+        if (activeStatuses.contains(status)) {
+          activeDocument = document;
+          break;
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      if (activeDocument == null) {
+        setState(() {
+          _activeRequestId = null;
+          _activeJobData = null;
+          _isLoadingActiveJob = false;
+        });
+
+        return;
+      }
+
+      final Map<String, dynamic> activeData =
+          activeDocument.data() as Map<String, dynamic>;
+
+      setState(() {
+        _activeRequestId = activeDocument!.id;
+        _activeJobData = activeData;
         _isLoadingActiveJob = false;
       });
 
-      return;
-    }
-
-    final Map<String, dynamic> activeData =
-        activeDocument.data() as Map<String, dynamic>;
-
-    setState(() {
-      _activeRequestId = activeDocument!.id;
-      _activeJobData = activeData;
-      _isLoadingActiveJob = false;
-    });
-
-    debugPrint(
-      'Active job loaded: $_activeRequestId',
-    );
-  } catch (e) {
-    debugPrint(
-      'Error loading active job: $e',
-    );
-
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _isLoadingActiveJob = false;
-    });
-  }
-}
-void _startActiveJobListener() {
-  final String? requestId = _activeRequestId;
-
-  if (requestId == null || requestId.isEmpty) {
-    return;
-  }
-
-  _firestore
-      .collection('assistance_requests')
-      .doc(requestId)
-      .snapshots()
-      .listen(
-    (DocumentSnapshot snapshot) {
-      if (!snapshot.exists) {
-        return;
-      }
-
-      final Map<String, dynamic> data =
-          snapshot.data() as Map<String, dynamic>;
-
-      final String status =
-          data['status']?.toString() ?? '';
+      debugPrint('Active job loaded: $_activeRequestId');
+    } catch (e) {
+      debugPrint('Error loading active job: $e');
 
       if (!mounted) {
         return;
       }
 
       setState(() {
-        _activeJobData = data;
+        _isLoadingActiveJob = false;
       });
+    }
+  }
 
-      if (status == 'completed') {
-        _loadProviderStatistics();
-        _loadJobHistory();
-      }
-    },
-    onError: (error) {
-      debugPrint(
-        'Active job listener error: $error',
-      );
-    },
-  );
-}
+  void _startActiveJobListener() {
+    final String? requestId = _activeRequestId;
+
+    if (requestId == null || requestId.isEmpty) {
+      return;
+    }
+
+    _firestore
+        .collection('assistance_requests')
+        .doc(requestId)
+        .snapshots()
+        .listen(
+          (DocumentSnapshot snapshot) {
+            if (!snapshot.exists) {
+              return;
+            }
+
+            final Map<String, dynamic> data =
+                snapshot.data() as Map<String, dynamic>;
+
+            final String status = data['status']?.toString() ?? '';
+
+            if (!mounted) {
+              return;
+            }
+
+            setState(() {
+              _activeJobData = data;
+            });
+
+            if (status == 'completed') {
+              _loadProviderStatistics();
+              _loadJobHistory();
+            }
+          },
+          onError: (error) {
+            debugPrint('Active job listener error: $error');
+          },
+        );
+  }
 
   // ============================================================
   // LOAD PROVIDER AVAILABILITY
@@ -741,11 +672,10 @@ void _startActiveJobListener() {
         return;
       }
 
-      final DocumentSnapshot document =
-          await _firestore
-              .collection('users')
-              .doc(_providerId)
-              .get();
+      final DocumentSnapshot document = await _firestore
+          .collection('users')
+          .doc(_providerId)
+          .get();
 
       if (!document.exists) {
         return;
@@ -758,18 +688,14 @@ void _startActiveJobListener() {
         return;
       }
 
-      final bool savedOnlineStatus =
-          data['isOnline'] == true;
+      final bool savedOnlineStatus = data['isOnline'] == true;
 
       Position? savedPosition;
 
-      if (data['latitude'] != null &&
-          data['longitude'] != null) {
+      if (data['latitude'] != null && data['longitude'] != null) {
         savedPosition = Position(
-          latitude:
-              (data['latitude'] as num).toDouble(),
-          longitude:
-              (data['longitude'] as num).toDouble(),
+          latitude: (data['latitude'] as num).toDouble(),
+          longitude: (data['longitude'] as num).toDouble(),
           timestamp: DateTime.now(),
           accuracy: 0,
           altitude: 0,
@@ -795,9 +721,7 @@ void _startActiveJobListener() {
         _startRequestListener();
       }
     } catch (e) {
-      debugPrint(
-        'Error loading provider availability: $e',
-      );
+      debugPrint('Error loading provider availability: $e');
     }
   }
 
@@ -806,8 +730,7 @@ void _startActiveJobListener() {
   // ============================================================
 
   Future<bool> _checkLocationPermission() async {
-    final bool serviceEnabled =
-        await Geolocator.isLocationServiceEnabled();
+    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
       if (mounted) {
@@ -817,26 +740,21 @@ void _startActiveJobListener() {
       return false;
     }
 
-    LocationPermission permission =
-        await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
-      permission =
-          await Geolocator.requestPermission();
+      permission = await Geolocator.requestPermission();
     }
 
     if (permission == LocationPermission.denied) {
       if (mounted) {
-        _showMessage(
-          'Location permission is required to go online.',
-        );
+        _showMessage('Location permission is required to go online.');
       }
 
       return false;
     }
 
-    if (permission ==
-        LocationPermission.deniedForever) {
+    if (permission == LocationPermission.deniedForever) {
       if (mounted) {
         _showPermissionSettingsMessage();
       }
@@ -861,8 +779,7 @@ void _startActiveJobListener() {
     });
 
     try {
-      final bool permissionGranted =
-          await _checkLocationPermission();
+      final bool permissionGranted = await _checkLocationPermission();
 
       if (!permissionGranted) {
         if (mounted) {
@@ -875,20 +792,15 @@ void _startActiveJobListener() {
         return;
       }
 
-      final Position position =
-          await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
         ),
       );
 
       _currentPosition = position;
 
-      await _updateProviderLocation(
-        position,
-        isOnline: true,
-      );
+      await _updateProviderLocation(position, isOnline: true);
 
       if (!mounted) {
         return;
@@ -902,13 +814,9 @@ void _startActiveJobListener() {
       _startLocationStream();
       _startRequestListener();
 
-      _showMessage(
-        'You are now online.',
-      );
+      _showMessage('You are now online.');
     } catch (e) {
-      debugPrint(
-        'Error going online: $e',
-      );
+      debugPrint('Error going online: $e');
 
       if (!mounted) {
         return;
@@ -919,9 +827,7 @@ void _startActiveJobListener() {
         _isGettingLocation = false;
       });
 
-      _showMessage(
-        'Could not get your current location.',
-      );
+      _showMessage('Could not get your current location.');
     }
   }
 
@@ -935,19 +841,13 @@ void _startActiveJobListener() {
 
     try {
       if (_providerId.isNotEmpty) {
-        await _firestore
-            .collection('users')
-            .doc(_providerId)
-            .update({
+        await _firestore.collection('users').doc(_providerId).update({
           'isOnline': false,
-          'updatedAt':
-              FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         });
       }
     } catch (e) {
-      debugPrint(
-        'Error going offline: $e',
-      );
+      debugPrint('Error going offline: $e');
     }
 
     if (!mounted) {
@@ -959,9 +859,7 @@ void _startActiveJobListener() {
       _isGettingLocation = false;
     });
 
-    _showMessage(
-      'You are now offline.',
-    );
+    _showMessage('You are now offline.');
   }
 
   // ============================================================
@@ -971,44 +869,34 @@ void _startActiveJobListener() {
   void _startLocationStream() {
     _positionSubscription?.cancel();
 
-    const LocationSettings settings =
-        LocationSettings(
+    const LocationSettings settings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 10,
     );
 
     _positionSubscription =
-        Geolocator.getPositionStream(
-      locationSettings: settings,
-    ).listen(
-      (Position position) async {
-        if (!_isOnline) {
-          return;
-        }
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+          (Position position) async {
+            if (!_isOnline) {
+              return;
+            }
 
-        _currentPosition = position;
+            _currentPosition = position;
 
-        if (mounted) {
-          setState(() {});
-        }
+            if (mounted) {
+              setState(() {});
+            }
 
-        // Update provider's own user document.
-        await _updateProviderLocation(
-          position,
-          isOnline: true,
+            // Update provider's own user document.
+            await _updateProviderLocation(position, isOnline: true);
+
+            // Update the accepted assistance request.
+            await _updateAcceptedRequestLocation(position);
+          },
+          onError: (error) {
+            debugPrint('Provider location stream error: $error');
+          },
         );
-
-        // Update the accepted assistance request.
-        await _updateAcceptedRequestLocation(
-          position,
-        );
-      },
-      onError: (error) {
-        debugPrint(
-          'Provider location stream error: $error',
-        );
-      },
-    );
   }
 
   // ============================================================
@@ -1020,29 +908,20 @@ void _startActiveJobListener() {
     required bool isOnline,
   }) async {
     if (_providerId.isEmpty) {
-      debugPrint(
-        'Provider ID is empty. Cannot update location.',
-      );
+      debugPrint('Provider ID is empty. Cannot update location.');
       return;
     }
 
     try {
-      await _firestore
-          .collection('users')
-          .doc(_providerId)
-          .update({
+      await _firestore.collection('users').doc(_providerId).update({
         'latitude': position.latitude,
         'longitude': position.longitude,
         'isOnline': isOnline,
-        'locationUpdatedAt':
-            FieldValue.serverTimestamp(),
-        'updatedAt':
-            FieldValue.serverTimestamp(),
+        'locationUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      debugPrint(
-        'Error updating provider location: $e',
-      );
+      debugPrint('Error updating provider location: $e');
     }
   }
 
@@ -1050,30 +929,19 @@ void _startActiveJobListener() {
   // UPDATE ACCEPTED ASSISTANCE REQUEST LOCATION
   // ============================================================
 
-  Future<void> _updateAcceptedRequestLocation(
-    Position position,
-  ) async {
-    final String? requestId =
-        _activeRequestId;
+  Future<void> _updateAcceptedRequestLocation(Position position) async {
+    final String? requestId = _activeRequestId;
 
-    if (requestId == null ||
-        requestId.isEmpty) {
+    if (requestId == null || requestId.isEmpty) {
       return;
     }
 
     try {
-      await _firestore
-          .collection('assistance_requests')
-          .doc(requestId)
-          .update({
-        'providerLatitude':
-            position.latitude,
-        'providerLongitude':
-            position.longitude,
-        'providerLocationUpdatedAt':
-            FieldValue.serverTimestamp(),
-        'updatedAt':
-            FieldValue.serverTimestamp(),
+      await _firestore.collection('assistance_requests').doc(requestId).update({
+        'providerLatitude': position.latitude,
+        'providerLongitude': position.longitude,
+        'providerLocationUpdatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
       });
 
       debugPrint(
@@ -1082,9 +950,7 @@ void _startActiveJobListener() {
         '${position.longitude}',
       );
     } catch (e) {
-      debugPrint(
-        'Error updating accepted request location: $e',
-      );
+      debugPrint('Error updating accepted request location: $e');
     }
   }
 
@@ -1117,96 +983,75 @@ void _startActiveJobListener() {
 
     _requestSubscription = _firestore
         .collection('assistance_requests')
-        .where(
-          'status',
-          whereIn: [
-            'pending',
-            'searching',
-          ],
-        )
+        .where('status', whereIn: ['pending', 'searching'])
         .snapshots()
         .listen(
-      (QuerySnapshot snapshot) {
-        final List<QueryDocumentSnapshot>
-            requests =
-            snapshot.docs.where((document) {
-          final Map<String, dynamic> data =
-              document.data()
-                  as Map<String, dynamic>;
+          (QuerySnapshot snapshot) {
+            final List<QueryDocumentSnapshot> requests = snapshot.docs.where((
+              document,
+            ) {
+              final Map<String, dynamic> data =
+                  document.data() as Map<String, dynamic>;
 
-          final List<dynamic> deniedBy =
-              data['deniedBy'] is List
-                  ? List<dynamic>.from(
-                      data['deniedBy'] as List,
-                    )
+              final List<dynamic> deniedBy = data['deniedBy'] is List
+                  ? List<dynamic>.from(data['deniedBy'] as List)
                   : <dynamic>[];
 
-          return !deniedBy.contains(
-            _providerId,
-          );
-        }).toList();
+              return !deniedBy.contains(_providerId);
+            }).toList();
 
-        requests.sort((a, b) {
-          final Map<String, dynamic> aData =
-              a.data()
-                  as Map<String, dynamic>;
+            requests.sort((a, b) {
+              final Map<String, dynamic> aData =
+                  a.data() as Map<String, dynamic>;
 
-          final Map<String, dynamic> bData =
-              b.data()
-                  as Map<String, dynamic>;
+              final Map<String, dynamic> bData =
+                  b.data() as Map<String, dynamic>;
 
-          final Timestamp? aTime =
-              aData['createdAt'] is Timestamp
-                  ? aData['createdAt']
-                      as Timestamp
+              final Timestamp? aTime = aData['createdAt'] is Timestamp
+                  ? aData['createdAt'] as Timestamp
                   : null;
 
-          final Timestamp? bTime =
-              bData['createdAt'] is Timestamp
-                  ? bData['createdAt']
-                      as Timestamp
+              final Timestamp? bTime = bData['createdAt'] is Timestamp
+                  ? bData['createdAt'] as Timestamp
                   : null;
 
-          if (aTime == null &&
-              bTime == null) {
-            return 0;
-          }
+              if (aTime == null && bTime == null) {
+                return 0;
+              }
 
-          if (aTime == null) {
-            return 1;
-          }
+              if (aTime == null) {
+                return 1;
+              }
 
-          if (bTime == null) {
-            return -1;
-          }
+              if (bTime == null) {
+                return -1;
+              }
 
-          return bTime.compareTo(aTime);
-        });
+              return bTime.compareTo(aTime);
+            });
 
-        if (!mounted) {
-          return;
-        }
+            if (!mounted) {
+              return;
+            }
 
-        setState(() {
-          _incomingRequests
-            ..clear()
-            ..addAll(requests);
+            setState(() {
+              _incomingRequests
+                ..clear()
+                ..addAll(requests);
 
-          _isLoadingRequests = false;
-        });
-      },
-      onError: (error) {
-        debugPrint(
-          'Assistance request listener error: $error',
+              _isLoadingRequests = false;
+            });
+          },
+          onError: (error) {
+            debugPrint('Assistance request listener error: $error');
+
+            if (mounted) {
+              setState(() {
+                _isLoadingRequests = false;
+              });
+            }
+          },
         );
-
-        if (mounted) {
-          setState(() {
-            _isLoadingRequests = false;
-          });
-        }
-      },
-    );
   }
 
   // ============================================================
@@ -1232,147 +1077,110 @@ void _startActiveJobListener() {
   // ACCEPT REQUEST
   // ============================================================
 
-  
   // ============================================================
-// ACCEPT REQUEST
-// ============================================================
+  // ACCEPT REQUEST
+  // ============================================================
 
-Future<void> _acceptRequest(
-  QueryDocumentSnapshot requestDocument,
-) async {
-  if (_providerId.isEmpty) {
-    _showMessage(
-      'Provider ID is not available.',
-    );
-    return;
-  }
-
-  final DocumentReference requestReference =
-      _firestore
-          .collection('assistance_requests')
-          .doc(requestDocument.id);
-
-  try {
-    // ==========================================================
-    // STEP 1:
-    // Get the provider's latest location
-    // ==========================================================
-
-    final DocumentSnapshot providerSnapshot =
-        await _firestore
-            .collection('users')
-            .doc(_providerId)
-            .get();
-
-    if (!providerSnapshot.exists) {
-      throw Exception(
-        'Provider profile could not be found.',
-      );
+  Future<void> _acceptRequest(QueryDocumentSnapshot requestDocument) async {
+    if (_providerId.isEmpty) {
+      _showMessage('Provider ID is not available.');
+      return;
     }
 
-    final Map<String, dynamic>? providerData =
-        providerSnapshot.data()
-            as Map<String, dynamic>?;
+    final DocumentReference requestReference = _firestore
+        .collection('assistance_requests')
+        .doc(requestDocument.id);
 
-    if (providerData == null) {
-      throw Exception(
-        'Provider information could not be loaded.',
-      );
-    }
+    try {
+      // ==========================================================
+      // STEP 1:
+      // Get the provider's latest location
+      // ==========================================================
 
-    final dynamic latitudeValue =
-        providerData['latitude'];
+      final DocumentSnapshot providerSnapshot = await _firestore
+          .collection('users')
+          .doc(_providerId)
+          .get();
 
-    final dynamic longitudeValue =
-        providerData['longitude'];
+      if (!providerSnapshot.exists) {
+        throw Exception('Provider profile could not be found.');
+      }
 
-    if (latitudeValue == null ||
-        longitudeValue == null) {
-      throw Exception(
-        'Provider location is not available yet. '
-        'Please wait a few seconds and try again.',
-      );
-    }
+      final Map<String, dynamic>? providerData =
+          providerSnapshot.data() as Map<String, dynamic>?;
 
-    final double providerLatitude =
-        (latitudeValue as num).toDouble();
+      if (providerData == null) {
+        throw Exception('Provider information could not be loaded.');
+      }
 
-    final double providerLongitude =
-        (longitudeValue as num).toDouble();
+      final dynamic latitudeValue = providerData['latitude'];
 
-    debugPrint(
-      '========================================',
-    );
+      final dynamic longitudeValue = providerData['longitude'];
 
-    debugPrint(
-      'PROVIDER LOCATION BEFORE ACCEPTING',
-    );
+      if (latitudeValue == null || longitudeValue == null) {
+        throw Exception(
+          'Provider location is not available yet. '
+          'Please wait a few seconds and try again.',
+        );
+      }
 
-    debugPrint(
-      'Provider ID: $_providerId',
-    );
+      final double providerLatitude = (latitudeValue as num).toDouble();
 
-    debugPrint(
-      'Latitude: $providerLatitude',
-    );
+      final double providerLongitude = (longitudeValue as num).toDouble();
 
-    debugPrint(
-      'Longitude: $providerLongitude',
-    );
+      debugPrint('========================================');
 
-    debugPrint(
-      '========================================',
-    );
+      debugPrint('PROVIDER LOCATION BEFORE ACCEPTING');
 
-    // ==========================================================
-    // STEP 2:
-    // Accept the request
-    // ==========================================================
+      debugPrint('Provider ID: $_providerId');
 
-    await _firestore.runTransaction(
-      (transaction) async {
-        final DocumentSnapshot snapshot =
-            await transaction.get(
+      debugPrint('Latitude: $providerLatitude');
+
+      debugPrint('Longitude: $providerLongitude');
+
+      debugPrint('========================================');
+
+      // ==========================================================
+      // STEP 2:
+      // Accept the request
+      // ==========================================================
+
+      String requestOwnerId = '';
+      String issueType = 'roadside assistance';
+
+      await _firestore.runTransaction((transaction) async {
+        final DocumentSnapshot snapshot = await transaction.get(
           requestReference,
         );
 
         if (!snapshot.exists) {
-          throw Exception(
-            'This request no longer exists.',
-          );
+          throw Exception('This request no longer exists.');
         }
 
         final Map<String, dynamic> data =
-            snapshot.data()
-                as Map<String, dynamic>;
+            snapshot.data() as Map<String, dynamic>;
+        requestOwnerId = data['userId']?.toString() ?? '';
+        issueType = data['issueType']?.toString() ?? 'roadside assistance';
 
-        final String status =
-            data['status']?.toString() ??
-                'pending';
+        final String status = data['status']?.toString() ?? 'pending';
 
-        final List<dynamic> deniedBy =
-            data['deniedBy'] is List
-                ? List<dynamic>.from(
-                    data['deniedBy'] as List,
-                  )
-                : <dynamic>[];
+        final List<dynamic> deniedBy = data['deniedBy'] is List
+            ? List<dynamic>.from(data['deniedBy'] as List)
+            : <dynamic>[];
 
         // --------------------------------------------------------
         // Check whether this provider already denied it.
         // --------------------------------------------------------
 
         if (deniedBy.contains(_providerId)) {
-          throw Exception(
-            'You have already denied this request.',
-          );
+          throw Exception('You have already denied this request.');
         }
 
         // --------------------------------------------------------
         // Only pending/searching requests can be accepted.
         // --------------------------------------------------------
 
-        if (status != 'pending' &&
-            status != 'searching') {
+        if (status != 'pending' && status != 'searching') {
           throw Exception(
             'This request has already been accepted '
             'by another provider.',
@@ -1383,223 +1191,182 @@ Future<void> _acceptRequest(
         // Save provider information and GPS coordinates.
         // --------------------------------------------------------
 
-        transaction.update(
-          requestReference,
-          {
-            'status': 'accepted',
+        transaction.update(requestReference, {
+          'status': 'accepted',
 
-            'providerId': _providerId,
+          'providerId': _providerId,
 
-            'providerName': _providerName,
+          'providerName': _providerName,
 
-            'providerEmail': _email,
+          'providerEmail': _email,
 
-            'providerLatitude':
-                providerLatitude,
+          'providerLatitude': providerLatitude,
 
-            'providerLongitude':
-                providerLongitude,
+          'providerLongitude': providerLongitude,
 
-            'providerLocationUpdatedAt':
-                FieldValue.serverTimestamp(),
+          'providerLocationUpdatedAt': FieldValue.serverTimestamp(),
 
-            'acceptedAt':
-                FieldValue.serverTimestamp(),
+          'acceptedAt': FieldValue.serverTimestamp(),
 
-            'updatedAt':
-                FieldValue.serverTimestamp(),
-          },
-        );
-      },
-    );
-
-    // ==========================================================
-    // STEP 3:
-    // Set this as the provider's active request
-    // ==========================================================
-
-    _activeRequestId =
-        requestDocument.id;
-
-    debugPrint(
-      '========================================',
-    );
-
-    debugPrint(
-      'REQUEST ACCEPTED',
-    );
-
-    debugPrint(
-      'Request ID: $_activeRequestId',
-    );
-
-    debugPrint(
-      'Provider Latitude: $providerLatitude',
-    );
-
-    debugPrint(
-      'Provider Longitude: $providerLongitude',
-    );
-
-    debugPrint(
-      '========================================',
-    );
-
-    // ==========================================================
-    // STEP 4:
-    // Immediately update with the newest GPS position
-    // if one is available.
-    // ==========================================================
-
-    if (_currentPosition != null) {
-      await _updateAcceptedRequestLocation(
-        _currentPosition!,
-      );
-    }
-
-    // ==========================================================
-    // STEP 5:
-    // Remove request from the incoming list
-    // ==========================================================
-
-    if (mounted) {
-      setState(() {
-        _incomingRequests.removeWhere(
-          (request) =>
-              request.id ==
-              requestDocument.id,
-        );
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       });
-    }
 
-    // ==========================================================
-    // STEP 6:
-    // Stop listening for NEW incoming requests.
-    //
-    // We don't need the old request-list screen anymore
-    // because we are going to the navigation screen.
-    // ==========================================================
+      final bool driverNotified = await _createRequestDecisionNotification(
+        userId: requestOwnerId,
+        requestId: requestDocument.id,
+        issueType: issueType,
+        status: 'accepted',
+      );
 
-    await _stopRequestListener();
+      // ==========================================================
+      // STEP 3:
+      // Set this as the provider's active request
+      // ==========================================================
 
-    // ==========================================================
-    // STEP 7:
-    // Navigate to provider directions page
-    // ==========================================================
+      _activeRequestId = requestDocument.id;
 
-    if (!mounted) {
-      return;
-    }
+      debugPrint('========================================');
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) =>
-            ProviderDirectionsPage(
-          requestId:
-              requestDocument.id,
-          userData:
-              widget.userData,
+      debugPrint('REQUEST ACCEPTED');
+
+      debugPrint('Request ID: $_activeRequestId');
+
+      debugPrint('Provider Latitude: $providerLatitude');
+
+      debugPrint('Provider Longitude: $providerLongitude');
+
+      debugPrint('========================================');
+
+      // ==========================================================
+      // STEP 4:
+      // Immediately update with the newest GPS position
+      // if one is available.
+      // ==========================================================
+
+      if (_currentPosition != null) {
+        await _updateAcceptedRequestLocation(_currentPosition!);
+      }
+
+      // ==========================================================
+      // STEP 5:
+      // Remove request from the incoming list
+      // ==========================================================
+
+      if (mounted) {
+        setState(() {
+          _incomingRequests.removeWhere(
+            (request) => request.id == requestDocument.id,
+          );
+        });
+      }
+
+      // ==========================================================
+      // STEP 6:
+      // Stop listening for NEW incoming requests.
+      //
+      // We don't need the old request-list screen anymore
+      // because we are going to the navigation screen.
+      // ==========================================================
+
+      await _stopRequestListener();
+
+      // ==========================================================
+      // STEP 7:
+      // Navigate to provider directions page
+      // ==========================================================
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ProviderDirectionsPage(
+            requestId: requestDocument.id,
+            userData: widget.userData,
+          ),
         ),
-      ),
-    );
-  } catch (e) {
-    debugPrint(
-      '========================================',
-    );
+      );
+      if (!driverNotified) {
+        _showMessage('Request accepted, but the driver could not be notified.');
+      }
+    } catch (e) {
+      debugPrint('========================================');
 
-    debugPrint(
-      'ERROR ACCEPTING REQUEST',
-    );
+      debugPrint('ERROR ACCEPTING REQUEST');
 
-    debugPrint(
-      '$e',
-    );
+      debugPrint('$e');
 
-    debugPrint(
-      '========================================',
-    );
+      debugPrint('========================================');
 
-    if (!mounted) {
-      return;
+      if (!mounted) {
+        return;
+      }
+
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
     }
-
-    _showMessage(
-      e.toString().replaceFirst(
-        'Exception: ',
-        '',
-      ),
-    );
   }
-}
 
   // ============================================================
   // DENY REQUEST
   // ============================================================
 
-  Future<void> _denyRequest(
-    QueryDocumentSnapshot requestDocument,
-  ) async {
+  Future<void> _denyRequest(QueryDocumentSnapshot requestDocument) async {
     if (_providerId.isEmpty) {
       return;
     }
 
-    final DocumentReference requestReference =
-        _firestore
-            .collection('assistance_requests')
-            .doc(requestDocument.id);
+    final DocumentReference requestReference = _firestore
+        .collection('assistance_requests')
+        .doc(requestDocument.id);
+    String requestOwnerId = '';
+    String issueType = 'roadside assistance';
 
     try {
-      await _firestore.runTransaction(
-        (transaction) async {
-          final DocumentSnapshot snapshot =
-              await transaction.get(
-            requestReference,
-          );
+      await _firestore.runTransaction((transaction) async {
+        final DocumentSnapshot snapshot = await transaction.get(
+          requestReference,
+        );
 
-          if (!snapshot.exists) {
-            throw Exception(
-              'This request no longer exists.',
-            );
-          }
+        if (!snapshot.exists) {
+          throw Exception('This request no longer exists.');
+        }
 
-          final Map<String, dynamic> data =
-              snapshot.data()
-                  as Map<String, dynamic>;
+        final Map<String, dynamic> data =
+            snapshot.data() as Map<String, dynamic>;
+        requestOwnerId = data['userId']?.toString() ?? '';
+        issueType = data['issueType']?.toString() ?? 'roadside assistance';
 
-          final String status =
-              data['status']?.toString() ??
-                  'pending';
+        final String status = data['status']?.toString() ?? 'pending';
 
-          if (status != 'pending' &&
-              status != 'searching') {
-            throw Exception(
-              'This request is no longer available.',
-            );
-          }
+        if (status != 'pending' && status != 'searching') {
+          throw Exception('This request is no longer available.');
+        }
 
-          final List<dynamic> deniedBy =
-              data['deniedBy'] is List
-                  ? List<dynamic>.from(
-                      data['deniedBy'] as List,
-                    )
-                  : <dynamic>[];
+        final List<dynamic> deniedBy = data['deniedBy'] is List
+            ? List<dynamic>.from(data['deniedBy'] as List)
+            : <dynamic>[];
 
-          if (!deniedBy.contains(_providerId)) {
-            deniedBy.add(_providerId);
-          }
+        if (deniedBy.contains(_providerId)) {
+          throw Exception('You have already denied this request.');
+        }
+        deniedBy.add(_providerId);
 
-          // IMPORTANT:
-          // Denying a request must NOT change it
-          // to "accepted".
-          transaction.update(
-            requestReference,
-            {
-              'deniedBy': deniedBy,
-              'updatedAt':
-                  FieldValue.serverTimestamp(),
-            },
-          );
-        },
+        // IMPORTANT:
+        // Denying a request must NOT change it
+        // to "accepted".
+        transaction.update(requestReference, {
+          'deniedBy': deniedBy,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      final bool driverNotified = await _createRequestDecisionNotification(
+        userId: requestOwnerId,
+        requestId: requestDocument.id,
+        issueType: issueType,
+        status: 'declined',
       );
 
       if (!mounted) {
@@ -1608,30 +1375,63 @@ Future<void> _acceptRequest(
 
       setState(() {
         _incomingRequests.removeWhere(
-          (request) =>
-              request.id ==
-              requestDocument.id,
+          (request) => request.id == requestDocument.id,
         );
       });
 
       _showMessage(
-        'Request denied.',
+        driverNotified
+            ? 'Request denied.'
+            : 'Request denied, but the driver could not be notified.',
       );
     } catch (e) {
-      debugPrint(
-        'Error denying request: $e',
-      );
+      debugPrint('Error denying request: $e');
 
       if (!mounted) {
         return;
       }
 
-      _showMessage(
-        e.toString().replaceFirst(
-          'Exception: ',
-          '',
-        ),
+      _showMessage(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<bool> _createRequestDecisionNotification({
+    required String userId,
+    required String requestId,
+    required String issueType,
+    required String status,
+  }) async {
+    if (userId.isEmpty) {
+      debugPrint(
+        'Request decision notification skipped: request owner ID is missing.',
       );
+      return false;
+    }
+
+    final bool accepted = status == 'accepted';
+    try {
+      await _firestore.collection('notifications').add({
+        'userId': userId,
+        'type': 'assistance_request_update',
+        'status': status,
+        'requestId': requestId,
+        'title': accepted
+            ? 'Request accepted'
+            : 'Request declined by a provider',
+        'message': accepted
+            ? 'Your $issueType request has been accepted.'
+            : 'A provider declined your $issueType request. '
+                  'It may still be available to other providers.',
+        'read': false,
+        'isRead': false,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } on FirebaseException catch (e) {
+      debugPrint(
+        'Request decision notification error: ${e.code} - ${e.message}',
+      );
+      return false;
     }
   }
 
@@ -1646,18 +1446,12 @@ Future<void> _acceptRequest(
 
       if (_providerId.isNotEmpty) {
         try {
-          await _firestore
-              .collection('users')
-              .doc(_providerId)
-              .update({
+          await _firestore.collection('users').doc(_providerId).update({
             'isOnline': false,
-            'updatedAt':
-                FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
           });
         } catch (e) {
-          debugPrint(
-            'Error updating provider offline state: $e',
-          );
+          debugPrint('Error updating provider offline state: $e');
         }
       }
 
@@ -1669,20 +1463,12 @@ Future<void> _acceptRequest(
         return;
       }
 
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
-      );
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
-      debugPrint(
-        'Logout error: $e',
-      );
+      debugPrint('Logout error: $e');
 
       if (mounted) {
-        _showMessage(
-          'Unable to logout.',
-        );
+        _showMessage('Unable to logout.');
       }
     }
   }
@@ -1699,9 +1485,7 @@ Future<void> _acceptRequest(
         child: Column(
           children: [
             _buildTopHeader(),
-            Expanded(
-              child: _buildSelectedPage(),
-            ),
+            Expanded(child: _buildSelectedPage()),
             _buildBottomNavigation(),
           ],
         ),
@@ -1715,23 +1499,15 @@ Future<void> _acceptRequest(
 
   Widget _buildTopHeader() {
     return Padding(
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        12,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
       child: Row(
         children: [
           Container(
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-              color: _yellowColor
-                  .withOpacity(0.12),
-              borderRadius:
-                  BorderRadius.circular(15),
+              color: _yellowColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(15),
             ),
             child: Icon(
               Icons.local_shipping_rounded,
@@ -1742,25 +1518,20 @@ Future<void> _acceptRequest(
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'RoadRescue',
                   style: TextStyle(
                     color: _yellowColor,
                     fontSize: 18,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 2),
                 const Text(
                   'Roadside Provider',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -1787,66 +1558,46 @@ Future<void> _acceptRequest(
               }
             },
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 9,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
           color: _isOnline
-              ? Colors.greenAccent
-                  .withOpacity(0.12)
-              : Colors.white
-                  .withOpacity(0.05),
-          borderRadius:
-              BorderRadius.circular(20),
+              ? Colors.greenAccent.withOpacity(0.12)
+              : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _isOnline
-                ? Colors.greenAccent
-                    .withOpacity(0.35)
+                ? Colors.greenAccent.withOpacity(0.35)
                 : Colors.white12,
           ),
         ),
         child: Row(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             if (_isGettingLocation)
               const SizedBox(
                 width: 12,
                 height: 12,
-                child:
-                    CircularProgressIndicator(
+                child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color:
-                      Colors.greenAccent,
+                  color: Colors.greenAccent,
                 ),
               )
             else
               Container(
                 width: 8,
                 height: 8,
-                decoration:
-                    BoxDecoration(
-                  color: _isOnline
-                      ? Colors.greenAccent
-                      : Colors.white38,
-                  shape:
-                      BoxShape.circle,
+                decoration: BoxDecoration(
+                  color: _isOnline ? Colors.greenAccent : Colors.white38,
+                  shape: BoxShape.circle,
                 ),
               ),
             const SizedBox(width: 7),
             Text(
-              _isOnline
-                  ? 'ONLINE'
-                  : 'OFFLINE',
+              _isOnline ? 'ONLINE' : 'OFFLINE',
               style: TextStyle(
-                color: _isOnline
-                    ? Colors.greenAccent
-                    : Colors.white54,
+                color: _isOnline ? Colors.greenAccent : Colors.white54,
                 fontSize: 10,
-                fontWeight:
-                    FontWeight.bold,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -1878,16 +1629,9 @@ Future<void> _acceptRequest(
 
   Widget _buildDashboardPage() {
     return SingleChildScrollView(
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        20,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildWelcomeCard(),
           const SizedBox(height: 16),
@@ -1908,8 +1652,7 @@ Future<void> _acceptRequest(
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -1921,10 +1664,7 @@ Future<void> _acceptRequest(
                 },
                 child: Text(
                   'View All',
-                  style: TextStyle(
-                    color: _yellowColor,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: _yellowColor, fontSize: 12),
                 ),
               ),
             ],
@@ -1943,16 +1683,11 @@ Future<void> _acceptRequest(
   Widget _buildWelcomeCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(22),
-        border: Border.all(
-          color: Colors.white
-              .withOpacity(0.04),
-        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withOpacity(0.04)),
       ),
       child: Row(
         children: [
@@ -1960,41 +1695,29 @@ Future<void> _acceptRequest(
             width: 58,
             height: 58,
             decoration: BoxDecoration(
-              color: _yellowColor
-                  .withOpacity(0.12),
-              borderRadius:
-                  BorderRadius.circular(18),
+              color: _yellowColor.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(
-              Icons.person_rounded,
-              color: _yellowColor,
-              size: 29,
-            ),
+            child: Icon(Icons.person_rounded, color: _yellowColor, size: 29),
           ),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
                   'Welcome back',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _providerName,
                   maxLines: 1,
-                  overflow:
-                      TextOverflow.ellipsis,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 19,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -2003,9 +1726,7 @@ Future<void> _acceptRequest(
                       ? 'You are available for requests'
                       : 'Go online to receive requests',
                   style: TextStyle(
-                    color: _isOnline
-                        ? Colors.greenAccent
-                        : Colors.white38,
+                    color: _isOnline ? Colors.greenAccent : Colors.white38,
                     fontSize: 11,
                   ),
                 ),
@@ -2024,21 +1745,14 @@ Future<void> _acceptRequest(
   Widget _buildStatusCard() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _isOnline
-            ? Colors.greenAccent
-                .withOpacity(0.07)
-            : _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
+        color: _isOnline ? Colors.greenAccent.withOpacity(0.07) : _cardColor,
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: _isOnline
-              ? Colors.greenAccent
-                  .withOpacity(0.18)
-              : Colors.white
-                  .withOpacity(0.04),
+              ? Colors.greenAccent.withOpacity(0.18)
+              : Colors.white.withOpacity(0.04),
         ),
       ),
       child: Row(
@@ -2048,40 +1762,29 @@ Future<void> _acceptRequest(
             height: 45,
             decoration: BoxDecoration(
               color: _isOnline
-                  ? Colors.greenAccent
-                      .withOpacity(0.12)
-                  : Colors.white
-                      .withOpacity(0.05),
+                  ? Colors.greenAccent.withOpacity(0.12)
+                  : Colors.white.withOpacity(0.05),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _isOnline
-                  ? Icons
-                      .check_circle_rounded
-                  : Icons
-                      .pause_circle_outline,
-              color: _isOnline
-                  ? Colors.greenAccent
-                  : Colors.white38,
+                  ? Icons.check_circle_rounded
+                  : Icons.pause_circle_outline,
+              color: _isOnline ? Colors.greenAccent : Colors.white38,
               size: 24,
             ),
           ),
           const SizedBox(width: 13),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isOnline
-                      ? 'You are Online'
-                      : 'You are Offline',
-                  style:
-                      const TextStyle(
+                  _isOnline ? 'You are Online' : 'You are Offline',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 15,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -2089,11 +1792,7 @@ Future<void> _acceptRequest(
                   _isOnline
                       ? 'Waiting for roadside assistance requests.'
                       : 'Turn on availability to receive requests.',
-                  style:
-                      const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
@@ -2102,200 +1801,180 @@ Future<void> _acceptRequest(
       ),
     );
   }
-Widget _buildActiveJobSection() {
-  if (_isLoadingActiveJob) {
+
+  Widget _buildActiveJobSection() {
+    if (_isLoadingActiveJob) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              color: Color(0xFFF6E900),
+              strokeWidth: 2,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_activeJobData == null) {
+      return const SizedBox.shrink();
+    }
+
+    final String issueType =
+        _activeJobData!['issueType']?.toString() ?? 'Assistance Request';
+
+    final String vehicleType =
+        _activeJobData!['vehicleType']?.toString() ?? 'Vehicle';
+
+    final String userName =
+        _activeJobData!['userName']?.toString() ?? 'Vehicle Owner';
+
+    final String status = _activeJobData!['status']?.toString() ?? 'accepted';
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _cardColor,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _yellowColor.withOpacity(0.20)),
       ),
-      child: const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            color: Color(0xFFF6E900),
-            strokeWidth: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _yellowColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(
+                  Icons.car_repair_rounded,
+                  color: _yellowColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Active Job',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              _buildActiveStatusBadge(status),
+            ],
           ),
-        ),
+
+          const SizedBox(height: 18),
+
+          _buildRequestDetailRow(Icons.build_outlined, 'Issue', issueType),
+
+          const SizedBox(height: 10),
+
+          _buildRequestDetailRow(
+            Icons.directions_car_outlined,
+            'Vehicle',
+            vehicleType,
+          ),
+
+          const SizedBox(height: 10),
+
+          _buildRequestDetailRow(Icons.person_outline, 'Customer', userName),
+
+          const SizedBox(height: 18),
+
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: ElevatedButton(
+              onPressed: () {
+                if (_activeRequestId == null) {
+                  return;
+                }
+
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => ProviderDirectionsPage(
+                      requestId: _activeRequestId!,
+                      userData: widget.userData,
+                    ),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _yellowColor,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(13),
+                ),
+              ),
+              child: const Text(
+                'View Active Job',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  if (_activeJobData == null) {
-    return const SizedBox.shrink();
-  }
+  Widget _buildActiveStatusBadge(String status) {
+    String label;
 
-  final String issueType =
-      _activeJobData!['issueType']?.toString() ??
-          'Assistance Request';
+    switch (status) {
+      case 'accepted':
+        label = 'ACCEPTED';
+        break;
 
-  final String vehicleType =
-      _activeJobData!['vehicleType']?.toString() ??
-          'Vehicle';
+      case 'on_the_way':
+        label = 'ON THE WAY';
+        break;
 
-  final String userName =
-      _activeJobData!['userName']?.toString() ??
-          'Vehicle Owner';
+      case 'arrived':
+        label = 'ARRIVED';
+        break;
 
-  final String status =
-      _activeJobData!['status']?.toString() ??
-          'accepted';
+      case 'in_progress':
+        label = 'IN PROGRESS';
+        break;
 
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: _cardColor,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(
-        color: _yellowColor.withOpacity(0.20),
+      default:
+        label = status.toUpperCase();
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: _yellowColor.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(10),
       ),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: _yellowColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(13),
-              ),
-              child: Icon(
-                Icons.car_repair_rounded,
-                color: _yellowColor,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Active Job',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            _buildActiveStatusBadge(status),
-          ],
+      child: Text(
+        label,
+        style: TextStyle(
+          color: _yellowColor,
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
         ),
-
-        const SizedBox(height: 18),
-
-        _buildRequestDetailRow(
-          Icons.build_outlined,
-          'Issue',
-          issueType,
-        ),
-
-        const SizedBox(height: 10),
-
-        _buildRequestDetailRow(
-          Icons.directions_car_outlined,
-          'Vehicle',
-          vehicleType,
-        ),
-
-        const SizedBox(height: 10),
-
-        _buildRequestDetailRow(
-          Icons.person_outline,
-          'Customer',
-          userName,
-        ),
-
-        const SizedBox(height: 18),
-
-        SizedBox(
-          width: double.infinity,
-          height: 46,
-          child: ElevatedButton(
-            onPressed: () {
-              if (_activeRequestId == null) {
-                return;
-              }
-
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) =>
-                      ProviderDirectionsPage(
-                    requestId: _activeRequestId!,
-                    userData: widget.userData,
-                  ),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _yellowColor,
-              foregroundColor: Colors.black,
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(13),
-              ),
-            ),
-            child: const Text(
-              'View Active Job',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildActiveStatusBadge(String status) {
-  String label;
-
-  switch (status) {
-    case 'accepted':
-      label = 'ACCEPTED';
-      break;
-
-    case 'on_the_way':
-      label = 'ON THE WAY';
-      break;
-
-    case 'arrived':
-      label = 'ARRIVED';
-      break;
-
-    case 'in_progress':
-      label = 'IN PROGRESS';
-      break;
-
-    default:
-      label = status.toUpperCase();
-  }
-
-  return Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: 9,
-      vertical: 5,
-    ),
-    decoration: BoxDecoration(
-      color: _yellowColor.withOpacity(0.10),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Text(
-      label,
-      style: TextStyle(
-        color: _yellowColor,
-        fontSize: 8,
-        fontWeight: FontWeight.bold,
       ),
-    ),
-  );
-}
+    );
+  }
   // ============================================================
   // QUICK STATS
   // ============================================================
@@ -2305,22 +1984,17 @@ Widget _buildActiveStatusBadge(String status) {
       children: [
         Expanded(
           child: _buildStatCard(
-            icon: Icons
-                .notifications_active_outlined,
+            icon: Icons.notifications_active_outlined,
             title: 'Requests',
-            value:
-                '${_incomingRequests.length}',
+            value: '${_incomingRequests.length}',
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _buildStatCard(
-            icon: Icons
-                .location_on_outlined,
+            icon: Icons.location_on_outlined,
             title: 'GPS',
-            value: _currentPosition != null
-                ? 'Active'
-                : 'Waiting',
+            value: _currentPosition != null ? 'Active' : 'Waiting',
           ),
         ),
       ],
@@ -2333,43 +2007,30 @@ Widget _buildActiveStatusBadge(String status) {
     required String value,
   }) {
     return Container(
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: _yellowColor,
-            size: 23,
-          ),
+          Icon(icon, color: _yellowColor, size: 23),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style:
-                      const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 10,
-                  ),
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   value,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -2385,21 +2046,17 @@ Widget _buildActiveStatusBadge(String status) {
   // ============================================================
 
   Widget _buildLocationCard() {
-    final bool hasLocation =
-        _currentPosition != null;
+    final bool hasLocation = _currentPosition != null;
 
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -2407,41 +2064,32 @@ Widget _buildActiveStatusBadge(String status) {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: Colors
-                      .greenAccent
-                      .withOpacity(0.10),
-                  borderRadius:
-                      BorderRadius.circular(13),
+                  color: Colors.greenAccent.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
                   Icons.location_on_rounded,
-                  color:
-                      Colors.greenAccent,
+                  color: Colors.greenAccent,
                   size: 22,
                 ),
               ),
               const SizedBox(width: 12),
               const Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Current Location',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 14,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     SizedBox(height: 3),
                     Text(
                       'Your live provider location',
-                      style: TextStyle(
-                        color: Colors.white38,
-                        fontSize: 10,
-                      ),
+                      style: TextStyle(color: Colors.white38, fontSize: 10),
                     ),
                   ],
                 ),
@@ -2451,22 +2099,18 @@ Widget _buildActiveStatusBadge(String status) {
           const SizedBox(height: 14),
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _backgroundColor,
-              borderRadius:
-                  BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               hasLocation
                   ? '${_currentPosition!.latitude.toStringAsFixed(6)}, '
-                      '${_currentPosition!.longitude.toStringAsFixed(6)}'
+                        '${_currentPosition!.longitude.toStringAsFixed(6)}'
                   : 'Location not available',
               style: TextStyle(
-                color: hasLocation
-                    ? Colors.white70
-                    : Colors.white38,
+                color: hasLocation ? Colors.white70 : Colors.white38,
                 fontSize: 12,
               ),
             ),
@@ -2484,18 +2128,13 @@ Widget _buildActiveStatusBadge(String status) {
     if (_isLoadingRequests) {
       return Container(
         width: double.infinity,
-        padding:
-            const EdgeInsets.all(30),
+        padding: const EdgeInsets.all(30),
         decoration: BoxDecoration(
           color: _cardColor,
-          borderRadius:
-              BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: const Center(
-          child:
-              CircularProgressIndicator(
-            color: Color(0xFFF6E900),
-          ),
+          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
         ),
       );
     }
@@ -2504,26 +2143,17 @@ Widget _buildActiveStatusBadge(String status) {
       return _buildEmptyRequests();
     }
 
-    final int count =
-        _incomingRequests.length > 2
-            ? 2
-            : _incomingRequests.length;
+    final int count = _incomingRequests.length > 2
+        ? 2
+        : _incomingRequests.length;
 
     return Column(
-      children: List.generate(
-        count,
-        (index) {
-          return Padding(
-            padding:
-                const EdgeInsets.only(
-              bottom: 10,
-            ),
-            child: _buildRequestCard(
-              _incomingRequests[index],
-            ),
-          );
-        },
-      ),
+      children: List.generate(count, (index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _buildRequestCard(_incomingRequests[index]),
+        );
+      }),
     );
   }
 
@@ -2533,24 +2163,16 @@ Widget _buildActiveStatusBadge(String status) {
 
   Widget _buildRequestsPage() {
     return SingleChildScrollView(
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        20,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Assistance Requests',
             style: TextStyle(
               color: Colors.white,
               fontSize: 22,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 5),
@@ -2558,37 +2180,26 @@ Widget _buildActiveStatusBadge(String status) {
             _isOnline
                 ? 'Requests available near you'
                 : 'Go online to receive requests',
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 20),
           if (!_isOnline)
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.all(18),
-              decoration:
-                  BoxDecoration(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
                 color: _cardColor,
-                borderRadius:
-                    BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(18),
               ),
               child: const Row(
                 children: [
-                  Icon(
-                    Icons.info_outline,
-                    color:
-                        Colors.white54,
-                  ),
+                  Icon(Icons.info_outline, color: Colors.white54),
                   SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       'You are offline. Go online to receive new roadside assistance requests.',
                       style: TextStyle(
-                        color:
-                            Colors.white70,
+                        color: Colors.white70,
                         fontSize: 12,
                         height: 1.4,
                       ),
@@ -2599,31 +2210,18 @@ Widget _buildActiveStatusBadge(String status) {
             )
           else if (_isLoadingRequests)
             const Center(
-              child:
-                  CircularProgressIndicator(
-                color:
-                    Color(0xFFF6E900),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFFF6E900)),
             )
           else if (_incomingRequests.isEmpty)
             _buildEmptyRequests()
           else
             Column(
-              children:
-                  _incomingRequests.map(
-                (request) {
-                  return Padding(
-                    padding:
-                        const EdgeInsets.only(
-                      bottom: 12,
-                    ),
-                    child:
-                        _buildRequestCard(
-                      request,
-                    ),
-                  );
-                },
-              ).toList(),
+              children: _incomingRequests.map((request) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _buildRequestCard(request),
+                );
+              }).toList(),
             ),
         ],
       ),
@@ -2637,15 +2235,10 @@ Widget _buildActiveStatusBadge(String status) {
   Widget _buildEmptyRequests() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.symmetric(
-        vertical: 45,
-        horizontal: 20,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 45, horizontal: 20),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
         children: [
@@ -2653,13 +2246,11 @@ Widget _buildActiveStatusBadge(String status) {
             width: 62,
             height: 62,
             decoration: BoxDecoration(
-              color: Colors.white
-                  .withOpacity(0.04),
+              color: Colors.white.withOpacity(0.04),
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons
-                  .notifications_none_rounded,
+              Icons.notifications_none_rounded,
               color: Colors.white38,
               size: 31,
             ),
@@ -2670,19 +2261,14 @@ Widget _buildActiveStatusBadge(String status) {
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
-              fontWeight:
-                  FontWeight.bold,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 6),
           const Text(
             'New roadside assistance requests will appear here.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white38,
-              fontSize: 11,
-              height: 1.4,
-            ),
+            style: TextStyle(color: Colors.white38, fontSize: 11, height: 1.4),
           ),
         ],
       ),
@@ -2693,46 +2279,30 @@ Widget _buildActiveStatusBadge(String status) {
   // REQUEST CARD
   // ============================================================
 
-  Widget _buildRequestCard(
-    QueryDocumentSnapshot requestDocument,
-  ) {
+  Widget _buildRequestCard(QueryDocumentSnapshot requestDocument) {
     final Map<String, dynamic> data =
-        requestDocument.data()
-            as Map<String, dynamic>;
+        requestDocument.data() as Map<String, dynamic>;
 
-    final String userName =
-        data['userName']?.toString() ??
-            'Vehicle Owner';
+    final String userName = data['userName']?.toString() ?? 'Vehicle Owner';
 
-    final String vehicleType =
-        data['vehicleType']?.toString() ??
-            'Vehicle';
+    final String vehicleType = data['vehicleType']?.toString() ?? 'Vehicle';
 
     final String issueType =
-        data['issueType']?.toString() ??
-            'Assistance Required';
+        data['issueType']?.toString() ?? 'Assistance Required';
 
-    final String status =
-        data['status']?.toString() ??
-            'pending';
+    final String status = data['status']?.toString() ?? 'pending';
 
-    final double? latitude =
-        data['latitude'] is num
-            ? (data['latitude'] as num)
-                .toDouble()
-            : null;
+    final double? latitude = data['latitude'] is num
+        ? (data['latitude'] as num).toDouble()
+        : null;
 
-    final double? longitude =
-        data['longitude'] is num
-            ? (data['longitude'] as num)
-                .toDouble()
-            : null;
+    final double? longitude = data['longitude'] is num
+        ? (data['longitude'] as num).toDouble()
+        : null;
 
-    String locationText =
-        'Location unavailable';
+    String locationText = 'Location unavailable';
 
-    if (latitude != null &&
-        longitude != null) {
+    if (latitude != null && longitude != null) {
       locationText =
           '${latitude.toStringAsFixed(5)}, '
           '${longitude.toStringAsFixed(5)}';
@@ -2740,20 +2310,14 @@ Widget _buildActiveStatusBadge(String status) {
 
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(17),
+      padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(20),
-        border: Border.all(
-          color: Colors.white
-              .withOpacity(0.04),
-        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.04)),
       ),
       child: Column(
-        crossAxisAlignment:
-            CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
@@ -2761,10 +2325,8 @@ Widget _buildActiveStatusBadge(String status) {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: _yellowColor
-                      .withOpacity(0.10),
-                  borderRadius:
-                      BorderRadius.circular(14),
+                  color: _yellowColor.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   _getIssueIcon(issueType),
@@ -2775,24 +2337,20 @@ Widget _buildActiveStatusBadge(String status) {
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       issueType,
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
-                        fontWeight:
-                            FontWeight.bold,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
                       userName,
-                      style:
-                          const TextStyle(
+                      style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 11,
                       ),
@@ -2801,29 +2359,17 @@ Widget _buildActiveStatusBadge(String status) {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets
-                        .symmetric(
-                  horizontal: 9,
-                  vertical: 5,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                 decoration: BoxDecoration(
-                  color:
-                      Colors.orangeAccent
-                          .withOpacity(0.10),
-                  borderRadius:
-                      BorderRadius.circular(
-                    12,
-                  ),
+                  color: Colors.orangeAccent.withOpacity(0.10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   status.toUpperCase(),
                   style: const TextStyle(
-                    color:
-                        Colors.orangeAccent,
+                    color: Colors.orangeAccent,
                     fontSize: 8,
-                    fontWeight:
-                        FontWeight.bold,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -2846,75 +2392,37 @@ Widget _buildActiveStatusBadge(String status) {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () =>
-                      _denyRequest(
-                    requestDocument,
-                  ),
-                  style:
-                      OutlinedButton.styleFrom(
-                    foregroundColor:
-                        Colors.white70,
-                    side:
-                        const BorderSide(
-                      color: Colors.white12,
-                    ),
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
-                      vertical: 12,
-                    ),
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
+                  onPressed: () => _denyRequest(requestDocument),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white70,
+                    side: const BorderSide(color: Colors.white12),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: const Text(
                     'Deny',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight:
-                          FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () =>
-                      _acceptRequest(
-                    requestDocument,
-                  ),
-                  style:
-                      ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _yellowColor,
-                    foregroundColor:
-                        Colors.black,
+                  onPressed: () => _acceptRequest(requestDocument),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _yellowColor,
+                    foregroundColor: Colors.black,
                     elevation: 0,
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
-                      vertical: 12,
-                    ),
-                    shape:
-                        RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(
-                        12,
-                      ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: const Text(
                     'Accept',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight:
-                          FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
@@ -2929,37 +2437,24 @@ Widget _buildActiveStatusBadge(String status) {
   // REQUEST DETAIL ROW
   // ============================================================
 
-  Widget _buildRequestDetailRow(
-    IconData icon,
-    String title,
-    String value,
-  ) {
+  Widget _buildRequestDetailRow(IconData icon, String title, String value) {
     return Row(
       children: [
-        Icon(
-          icon,
-          color: Colors.white38,
-          size: 17,
-        ),
+        Icon(icon, color: Colors.white38, size: 17),
         const SizedBox(width: 9),
         Text(
           '$title: ',
-          style: const TextStyle(
-            color: Colors.white38,
-            fontSize: 11,
-          ),
+          style: const TextStyle(color: Colors.white38, fontSize: 11),
         ),
         Expanded(
           child: Text(
             value,
             maxLines: 1,
-            overflow:
-                TextOverflow.ellipsis,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: Colors.white70,
               fontSize: 11,
-              fontWeight:
-                  FontWeight.w500,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -2971,21 +2466,15 @@ Widget _buildActiveStatusBadge(String status) {
   // ISSUE ICON
   // ============================================================
 
-  IconData _getIssueIcon(
-    String issue,
-  ) {
-    final String lower =
-        issue.toLowerCase();
+  IconData _getIssueIcon(String issue) {
+    final String lower = issue.toLowerCase();
 
-    if (lower.contains('tire') ||
-        lower.contains('tyre')) {
-      return Icons
-          .tire_repair_outlined;
+    if (lower.contains('tire') || lower.contains('tyre')) {
+      return Icons.tire_repair_outlined;
     }
 
     if (lower.contains('battery')) {
-      return Icons
-          .battery_alert_outlined;
+      return Icons.battery_alert_outlined;
     }
 
     if (lower.contains('fuel')) {
@@ -2993,13 +2482,12 @@ Widget _buildActiveStatusBadge(String status) {
     }
 
     if (lower.contains('tow')) {
-      return Icons
-          .local_shipping_outlined;
+      return Icons.local_shipping_outlined;
     }
 
     return Icons.build_outlined;
   }
-    // ============================================================
+  // ============================================================
   // SAVE PROFILE DETAILS
   // ============================================================
 
@@ -3012,23 +2500,17 @@ Widget _buildActiveStatusBadge(String status) {
     final String trimmedLocation = workshopLocation.trim();
 
     if (trimmedName.isEmpty) {
-      _showMessage(
-        'Provider name is required.',
-      );
+      _showMessage('Provider name is required.');
       return;
     }
 
     if (trimmedLocation.isEmpty) {
-      _showMessage(
-        'Workshop location is required.',
-      );
+      _showMessage('Workshop location is required.');
       return;
     }
 
     if (_providerId.isEmpty) {
-      _showMessage(
-        'Unable to identify provider account.',
-      );
+      _showMessage('Unable to identify provider account.');
       return;
     }
 
@@ -3037,10 +2519,7 @@ Widget _buildActiveStatusBadge(String status) {
     });
 
     try {
-      await _firestore
-          .collection('users')
-          .doc(_providerId)
-          .update({
+      await _firestore.collection('users').doc(_providerId).update({
         'name': trimmedName,
         'workshopLocation': trimmedLocation,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -3058,26 +2537,19 @@ Widget _buildActiveStatusBadge(String status) {
         // This makes the new values available to
         // other pages opened from this page.
         widget.userData['name'] = trimmedName;
-        widget.userData['workshopLocation'] =
-            trimmedLocation;
+        widget.userData['workshopLocation'] = trimmedLocation;
       });
 
       if (Navigator.canPop(dialogContext)) {
         Navigator.pop(dialogContext);
       }
 
-      _showMessage(
-        'Profile updated successfully.',
-      );
+      _showMessage('Profile updated successfully.');
     } catch (e) {
-      debugPrint(
-        'Error saving provider profile: $e',
-      );
+      debugPrint('Error saving provider profile: $e');
 
       if (mounted) {
-        _showMessage(
-          'Failed to update profile. Please try again.',
-        );
+        _showMessage('Failed to update profile. Please try again.');
       }
     } finally {
       if (mounted) {
@@ -3093,13 +2565,11 @@ Widget _buildActiveStatusBadge(String status) {
   // ============================================================
 
   void _showEditProfileDialog() {
-    final TextEditingController nameController =
-        TextEditingController(
+    final TextEditingController nameController = TextEditingController(
       text: _profileName,
     );
 
-    final TextEditingController workshopController =
-        TextEditingController(
+    final TextEditingController workshopController = TextEditingController(
       text: _profileWorkshopLocation,
     );
 
@@ -3131,16 +2601,11 @@ Widget _buildActiveStatusBadge(String status) {
 
                     TextField(
                       controller: nameController,
-                      textCapitalization:
-                          TextCapitalization.words,
-                      style: const TextStyle(
-                        color: Colors.white,
-                      ),
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         labelText: 'Provider Name',
-                        labelStyle: const TextStyle(
-                          color: Colors.white70,
-                        ),
+                        labelStyle: const TextStyle(color: Colors.white70),
                         prefixIcon: Icon(
                           Icons.person_outline,
                           color: _yellowColor,
@@ -3148,8 +2613,7 @@ Widget _buildActiveStatusBadge(String status) {
                         filled: true,
                         fillColor: _backgroundColor,
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -3160,20 +2624,14 @@ Widget _buildActiveStatusBadge(String status) {
                     // ------------------------------------------------
                     // WORKSHOP LOCATION
                     // ------------------------------------------------
-
                     TextField(
                       controller: workshopController,
-                      textCapitalization:
-                          TextCapitalization.words,
+                      textCapitalization: TextCapitalization.words,
                       maxLines: 2,
-                      style: const TextStyle(
-                        color: Colors.white,
-                      ),
+                      style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         labelText: 'Workshop Location',
-                        labelStyle: const TextStyle(
-                          color: Colors.white70,
-                        ),
+                        labelStyle: const TextStyle(color: Colors.white70),
                         prefixIcon: Icon(
                           Icons.home_work_outlined,
                           color: _yellowColor,
@@ -3181,8 +2639,7 @@ Widget _buildActiveStatusBadge(String status) {
                         filled: true,
                         fillColor: _backgroundColor,
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -3193,20 +2650,13 @@ Widget _buildActiveStatusBadge(String status) {
                     // ------------------------------------------------
                     // EMAIL - READ ONLY
                     // ------------------------------------------------
-
                     TextField(
                       enabled: false,
-                      controller: TextEditingController(
-                        text: _email,
-                      ),
-                      style: const TextStyle(
-                        color: Colors.white38,
-                      ),
+                      controller: TextEditingController(text: _email),
+                      style: const TextStyle(color: Colors.white38),
                       decoration: InputDecoration(
                         labelText: 'Email',
-                        labelStyle: const TextStyle(
-                          color: Colors.white38,
-                        ),
+                        labelStyle: const TextStyle(color: Colors.white38),
                         prefixIcon: const Icon(
                           Icons.email_outlined,
                           color: Colors.white38,
@@ -3214,8 +2664,7 @@ Widget _buildActiveStatusBadge(String status) {
                         filled: true,
                         fillColor: _backgroundColor,
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -3224,12 +2673,7 @@ Widget _buildActiveStatusBadge(String status) {
                 ),
               ),
 
-              actionsPadding: const EdgeInsets.fromLTRB(
-                16,
-                0,
-                16,
-                16,
-              ),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
 
               actions: [
                 // --------------------------------------------------
@@ -3244,37 +2688,30 @@ Widget _buildActiveStatusBadge(String status) {
                         },
                   child: const Text(
                     'Cancel',
-                    style: TextStyle(
-                      color: Colors.white54,
-                    ),
+                    style: TextStyle(color: Colors.white54),
                   ),
                 ),
 
                 // --------------------------------------------------
                 // SAVE
                 // --------------------------------------------------
-
                 ElevatedButton(
                   onPressed: _isSavingProfile
                       ? null
                       : () async {
-                          final String name =
-                              nameController.text.trim();
+                          final String name = nameController.text.trim();
 
-                          final String workshopLocation =
-                              workshopController.text.trim();
+                          final String workshopLocation = workshopController
+                              .text
+                              .trim();
 
                           if (name.isEmpty) {
-                            _showMessage(
-                              'Please enter the provider name.',
-                            );
+                            _showMessage('Please enter the provider name.');
                             return;
                           }
 
                           if (workshopLocation.isEmpty) {
-                            _showMessage(
-                              'Please enter the workshop location.',
-                            );
+                            _showMessage('Please enter the workshop location.');
                             return;
                           }
 
@@ -3282,8 +2719,7 @@ Widget _buildActiveStatusBadge(String status) {
 
                           await _saveProfileDetails(
                             name: name,
-                            workshopLocation:
-                                workshopLocation,
+                            workshopLocation: workshopLocation,
                             dialogContext: dialogContext,
                           );
 
@@ -3296,25 +2732,21 @@ Widget _buildActiveStatusBadge(String status) {
                     foregroundColor: Colors.black,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius:
-                          BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: _isSavingProfile
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child:
-                              CircularProgressIndicator(
+                          child: CircularProgressIndicator(
                             strokeWidth: 2,
                             color: Colors.black,
                           ),
                         )
                       : const Text(
                           'Save Changes',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                 ),
               ],
@@ -3324,219 +2756,205 @@ Widget _buildActiveStatusBadge(String status) {
       },
     );
   }
+
   // ============================================================
   // PROFILE PAGE
   // ============================================================
   Widget _buildProviderStatisticsCard() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: _cardColor,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _yellowColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.bar_chart_rounded,
-                color: _yellowColor,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'My Statistics',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _yellowColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-              ),
-            ),
-            if (_isLoadingStats)
-              SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
+                child: Icon(
+                  Icons.bar_chart_rounded,
                   color: _yellowColor,
+                  size: 22,
                 ),
               ),
-          ],
-        ),
-
-        const SizedBox(height: 18),
-
-        if (_statisticsError != null)
-          _buildProfileLoadError(
-            message: _statisticsError!,
-            onRetry: _loadProviderStatistics,
-          ),
-        if (_hasLoadedAssignedStatistics) ...[
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatisticItem(
-                  icon: Icons.check_circle_outline_rounded,
-                  title: 'Completed',
-                  value: _completedJobs.toString(),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'My Statistics',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildStatisticItem(
-                  icon: Icons.cancel_outlined,
-                  title: 'Denied',
-                  value: _hasLoadedDeniedStatistics
-                      ? _deniedRequests.toString()
-                      : '—',
+              if (_isLoadingStats)
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _yellowColor,
+                  ),
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatisticItem(
-                  icon: Icons.directions_car_filled_outlined,
-                  title: 'Active',
-                  value: _activeJobs.toString(),
+
+          const SizedBox(height: 18),
+
+          if (_statisticsError != null)
+            _buildProfileLoadError(
+              message: _statisticsError!,
+              onRetry: _loadProviderStatistics,
+            ),
+          if (_hasLoadedAssignedStatistics) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatisticItem(
+                    icon: Icons.check_circle_outline_rounded,
+                    title: 'Completed',
+                    value: _completedJobs.toString(),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _buildStatisticItem(
-                  icon: Icons.payments_outlined,
-                  title: 'Earnings',
-                  value: 'Rs. ${_totalEarnings.toStringAsFixed(0)}',
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildStatisticItem(
+                    icon: Icons.cancel_outlined,
+                    title: 'Denied',
+                    value: _hasLoadedDeniedStatistics
+                        ? _deniedRequests.toString()
+                        : '—',
+                  ),
                 ),
-              ),
-            ],
-          ),
-        ] else if (_isLoadingStats)
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatisticItem(
+                    icon: Icons.directions_car_filled_outlined,
+                    title: 'Active',
+                    value: _activeJobs.toString(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _buildStatisticItem(
+                    icon: Icons.payments_outlined,
+                    title: 'Earnings',
+                    value: 'Rs. ${_totalEarnings.toStringAsFixed(0)}',
+                  ),
+                ),
+              ],
+            ),
+          ] else if (_isLoadingStats)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: Center(child: CircularProgressIndicator()),
             ),
-      ],
-    ),
-  );
-} 
-
-Widget _buildProfileLoadError({
-  required String message,
-  required VoidCallback onRetry,
-}) {
-  return Padding(
-    padding: const EdgeInsets.only(top: 18),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          message,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-          ),
-        ),
-        TextButton.icon(
-          onPressed: onRetry,
-          icon: const Icon(Icons.refresh_rounded, size: 18),
-          label: const Text('Try again'),
-          style: TextButton.styleFrom(
-            foregroundColor: _yellowColor,
-            padding: EdgeInsets.zero,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-Widget _buildStatisticItem({
-  required IconData icon,
-  required String title,
-  required String value,
-}) {
-  return Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.04),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: Colors.white.withOpacity(0.06),
+        ],
       ),
-    ),
-    child: Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: _yellowColor.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(11),
+    );
+  }
+
+  Widget _buildProfileLoadError({
+    required String message,
+    required VoidCallback onRetry,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            message,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
-          child: Icon(
-            icon,
-            color: _yellowColor,
-            size: 20,
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded, size: 18),
+            label: const Text('Try again'),
+            style: TextButton.styleFrom(
+              foregroundColor: _yellowColor,
+              padding: EdgeInsets.zero,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatisticItem({
+    required IconData icon,
+    required String title,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: _yellowColor.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, color: _yellowColor, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
+
   Widget _buildProfilePage() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        20,
-        8,
-        20,
-        20,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3557,10 +2975,7 @@ Widget _buildStatisticItem({
 
           const Text(
             'Manage your provider information',
-            style: TextStyle(
-              color: Colors.white54,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.white54, fontSize: 12),
           ),
 
           const SizedBox(height: 18),
@@ -3568,7 +2983,6 @@ Widget _buildStatisticItem({
           // ========================================================
           // PROFILE HEADER CARD
           // ========================================================
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -3583,64 +2997,61 @@ Widget _buildStatisticItem({
                 // --------------------------------------------------
 
                 Stack(
-  alignment: Alignment.center,
-  children: [
-    Container(
-      width: 88,
-      height: 88,
-      decoration: BoxDecoration(
-        color: _yellowColor.withOpacity(0.12),
-        shape: BoxShape.circle,
-        border: Border.all(
-          color: _yellowColor.withOpacity(0.35),
-          width: 1.5,
-        ),
-        image: _profilePhotoUrl.isNotEmpty
-            ? DecorationImage(
-                image: NetworkImage(
-                  _profilePhotoUrl,
-                ),
-                fit: BoxFit.cover,
-              )
-            : null,
-      ),
-      child: _profilePhotoUrl.isEmpty
-          ? Icon(
-              Icons.person_rounded,
-              color: _yellowColor,
-              size: 44,
-            )
-          : null,
-    ),
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: _yellowColor.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _yellowColor.withOpacity(0.35),
+                          width: 1.5,
+                        ),
+                        image: _profilePhotoUrl.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(_profilePhotoUrl),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _profilePhotoUrl.isEmpty
+                          ? Icon(
+                              Icons.person_rounded,
+                              color: _yellowColor,
+                              size: 44,
+                            )
+                          : null,
+                    ),
 
-    if (_isUploadingProfilePhoto)
-      Container(
-        width: 88,
-        height: 88,
-        decoration: const BoxDecoration(
-          color: Colors.black54,
-          shape: BoxShape.circle,
-        ),
-        child: const Center(
-          child: SizedBox(
-            width: 26,
-            height: 26,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ),
-  ],
-),
+                    if (_isUploadingProfilePhoto)
+                      Container(
+                        width: 88,
+                        height: 88,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
 
                 const SizedBox(height: 14),
 
                 // --------------------------------------------------
                 // PROVIDER NAME
                 // --------------------------------------------------
-
                 Text(
                   _providerName,
                   textAlign: TextAlign.center,
@@ -3658,84 +3069,64 @@ Widget _buildStatisticItem({
                 // --------------------------------------------------
                 // EMAIL
                 // --------------------------------------------------
-
                 Text(
-                  _email.isEmpty
-                      ? 'Email not available'
-                      : _email,
+                  _email.isEmpty ? 'Email not available' : _email,
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 11,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
                 ),
 
                 const SizedBox(height: 8),
 
                 GestureDetector(
-                  onTap: _isUploadingProfilePhoto
-                  ? null
-                  : _uploadProfilePhoto,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.camera_alt_outlined,
-                      color: _yellowColor,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      _isUploadingProfilePhoto
-                        ? 'Uploading...'
-                        : 'Change Photo',
-                      style: TextStyle(
+                  onTap: _isUploadingProfilePhoto ? null : _uploadProfilePhoto,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.camera_alt_outlined,
                         color: _yellowColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        size: 16,
                       ),
-                     ),
+                      const SizedBox(width: 5),
+                      Text(
+                        _isUploadingProfilePhoto
+                            ? 'Uploading...'
+                            : 'Change Photo',
+                        style: TextStyle(
+                          color: _yellowColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ],
                   ),
-              ),
-                
+                ),
 
                 const SizedBox(height: 18),
 
                 // --------------------------------------------------
                 // EDIT PROFILE BUTTON
                 // --------------------------------------------------
-
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton.icon(
-                    onPressed: _isSavingProfile
-                        ? null
-                        : _showEditProfileDialog,
-                    icon: const Icon(
-                      Icons.edit_outlined,
-                      size: 18,
-                    ),
+                    onPressed: _isSavingProfile ? null : _showEditProfileDialog,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
                     label: const Text(
                       'Edit Profile',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _yellowColor,
                       foregroundColor: Colors.black,
-                      disabledBackgroundColor:
-                          _yellowColor.withOpacity(0.4),
-                      disabledForegroundColor:
-                          Colors.black54,
+                      disabledBackgroundColor: _yellowColor.withOpacity(0.4),
+                      disabledForegroundColor: Colors.black54,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius:
-                            BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(13),
                       ),
                     ),
                   ),
@@ -3749,19 +3140,16 @@ Widget _buildStatisticItem({
           // ========================================================
           // EMAIL
           // ========================================================
-
           _buildProviderStatisticsCard(),
-            const SizedBox(height: 16),
-          
+          const SizedBox(height: 16),
+
           _buildJobHistorySection(),
-            const SizedBox(height: 22),
-            
+          const SizedBox(height: 22),
+
           _buildProfileInfoCard(
             icon: Icons.email_outlined,
             title: 'Email',
-            value: _email.isEmpty
-                ? 'Not available'
-                : _email,
+            value: _email.isEmpty ? 'Not available' : _email,
           ),
 
           const SizedBox(height: 10),
@@ -3769,7 +3157,6 @@ Widget _buildStatisticItem({
           // ========================================================
           // WORKSHOP LOCATION
           // ========================================================
-
           _buildProfileInfoCard(
             icon: Icons.home_work_outlined,
             title: 'Workshop Location',
@@ -3781,7 +3168,6 @@ Widget _buildStatisticItem({
           // ========================================================
           // PERFORMANCE
           // ========================================================
-
           const Text(
             'Performance',
             style: TextStyle(
@@ -3800,29 +3186,21 @@ Widget _buildStatisticItem({
           // ========================================================
           // LOGOUT
           // ========================================================
-
           SizedBox(
             width: double.infinity,
             height: 52,
             child: OutlinedButton.icon(
               onPressed: _logout,
-              icon: const Icon(
-                Icons.logout_rounded,
-              ),
+              icon: const Icon(Icons.logout_rounded),
               label: const Text(
                 'Logout',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
-                side: const BorderSide(
-                  color: Colors.white24,
-                ),
+                side: const BorderSide(color: Colors.white24),
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(15),
                 ),
               ),
             ),
@@ -3836,389 +3214,343 @@ Widget _buildStatisticItem({
   // PROFILE INFO CARD
   // ============================================================
 
+  Widget _buildPerformanceCard() {
+    final double completionRate = _assignedJobs == 0
+        ? 0
+        : _completedJobs / _assignedJobs;
 
-Widget _buildPerformanceCard() {
-  final double completionRate = _assignedJobs == 0
-      ? 0
-      : _completedJobs / _assignedJobs;
-
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: _cardColor,
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: !_hasLoadedAssignedStatistics
-        ? _statisticsError != null
-        ? _buildProfileLoadError(
-            message: _statisticsError!,
-            onRetry: _loadProviderStatistics,
-          )
-        : const Center(child: CircularProgressIndicator())
-        : Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Completion rate',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                    ),
-                  ),
-                  Text(
-                    '${(completionRate * 100).round()}%',
-                    style: TextStyle(
-                      color: _yellowColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: completionRate,
-                  minHeight: 7,
-                  backgroundColor: Colors.white12,
-                  valueColor: AlwaysStoppedAnimation<Color>(_yellowColor),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '$_completedJobs completed out of $_assignedJobs assigned jobs',
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(
-                    Icons.work_history_outlined,
-                    color: Colors.white54,
-                    size: 17,
-                  ),
-                  const SizedBox(width: 7),
-                  Text(
-                    '$_assignedJobs total jobs  •  $_activeJobs active',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              if (_isLoadingStats) ...[
-                const SizedBox(height: 12),
-                const LinearProgressIndicator(
-                  minHeight: 2,
-                  backgroundColor: Colors.white12,
-                ),
-              ],
-            ],
-          ),
-  );
-}
-
-Widget _buildJobHistorySection() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: _cardColor,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _yellowColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                Icons.history_rounded,
-                color: _yellowColor,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Job History',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        const SizedBox(height: 18),
-
-        if (_isLoadingJobHistory)
-          Center(
-            child: CircularProgressIndicator(
-              color: _yellowColor,
-              strokeWidth: 2,
-            ),
-            
-          )
-        else if (_jobHistoryError != null && _jobHistory.isEmpty)
-          _buildProfileLoadError(
-            message: _jobHistoryError!,
-            onRetry: _loadJobHistory,
-          )
-        else
-          Column(
-            children: [
-              if (_jobHistoryError != null)
-                _buildProfileLoadError(
-                  message: _jobHistoryError!,
-                  onRetry: _loadJobHistory,
-                ),
-              if (_jobHistory.isEmpty)
-                _buildEmptyJobHistory()
-              else
-                ..._jobHistory.map(_buildJobHistoryItem),
-            ],
-          ),
-      ],
-    ),
-  );
-}
-Widget _buildEmptyJobHistory() {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(
-      vertical: 24,
-      horizontal: 12,
-    ),
-    child: Column(
-      children: [
-        Icon(
-          Icons.history_rounded,
-          color: Colors.white24,
-          size: 42,
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'No job history yet',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 5),
-        const Text(
-          'Completed, cancelled and declined requests will appear here.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white38,
-            fontSize: 11,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-Widget _buildJobHistoryItem(
-  Map<String, dynamic> job,
-) {
-  final bool isCompleted =
-      job['type'] == 'completed';
-  final bool isCancelled =
-      job['type'] == 'cancelled' || job['type'] == 'canceled';
-  final Color statusColor = isCompleted
-      ? Colors.greenAccent
-      : isCancelled
-          ? Colors.orangeAccent
-          : Colors.redAccent;
-  final Color statusBackgroundColor = isCompleted
-      ? Colors.green
-      : isCancelled
-          ? Colors.orange
-          : Colors.red;
-
-  final String issueType =
-      job['issueType']?.toString() ??
-          'Assistance Request';
-
-  final String vehicleType =
-      job['vehicleType']?.toString() ??
-          'Vehicle';
-
-  final dynamic amountValue =
-      job['jobAmount'];
-
-  String amountText = '';
-
-  if (amountValue is num) {
-    amountText =
-        'Rs. ${amountValue.toStringAsFixed(0)}';
-  } else if (amountValue != null) {
-    final double? parsedAmount =
-        double.tryParse(
-      amountValue.toString(),
-    );
-
-    if (parsedAmount != null) {
-      amountText =
-          'Rs. ${parsedAmount.toStringAsFixed(0)}';
-    }
-  }
-
-  DateTime? date;
-
-  final dynamic dateValue =
-      job['completedAt'] ??
-          job['createdAt'];
-
-  if (dateValue is Timestamp) {
-    date = dateValue.toDate();
-  }
-
-  final String dateText = date == null
-      ? 'Date unavailable'
-      : '${date.day.toString().padLeft(2, '0')}/'
-          '${date.month.toString().padLeft(2, '0')}/'
-          '${date.year}';
-
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(
-      bottom: 10,
-    ),
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.04),
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: Colors.white.withOpacity(0.06),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(18),
       ),
-    ),
-    child: Row(
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            color: statusBackgroundColor.withOpacity(0.12),
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            isCompleted
-                ? Icons.check_rounded
-                : Icons.close_rounded,
-            color: statusColor,
-            size: 22,
-          ),
-        ),
-
-        const SizedBox(width: 12),
-
-        Expanded(
-          child: Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                issueType,
-                maxLines: 1,
-                overflow:
-                    TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 4),
-
-              Text(
-                vehicleType,
-                style: const TextStyle(
-                  color: Colors.white54,
-                  fontSize: 11,
-                ),
-              ),
-
-              const SizedBox(height: 6),
-
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+      child: !_hasLoadedAssignedStatistics
+          ? _statisticsError != null
+                ? _buildProfileLoadError(
+                    message: _statisticsError!,
+                    onRetry: _loadProviderStatistics,
+                  )
+                : const Center(child: CircularProgressIndicator())
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Completion rate',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
-                    decoration: BoxDecoration(
-                      color: statusBackgroundColor.withOpacity(0.10),
-                      borderRadius:
-                          BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      isCompleted
-                          ? 'Completed'
-                          : isCancelled
-                              ? 'Cancelled'
-                              : 'Denied',
+                    Text(
+                      '${(completionRate * 100).round()}%',
                       style: TextStyle(
-                        color: statusColor,
-                        fontSize: 9,
-                        fontWeight:
-                            FontWeight.w600,
+                        color: _yellowColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: completionRate,
+                    minHeight: 7,
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation<Color>(_yellowColor),
                   ),
-
-                  const SizedBox(width: 8),
-
-                  Text(
-                    dateText,
-                    style: const TextStyle(
-                      color: Colors.white38,
-                      fontSize: 9,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$_completedJobs completed out of $_assignedJobs assigned jobs',
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.work_history_outlined,
+                      color: Colors.white54,
+                      size: 17,
                     ),
+                    const SizedBox(width: 7),
+                    Text(
+                      '$_assignedJobs total jobs  •  $_activeJobs active',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                if (_isLoadingStats) ...[
+                  const SizedBox(height: 12),
+                  const LinearProgressIndicator(
+                    minHeight: 2,
+                    backgroundColor: Colors.white12,
                   ),
                 ],
+              ],
+            ),
+    );
+  }
+
+  Widget _buildJobHistorySection() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _yellowColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.history_rounded,
+                  color: _yellowColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Job History',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
-        ),
 
-        if (isCompleted &&
-            amountText.isNotEmpty)
-          Text(
-            amountText,
+          const SizedBox(height: 18),
+
+          if (_isLoadingJobHistory)
+            Center(
+              child: CircularProgressIndicator(
+                color: _yellowColor,
+                strokeWidth: 2,
+              ),
+            )
+          else if (_jobHistoryError != null && _jobHistory.isEmpty)
+            _buildProfileLoadError(
+              message: _jobHistoryError!,
+              onRetry: _loadJobHistory,
+            )
+          else
+            Column(
+              children: [
+                if (_jobHistoryError != null)
+                  _buildProfileLoadError(
+                    message: _jobHistoryError!,
+                    onRetry: _loadJobHistory,
+                  ),
+                if (_jobHistory.isEmpty)
+                  _buildEmptyJobHistory()
+                else
+                  ..._jobHistory.map(_buildJobHistoryItem),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyJobHistory() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 12),
+      child: Column(
+        children: [
+          Icon(Icons.history_rounded, color: Colors.white24, size: 42),
+          const SizedBox(height: 10),
+          const Text(
+            'No job history yet',
             style: TextStyle(
-              color: _yellowColor,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
-      ],
-    ),
-  );
-}
+          const SizedBox(height: 5),
+          const Text(
+            'Completed, cancelled and declined requests will appear here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white38, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJobHistoryItem(Map<String, dynamic> job) {
+    final bool isCompleted = job['type'] == 'completed';
+    final bool isCancelled =
+        job['type'] == 'cancelled' || job['type'] == 'canceled';
+    final Color statusColor = isCompleted
+        ? Colors.greenAccent
+        : isCancelled
+        ? Colors.orangeAccent
+        : Colors.redAccent;
+    final Color statusBackgroundColor = isCompleted
+        ? Colors.green
+        : isCancelled
+        ? Colors.orange
+        : Colors.red;
+
+    final String issueType =
+        job['issueType']?.toString() ?? 'Assistance Request';
+
+    final String vehicleType = job['vehicleType']?.toString() ?? 'Vehicle';
+
+    final dynamic amountValue = job['jobAmount'];
+
+    String amountText = '';
+
+    if (amountValue is num) {
+      amountText = 'Rs. ${amountValue.toStringAsFixed(0)}';
+    } else if (amountValue != null) {
+      final double? parsedAmount = double.tryParse(amountValue.toString());
+
+      if (parsedAmount != null) {
+        amountText = 'Rs. ${parsedAmount.toStringAsFixed(0)}';
+      }
+    }
+
+    DateTime? date;
+
+    final dynamic dateValue = job['completedAt'] ?? job['createdAt'];
+
+    if (dateValue is Timestamp) {
+      date = dateValue.toDate();
+    }
+
+    final String dateText = date == null
+        ? 'Date unavailable'
+        : '${date.day.toString().padLeft(2, '0')}/'
+              '${date.month.toString().padLeft(2, '0')}/'
+              '${date.year}';
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: statusBackgroundColor.withOpacity(0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isCompleted ? Icons.check_rounded : Icons.close_rounded,
+              color: statusColor,
+              size: 22,
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  issueType,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+
+                const SizedBox(height: 4),
+
+                Text(
+                  vehicleType,
+                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+
+                const SizedBox(height: 6),
+
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: statusBackgroundColor.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isCompleted
+                            ? 'Completed'
+                            : isCancelled
+                            ? 'Cancelled'
+                            : 'Denied',
+                        style: TextStyle(
+                          color: statusColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(width: 8),
+
+                    Text(
+                      dateText,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          if (isCompleted && amountText.isNotEmpty)
+            Text(
+              amountText,
+              style: TextStyle(
+                color: _yellowColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildProfileInfoCard({
     required IconData icon,
@@ -4227,12 +3559,10 @@ Widget _buildJobHistoryItem(
   }) {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _cardColor,
-        borderRadius:
-            BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         children: [
@@ -4240,40 +3570,27 @@ Widget _buildJobHistoryItem(
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: Colors.white
-                  .withOpacity(0.05),
-              borderRadius:
-                  BorderRadius.circular(13),
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(13),
             ),
-            child: Icon(
-              icon,
-              color: _yellowColor,
-              size: 22,
-            ),
+            child: Icon(icon, color: _yellowColor, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-                  CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
-                  style:
-                      const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 10,
-                  ),
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   value,
-                  style:
-                      const TextStyle(
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 13,
-                    fontWeight:
-                        FontWeight.w600,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -4290,45 +3607,31 @@ Widget _buildJobHistoryItem(
 
   Widget _buildBottomNavigation() {
     return Container(
-      padding:
-          const EdgeInsets.fromLTRB(
-        10,
-        8,
-        10,
-        10,
-      ),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       decoration: BoxDecoration(
         color: _backgroundColor,
-        border: Border(
-          top: BorderSide(
-            color: Colors.white
-                .withOpacity(0.04),
-          ),
-        ),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.04))),
       ),
       child: Row(
         children: [
           Expanded(
             child: _buildNavItem(
               index: 0,
-              icon:
-                  Icons.dashboard_rounded,
+              icon: Icons.dashboard_rounded,
               label: 'Home',
             ),
           ),
           Expanded(
             child: _buildNavItem(
               index: 1,
-              icon:
-                  Icons.notifications_rounded,
+              icon: Icons.notifications_rounded,
               label: 'Requests',
             ),
           ),
           Expanded(
             child: _buildNavItem(
               index: 2,
-              icon:
-                  Icons.person_rounded,
+              icon: Icons.person_rounded,
               label: 'Profile',
             ),
           ),
@@ -4346,8 +3649,7 @@ Widget _buildJobHistoryItem(
     required IconData icon,
     required String label,
   }) {
-    final bool selected =
-        _selectedIndex == index;
+    final bool selected = _selectedIndex == index;
 
     return GestureDetector(
       onTap: () {
@@ -4359,39 +3661,23 @@ Widget _buildJobHistoryItem(
           _loadJobHistory();
         }
       },
-      behavior:
-          HitTestBehavior.opaque,
+      behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(
-          vertical: 6,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         child: Column(
-          mainAxisSize:
-              MainAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 7,
-              ),
-              decoration:
-                  BoxDecoration(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              decoration: BoxDecoration(
                 color: selected
-                    ? _yellowColor
-                        .withOpacity(0.12)
+                    ? _yellowColor.withOpacity(0.12)
                     : Colors.transparent,
-                borderRadius:
-                    BorderRadius.circular(
-                  15,
-                ),
+                borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(
                 icon,
-                color: selected
-                    ? _yellowColor
-                    : Colors.white38,
+                color: selected ? _yellowColor : Colors.white38,
                 size: 22,
               ),
             ),
@@ -4399,13 +3685,9 @@ Widget _buildJobHistoryItem(
             Text(
               label,
               style: TextStyle(
-                color: selected
-                    ? _yellowColor
-                    : Colors.white38,
+                color: selected ? _yellowColor : Colors.white38,
                 fontSize: 10,
-                fontWeight: selected
-                    ? FontWeight.w600
-                    : FontWeight.normal,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
               ),
             ),
           ],
@@ -4427,22 +3709,14 @@ Widget _buildJobHistoryItem(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor:
-              _cardColor,
+          backgroundColor: _cardColor,
           title: const Text(
             'Location Services Disabled',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight:
-                  FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Please enable location services on your device to go online.',
-            style: TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
@@ -4453,8 +3727,7 @@ Widget _buildJobHistoryItem(
                 'OK',
                 style: TextStyle(
                   color: _yellowColor,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -4477,22 +3750,14 @@ Widget _buildJobHistoryItem(
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor:
-              _cardColor,
+          backgroundColor: _cardColor,
           title: const Text(
             'Location Permission Required',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight:
-                  FontWeight.bold,
-            ),
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Location permission has been permanently denied. Please enable it from your device settings.',
-            style: TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
+            style: TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
             TextButton(
@@ -4503,8 +3768,7 @@ Widget _buildJobHistoryItem(
                 'OK',
                 style: TextStyle(
                   color: _yellowColor,
-                  fontWeight:
-                      FontWeight.bold,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -4518,21 +3782,16 @@ Widget _buildJobHistoryItem(
   // MESSAGE
   // ============================================================
 
-  void _showMessage(
-    String message,
-  ) {
+  void _showMessage(String message) {
     if (!mounted) {
       return;
     }
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
+    ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-        backgroundColor:
-            const Color(0xFF151D21),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF151D21),
       ),
     );
   }

@@ -132,6 +132,39 @@ service cloud.firestore {
             /databases/$(database)/documents/assistance_requests/$(request.resource.data.claimId)
           ).data.insuranceStatus == request.resource.data.status
         )
+        || (
+          get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.role == 'roadside_provider'
+          && request.resource.data.type == 'assistance_request_update'
+          && request.resource.data.requestId is string
+          && request.resource.data.userId is string
+          && get(
+            /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+          ).data.userId == request.resource.data.userId
+          && (
+            (
+              request.resource.data.status == 'accepted'
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.status == 'accepted'
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.providerId == request.auth.uid
+            )
+            || (
+              request.resource.data.status == 'declined'
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.status in ['pending', 'searching']
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.deniedBy is list
+              && get(
+                /databases/$(database)/documents/assistance_requests/$(request.resource.data.requestId)
+              ).data.deniedBy.hasAny([request.auth.uid])
+            )
+          )
+        )
       );
 
       allow update: if request.auth != null

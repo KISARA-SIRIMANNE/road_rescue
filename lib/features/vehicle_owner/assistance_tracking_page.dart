@@ -49,6 +49,11 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   Position? _queuedPosition;
 
   String _status = 'pending';
+  String? _providerName;
+  double? _providerLatitude;
+  double? _providerLongitude;
+  double _currentDistance = 0;
+  String _distanceStatus = 'Waiting for provider location';
 
   final Set<Marker> _markers = {};
 
@@ -64,94 +69,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   // ================================================================
   // LISTEN TO ASSISTANCE REQUEST
   // ================================================================
-
-  void _startRequestListener() {
-    _requestSubscription = _firestore
-      .collection('assistance_requests')
-      .doc(widget.requestId)
-      .snapshots()
-      .listen(
-    (DocumentSnapshot snapshot) async {
-      if (!snapshot.exists) {
-        return;
-      }
-
-      final Map<String, dynamic> data =
-          snapshot.data() as Map<String, dynamic>;
-
-      final String status =
-          data['status']?.toString() ?? 'pending';
-
-      final String? providerName =
-          data['providerName']?.toString();
-
-      final dynamic providerLatitude =
-          data['providerLatitude'];
-
-      final dynamic providerLongitude =
-          data['providerLongitude'];
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _status = status;
-        _providerName = providerName;
-
-        if (providerLatitude is num &&
-            providerLongitude is num) {
-          _providerLatitude =
-              providerLatitude.toDouble();
-
-          _providerLongitude =
-              providerLongitude.toDouble();
-        } else {
-          _providerLatitude = null;
-          _providerLongitude = null;
-        }
-      });
-
-      // ------------------------------------------------------------
-      // UPDATE PROVIDER MARKER
-      // ------------------------------------------------------------
-
-      _updateProviderMarker();
-
-      // ------------------------------------------------------------
-      // CALCULATE DISTANCE
-      // ------------------------------------------------------------
-
-      _calculateDistance();
-
-      // ------------------------------------------------------------
-      // AUTOMATICALLY NAVIGATE TO PROVIDER TRACKING
-      // ------------------------------------------------------------
-
-      if (status == 'accepted' &&
-          !_hasNavigatedToProviderTracking) {
-        _hasNavigatedToProviderTracking = true;
-
-        // Stop the vehicle owner's GPS stream before
-        // moving to the provider tracking page.
-        await _positionSubscription?.cancel();
-
-        _positionSubscription = null;
-
-        if (!mounted) {
-          return;
-        }
-
-        _navigateToProviderTracking(data);
-      }
-    },
-    onError: (error) {
-      debugPrint(
-        'Assistance request listener error: $error',
-      );
-    },
-  );
-  }
 
   void _navigateToDriverJobStatus(
   Map<String, dynamic> requestData,
@@ -462,7 +379,23 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
             final status = data?['status']?.toString();
             if (!mounted || status == null || status.isEmpty) return;
 
-            setState(() => _status = status);
+            setState(() {
+              _status = status;
+              _providerName = data?['providerName']?.toString();
+              final providerLatitude = data?['providerLatitude'];
+              final providerLongitude = data?['providerLongitude'];
+
+              if (providerLatitude is num && providerLongitude is num) {
+                _providerLatitude = providerLatitude.toDouble();
+                _providerLongitude = providerLongitude.toDouble();
+              } else {
+                _providerLatitude = null;
+                _providerLongitude = null;
+              }
+            });
+
+            _calculateDistance();
+
             if (status == 'cancelled' || status == 'completed') {
               _stopTracking();
             }
@@ -471,6 +404,44 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
             debugPrint('Request status listener error: $error');
           },
         );
+  }
+
+  void _calculateDistance() {
+    if (_currentPosition == null ||
+        _providerLatitude == null ||
+        _providerLongitude == null) {
+      if (mounted) {
+        setState(() {
+          _currentDistance = 0;
+          _distanceStatus = 'Waiting for provider location';
+        });
+      }
+      return;
+    }
+
+    final distanceMeters = Geolocator.distanceBetween(
+      _currentPosition!.latitude,
+      _currentPosition!.longitude,
+      _providerLatitude!,
+      _providerLongitude!,
+    );
+
+    final double roundedDistance = distanceMeters;
+    if (mounted) {
+      setState(() {
+        _currentDistance = roundedDistance;
+        _distanceStatus = roundedDistance < 1000
+            ? '${roundedDistance.round()} m away'
+            : '${(roundedDistance / 1000).toStringAsFixed(1)} km away';
+      });
+    }
+  }
+
+  String _formatDistance(double distanceInMeters) {
+    if (distanceInMeters < 1000) {
+      return '${distanceInMeters.round()} m';
+    }
+    return '${(distanceInMeters / 1000).toStringAsFixed(1)} km';
   }
 
   // ================================================================
@@ -534,8 +505,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor:
-              const Color(0xFF11181C),
           backgroundColor: const Color(0xFF1A1D20),
           title: const Text(
             'Cancel Request?',
@@ -584,10 +553,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        behavior:
-            SnackBarBehavior.floating,
-        backgroundColor:
-            const Color(0xFF151D21),
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF24282D),
       ),
@@ -615,8 +580,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF05090B),
       backgroundColor: const Color(0xFF101214),
       body: SafeArea(
         child: Column(
@@ -651,11 +614,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   Widget _buildTopBar() {
     return Container(
       height: 64,
-      padding:
-          const EdgeInsets.symmetric(
-        horizontal: 8,
-      ),
-      color: const Color(0xFF05090B),
       padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color(0xFF101214),
       child: Row(
@@ -728,18 +686,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
       top: 18,
       left: 18,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
-        ),
-        decoration:
-            BoxDecoration(
-          color: const Color(
-            0xFF11181C,
-          ),
-          borderRadius:
-              BorderRadius.circular(20),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFF191C20),
@@ -788,15 +734,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
         child: Container(
           width: 52,
           height: 52,
-          decoration:
-              BoxDecoration(
-            color: const Color(
-              0xFF11181C,
-            ),
-            borderRadius:
-                BorderRadius.circular(
-              16,
-            ),
           decoration: BoxDecoration(
             color: const Color(0xFF191C20),
             borderRadius: BorderRadius.circular(16),
@@ -817,22 +754,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   Widget _buildBottomPanel() {
     return Container(
       width: double.infinity,
-      padding:
-          const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        20,
-      ),
-      decoration:
-          const BoxDecoration(
-        color: Color(0xFF11181C),
-        borderRadius:
-            BorderRadius.only(
-          topLeft:
-              Radius.circular(26),
-          topRight:
-              Radius.circular(26),
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: const BoxDecoration(
         color: Color(0xFF191C20),
@@ -907,16 +828,6 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
 
           Container(
             width: double.infinity,
-            padding:
-                const EdgeInsets.all(14),
-            decoration:
-                BoxDecoration(
-              color:
-                  const Color(0xFF05090B),
-              borderRadius:
-                  BorderRadius.circular(
-                14,
-              ),
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: const Color(0xFF101214),

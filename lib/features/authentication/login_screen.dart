@@ -724,8 +724,6 @@ class RoleHomePlaceholder extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor:
-          const Color(0xFF05090B),
       backgroundColor: const Color(0xFF101214),
       body: SafeArea(
         child: Center(
@@ -775,10 +773,6 @@ class RoleHomePlaceholder extends StatelessWidget {
                 const Text(
                   'Your home page will be available here.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFFA5ADB3),
-                    fontSize: 14,
-                  ),
                   style: TextStyle(color: Color(0xFF929AA2), fontSize: 14),
                 ),
               ],
