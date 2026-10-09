@@ -688,8 +688,6 @@ class _LocationConfirmationPageState
   Widget _buildTopBar() {
     return Container(
       height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      color: const Color(0xFF05090B),
       padding: const EdgeInsets.symmetric(
         horizontal: 8,
       ),
@@ -801,7 +799,6 @@ class _LocationConfirmationPageState
 
     return Positioned.fill(
       child: Container(
-        color: const Color(0xFF05090B).withOpacity(0.90),
         color: const Color(0xFF101214)
             .withOpacity(0.90),
         padding: const EdgeInsets.all(24),
@@ -810,8 +807,6 @@ class _LocationConfirmationPageState
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF11181C),
-              borderRadius: BorderRadius.circular(22),
               color: const Color(0xFF191C20),
               borderRadius:
                   BorderRadius.circular(22),
@@ -925,8 +920,6 @@ class _LocationConfirmationPageState
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: const Color(0xFF11181C),
-              borderRadius: BorderRadius.circular(16),
               color: const Color(0xFF191C20),
               borderRadius:
                   BorderRadius.circular(16),
@@ -949,17 +942,6 @@ class _LocationConfirmationPageState
   Widget _buildInsuranceSection() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(
-        20,
-        18,
-        20,
-        20,
-      ),
-      decoration: const BoxDecoration(
-        color: Color(0xFF11181C),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(26),
-          topRight: Radius.circular(26),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF191C20),
