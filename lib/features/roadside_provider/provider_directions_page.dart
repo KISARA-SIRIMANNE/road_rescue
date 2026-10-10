@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:road_rescue/theme/road_rescue_theme.dart';
@@ -10,8 +9,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../messaging/assistance_chat_page.dart';
 import 'job_status_page.dart';
-import 'provider_job_flow_pages.dart';
 
 class ProviderDirectionsPage extends StatefulWidget {
   final String requestId;
@@ -27,7 +26,8 @@ class ProviderDirectionsPage extends StatefulWidget {
   State<ProviderDirectionsPage> createState() => _ProviderDirectionsPageState();
 }
 
-class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
+class _ProviderDirectionsPageState extends State<ProviderDirectionsPage>
+    with WidgetsBindingObserver {
   // ============================================================
   // FIREBASE
   // ============================================================
@@ -86,6 +86,16 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
 
   bool _hasInitialCameraFit = false;
 
+  bool _hasLocationPermission = false;
+
+  bool _isGettingProviderLocation = false;
+
+  bool _locationPermissionPermanentlyDenied = false;
+
+  bool _locationServicesDisabled = false;
+
+  String? _locationMessage;
+
   // ============================================================
   // GOOGLE ROUTES API KEY
   // ============================================================
@@ -114,10 +124,21 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _startRequestListener();
 
     _startProviderLocationTracking();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        mounted &&
+        _locationMessage != null &&
+        !_isGettingProviderLocation) {
+      unawaited(_startProviderLocationTracking());
+    }
   }
 
   // ============================================================
@@ -177,77 +198,139 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
   // ============================================================
 
   Future<void> _startProviderLocationTracking() async {
-    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (_isGettingProviderLocation) return;
 
-    if (!serviceEnabled) {
-      debugPrint('Location services are disabled.');
-
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      debugPrint('Location permission denied.');
-
-      return;
-    }
-
+    setState(() {
+      _isGettingProviderLocation = true;
+      _locationMessage = null;
+      _locationPermissionPermanentlyDenied = false;
+      _locationServicesDisabled = false;
+    });
     try {
-      // ----------------------------------------------------------
-      // GET CURRENT PROVIDER LOCATION
-      // ----------------------------------------------------------
-
-      final Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-        ),
-      );
-
-      _providerPosition = position;
-
-      if (mounted) {
-        setState(() {});
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _locationServicesDisabled = true;
+        _setLocationMessage(
+          'Location is turned off. Enable your phone’s location to share your position.',
+        );
+        return;
       }
 
-      _updateMarkers();
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        _setLocationMessage(
+          permission == LocationPermission.deniedForever
+              ? 'Location permission is blocked. Allow it in app settings.'
+              : 'Allow location access to show your position on the map.',
+          permanentlyDenied: permission == LocationPermission.deniedForever,
+        );
+        return;
+      }
 
-      await _calculateRouteIfPossible();
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        _setLocationMessage('Location permission is not available.');
+        return;
+      }
 
-      // ----------------------------------------------------------
-      // CONTINUE TRACKING PROVIDER
-      // ----------------------------------------------------------
+      _hasLocationPermission = true;
+      if (mounted) setState(() {});
+
+      final Position? lastKnownPosition =
+          await Geolocator.getLastKnownPosition();
+      if (lastKnownPosition != null) {
+        _updateProviderPosition(lastKnownPosition);
+      }
+
+      try {
+        final Position position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 20),
+          ),
+        );
+
+        _updateProviderPosition(position);
+      } on TimeoutException {
+        _setLocationMessage(
+          _providerPosition == null
+              ? 'Waiting for a GPS fix. Move to an open area and try again.'
+              : 'Showing your last known position while waiting for GPS.',
+        );
+      } on LocationServiceDisabledException {
+        _locationServicesDisabled = true;
+        _setLocationMessage(
+          'Location is turned off. Enable your phone’s location to share your position.',
+        );
+        return;
+      } on PermissionDeniedException {
+        _hasLocationPermission = false;
+        _setLocationMessage(
+          'Allow location access to show your position on the map.',
+        );
+        return;
+      }
 
       const LocationSettings settings = LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 20,
       );
 
+      await _positionSubscription?.cancel();
       _positionSubscription =
           Geolocator.getPositionStream(locationSettings: settings).listen(
             (Position position) async {
-              _providerPosition = position;
-
-              if (mounted) {
-                setState(() {});
-              }
-
-              _updateMarkers();
-
+              _updateProviderPosition(position);
               await _calculateRouteIfPossible();
             },
-            onError: (error) {
+            onError: (Object error) {
               debugPrint('Provider location stream error: $error');
+              _setLocationMessage(
+                'Live location updates stopped. Check GPS and retry.',
+              );
             },
           );
     } catch (e) {
-      debugPrint('Error getting provider location: $e');
+      debugPrint('Error starting provider location tracking: $e');
+      _setLocationMessage(
+        'Could not get your location. Check GPS and app location permission.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGettingProviderLocation = false;
+        });
+      }
     }
+  }
+
+  void _updateProviderPosition(Position position) {
+    _providerPosition = position;
+    _locationMessage = null;
+    if (mounted) setState(() {});
+    _updateMarkers();
+    _calculateRouteIfPossible();
+  }
+
+  void _setLocationMessage(String message, {bool permanentlyDenied = false}) {
+    debugPrint('Provider location: $message');
+    if (!mounted) return;
+    setState(() {
+      _locationMessage = message;
+      _locationPermissionPermanentlyDenied = permanentlyDenied;
+    });
+  }
+
+  Future<void> _openLocationSettings() async {
+    await Geolocator.openLocationSettings();
+  }
+
+  Future<void> _openAppSettings() async {
+    await Geolocator.openAppSettings();
   }
 
   // ============================================================
@@ -751,7 +834,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
                     onMapCreated: _onMapCreated,
                     markers: _markers,
                     polylines: _polylines,
-                    myLocationEnabled: true,
+                    myLocationEnabled: _hasLocationPermission,
                     myLocationButtonEnabled: false,
                     zoomControlsEnabled: false,
                     compassEnabled: true,
@@ -759,6 +842,14 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
                   ),
 
                   Positioned(top: 16, left: 16, child: _buildLiveBadge()),
+
+                  if (_locationMessage != null)
+                    Positioned(
+                      top: 62,
+                      left: 16,
+                      right: 16,
+                      child: _buildLocationMessage(),
+                    ),
 
                   Positioned(
                     right: 16,
@@ -770,6 +861,51 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
             ),
 
             _buildBottomPanel(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationMessage() {
+    final bool canOpenSettings =
+        _locationPermissionPermanentlyDenied || _locationServicesDisabled;
+
+    return Material(
+      color: const Color(0xFF101719),
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.location_off_outlined,
+              color: RoadRescueColors.accent,
+              size: 21,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _locationMessage!,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+            ),
+            TextButton(
+              onPressed: _isGettingProviderLocation
+                  ? null
+                  : canOpenSettings
+                  ? (_locationServicesDisabled
+                        ? _openLocationSettings
+                        : _openAppSettings)
+                  : _startProviderLocationTracking,
+              child: Text(
+                _isGettingProviderLocation
+                    ? 'WAIT'
+                    : canOpenSettings
+                    ? 'SETTINGS'
+                    : 'RETRY',
+              ),
+            ),
           ],
         ),
       ),
@@ -834,11 +970,6 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
   }
 
   void _openCustomerChat() {
-    if (FirebaseAuth.instance.currentUser == null) {
-      _showMessage('Please sign in again to open chat.');
-      return;
-    }
-
     final String providerName =
         widget.userData['name']?.toString().trim().isNotEmpty == true
         ? widget.userData['name'].toString().trim()
@@ -846,21 +977,11 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => Scaffold(
-          backgroundColor: const Color(0xFF08090A),
-          body: SafeArea(
-            child: ProviderChatView(
-              requestId: widget.requestId,
-              providerName: providerName,
-              requestData: {
-                'userName': _driverName,
-                'vehicleType': _vehicleType,
-                'issueType': _issueType,
-              },
-              onBack: () => Navigator.pop(context),
-              onError: _showMessage,
-            ),
-          ),
+        builder: (context) => AssistanceChatPage(
+          requestId: widget.requestId,
+          currentUserName: providerName,
+          otherPartyName: _driverName,
+          title: 'Chat with driver',
         ),
       ),
     );
@@ -912,6 +1033,11 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
     return GestureDetector(
       onTap: () {
         if (_providerPosition == null) {
+          if (!_hasLocationPermission || _locationServicesDisabled) {
+            _startProviderLocationTracking();
+          } else if (!_isGettingProviderLocation) {
+            _showMessage('Waiting for a GPS location fix. Please try again.');
+          }
           return;
         }
 
@@ -929,11 +1055,19 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
           color: const Color(0xFF101719),
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Icon(
-          Icons.my_location_rounded,
-          color: RoadRescueColors.accent,
-          size: 23,
-        ),
+        child: _isGettingProviderLocation
+            ? const Padding(
+                padding: EdgeInsets.all(15),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: RoadRescueColors.accent,
+                ),
+              )
+            : const Icon(
+                Icons.my_location_rounded,
+                color: RoadRescueColors.accent,
+                size: 23,
+              ),
       ),
     );
   }
@@ -1248,6 +1382,7 @@ class _ProviderDirectionsPageState extends State<ProviderDirectionsPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _positionSubscription?.cancel();
 
     _requestSubscription?.cancel();
