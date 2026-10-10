@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:road_rescue/theme/road_rescue_theme.dart';
 
+import '../authentication/login_screen.dart';
+
 class OnboardingScreen1 extends StatelessWidget {
   const OnboardingScreen1({super.key});
 
@@ -91,7 +93,46 @@ class OnboardingScreen1 extends StatelessWidget {
                   // ==================================================
                   Center(child: _buildPageIndicators()),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 12),
+
+                  Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Already have an account?',
+                          style: TextStyle(color: greyColor, fontSize: 13),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Log in',
+                            style: TextStyle(
+                              color: yellowColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
                 ],
               ),
             ),

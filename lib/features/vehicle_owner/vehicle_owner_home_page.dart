@@ -28,6 +28,8 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
   bool _isUploadingPhoto = false;
   String _profilePhotoUrl = '';
   String _contactNumber = '';
+  List<Map<String, dynamic>> _vehicles = [];
+  String? _currentVehicleId;
   List<Map<String, dynamic>> _requestHistory = [];
   String? _requestHistoryError;
   Stream<QuerySnapshot<Map<String, dynamic>>>? _notificationsStream;
@@ -62,6 +64,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
     super.initState();
     _profilePhotoUrl = widget.userData['profilePhotoUrl']?.toString() ?? '';
     _contactNumber = widget.userData['contactNumber']?.toString() ?? '';
+    _loadVehiclesFromUserData();
     if (userId.isNotEmpty) {
       _notificationsStream = _firestore
           .collection('notifications')
@@ -83,13 +86,63 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
   }
 
   String get vehicleType {
-    final vehicle = widget.userData['vehicleType'];
+    return _currentVehicle?['vehicleType']?.toString() ?? 'Vehicle';
+  }
 
-    if (vehicle == null || vehicle.toString().trim().isEmpty) {
-      return 'Vehicle';
+  Map<String, dynamic>? get _currentVehicle {
+    for (final Map<String, dynamic> vehicle in _vehicles) {
+      if (vehicle['id'] == _currentVehicleId) return vehicle;
+    }
+    return _vehicles.isEmpty ? null : _vehicles.first;
+  }
+
+  void _loadVehiclesFromUserData() {
+    final Object? storedVehicles = widget.userData['vehicles'];
+    if (storedVehicles is List) {
+      for (int index = 0; index < storedVehicles.length; index++) {
+        final Object? item = storedVehicles[index];
+        if (item is! Map) continue;
+
+        final Map<String, dynamic> vehicle = Map<String, dynamic>.from(item);
+        final String type = vehicle['vehicleType']?.toString().trim() ?? '';
+        if (type.isEmpty) continue;
+
+        vehicle['id'] = vehicle['id']?.toString().isNotEmpty == true
+            ? vehicle['id'].toString()
+            : 'vehicle_$index';
+        vehicle['vehicleType'] = type;
+        vehicle['registrationNumber'] =
+            vehicle['registrationNumber']?.toString() ??
+            vehicle['vehicleNumber']?.toString() ??
+            vehicle['vehiclePlate']?.toString() ??
+            '';
+        _vehicles.add(vehicle);
+      }
     }
 
-    return vehicle.toString().trim();
+    if (_vehicles.isEmpty) {
+      final String legacyType =
+          widget.userData['vehicleType']?.toString().trim() ?? '';
+      if (legacyType.isNotEmpty) {
+        _vehicles.add({
+          'id': 'vehicle_default',
+          'vehicleType': legacyType,
+          'registrationNumber':
+              widget.userData['registrationNumber']?.toString() ??
+              widget.userData['vehicleNumber']?.toString() ??
+              widget.userData['vehiclePlate']?.toString() ??
+              '',
+        });
+      }
+    }
+
+    final String? storedCurrentId = widget.userData['currentVehicleId']
+        ?.toString();
+    if (_vehicles.any((vehicle) => vehicle['id'] == storedCurrentId)) {
+      _currentVehicleId = storedCurrentId;
+    } else if (_vehicles.isNotEmpty) {
+      _currentVehicleId = _vehicles.first['id']?.toString();
+    }
   }
 
   String get email {
@@ -166,9 +219,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
             _buildSectionTitle(
               title: 'My Vehicle',
               actionText: 'Edit',
-              onActionPressed: () {
-                _showComingSoon('Vehicle editing will be available soon.');
-              },
+              onActionPressed: _showVehicleManager,
             ),
 
             const SizedBox(height: 14),
@@ -409,8 +460,9 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        RequestAssistancePage(userData: widget.userData),
+                    builder: (context) => RequestAssistancePage(
+                      userData: _userDataWithCurrentVehicle(),
+                    ),
                   ),
                 );
               },
@@ -588,6 +640,8 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
   // ============================================================
 
   Widget _buildVehicleCard() {
+    final String registrationNumber =
+        _currentVehicle?['registrationNumber']?.toString().trim() ?? '';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(17),
@@ -640,26 +694,327 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                   'Vehicle information',
                   style: TextStyle(color: greyColor, fontSize: 10),
                 ),
+                if (registrationNumber.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    registrationNumber,
+                    style: const TextStyle(
+                      color: yellowColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
 
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.chevron_right_rounded,
-              color: greyColor,
-              size: 21,
-            ),
+          IconButton(
+            tooltip: 'Choose or add a vehicle',
+            onPressed: _showVehicleManager,
+            icon: const Icon(Icons.tune_rounded, color: yellowColor, size: 21),
           ),
         ],
       ),
     );
+  }
+
+  Map<String, dynamic> _userDataWithCurrentVehicle() {
+    final Map<String, dynamic> data = Map<String, dynamic>.from(
+      widget.userData,
+    );
+    final Map<String, dynamic>? vehicle = _currentVehicle;
+    if (vehicle == null) return data;
+    data['vehicleType'] = vehicle['vehicleType'];
+    data['currentVehicleId'] = vehicle['id'];
+    data['registrationNumber'] = vehicle['registrationNumber'] ?? '';
+    data['vehicleNumber'] = vehicle['registrationNumber'] ?? '';
+    return data;
+  }
+
+  Future<void> _showVehicleManager() async {
+    if (userId.isEmpty) {
+      _showComingSoon('Unable to identify your account.');
+      return;
+    }
+
+    final List<Map<String, dynamic>> vehicles = _vehicles
+        .map((vehicle) => Map<String, dynamic>.from(vehicle))
+        .toList();
+    String? selectedVehicleId = _currentVehicleId;
+    final TextEditingController typeController = TextEditingController();
+    final TextEditingController registrationController =
+        TextEditingController();
+    bool isAddingVehicle = false;
+    String? formError;
+    bool isSaving = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: cardColor,
+          title: const Text(
+            'My Vehicles',
+            style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Choose the vehicle to use for your next assistance request.',
+                    style: TextStyle(color: greyColor, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  if (vehicles.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Text(
+                        'No vehicles added yet.',
+                        style: TextStyle(color: greyColor),
+                      ),
+                    ),
+                  ...vehicles.map((vehicle) {
+                    final String id = vehicle['id'].toString();
+                    final String type =
+                        vehicle['vehicleType']?.toString() ?? 'Vehicle';
+                    final String registration =
+                        vehicle['registrationNumber']?.toString().trim() ?? '';
+                    final bool isSelected = id == selectedVehicleId;
+                    return ListTile(
+                      onTap: () {
+                        setDialogState(() {
+                          selectedVehicleId = id;
+                        });
+                      },
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        isSelected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: isSelected ? yellowColor : greyColor,
+                      ),
+                      title: Text(
+                        type,
+                        style: const TextStyle(color: whiteColor),
+                      ),
+                      subtitle: registration.isEmpty
+                          ? null
+                          : Text(
+                              registration,
+                              style: const TextStyle(color: greyColor),
+                            ),
+                    );
+                  }),
+                  if (isAddingVehicle) ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: typeController,
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(color: whiteColor),
+                      decoration: const InputDecoration(
+                        labelText: 'Vehicle type / model',
+                        hintText: 'e.g. Toyota Aqua',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: registrationController,
+                      textCapitalization: TextCapitalization.characters,
+                      style: const TextStyle(color: whiteColor),
+                      decoration: const InputDecoration(
+                        labelText: 'Registration number (optional)',
+                        hintText: 'e.g. ABC-1234',
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          final String type = typeController.text.trim();
+                          if (type.isEmpty) {
+                            setDialogState(() {
+                              formError = 'Enter the vehicle type or model.';
+                            });
+                            return;
+                          }
+
+                          final String id =
+                              'vehicle_${DateTime.now().microsecondsSinceEpoch}';
+                          setDialogState(() {
+                            vehicles.add({
+                              'id': id,
+                              'vehicleType': type,
+                              'registrationNumber': registrationController.text
+                                  .trim()
+                                  .toUpperCase(),
+                            });
+                            selectedVehicleId = id;
+                            typeController.clear();
+                            registrationController.clear();
+                            formError = null;
+                            isAddingVehicle = false;
+                          });
+                        },
+                        child: const Text('Add vehicle'),
+                      ),
+                    ),
+                  ] else
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            isAddingVehicle = true;
+                            formError = null;
+                          });
+                        },
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Add another vehicle'),
+                      ),
+                    ),
+                  if (formError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      formError!,
+                      style: const TextStyle(
+                        color: RoadRescueColors.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving
+                  ? null
+                  : () {
+                      FocusScope.of(dialogContext).unfocus();
+                      Navigator.of(dialogContext).pop();
+                    },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (isAddingVehicle) {
+                        final String type = typeController.text.trim();
+                        if (type.isEmpty) {
+                          setDialogState(() {
+                            formError = 'Enter the vehicle type or model.';
+                          });
+                          return;
+                        }
+                        final String id =
+                            'vehicle_${DateTime.now().microsecondsSinceEpoch}';
+                        setDialogState(() {
+                          vehicles.add({
+                            'id': id,
+                            'vehicleType': type,
+                            'registrationNumber': registrationController.text
+                                .trim()
+                                .toUpperCase(),
+                          });
+                          selectedVehicleId = id;
+                          isAddingVehicle = false;
+                          formError = null;
+                        });
+                        return;
+                      }
+                      if (vehicles.isEmpty || selectedVehicleId == null) {
+                        setDialogState(() {
+                          formError = 'Add a vehicle before continuing.';
+                          isAddingVehicle = true;
+                        });
+                        return;
+                      }
+
+                      setDialogState(() => isSaving = true);
+                      Map<String, dynamic>? selected;
+                      for (final Map<String, dynamic> vehicle in vehicles) {
+                        if (vehicle['id'] == selectedVehicleId) {
+                          selected = vehicle;
+                          break;
+                        }
+                      }
+                      if (selected == null) {
+                        setDialogState(() {
+                          isSaving = false;
+                          formError = 'Select a vehicle to continue.';
+                        });
+                        return;
+                      }
+                      final Map<String, dynamic> selectedVehicle = selected;
+
+                      try {
+                        await _firestore.collection('users').doc(userId).update(
+                          {
+                            'vehicles': vehicles,
+                            'currentVehicleId': selectedVehicleId,
+                            'vehicleType': selectedVehicle['vehicleType'],
+                            'registrationNumber':
+                                selectedVehicle['registrationNumber'] ?? '',
+                            'vehicleNumber':
+                                selectedVehicle['registrationNumber'] ?? '',
+                            'updatedAt': FieldValue.serverTimestamp(),
+                          },
+                        );
+                        if (!mounted) return;
+                        setState(() {
+                          _vehicles = vehicles;
+                          _currentVehicleId = selectedVehicleId;
+                          widget.userData['vehicles'] = vehicles;
+                          widget.userData['currentVehicleId'] =
+                              selectedVehicleId;
+                          widget.userData['vehicleType'] =
+                              selectedVehicle['vehicleType'];
+                          widget.userData['registrationNumber'] =
+                              selectedVehicle['registrationNumber'] ?? '';
+                          widget.userData['vehicleNumber'] =
+                              selectedVehicle['registrationNumber'] ?? '';
+                        });
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                        _showComingSoon('Current vehicle saved.');
+                      } catch (error) {
+                        debugPrint('Saving vehicles failed: $error');
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            isSaving = false;
+                            formError =
+                                'Could not save vehicles. Please try again.';
+                          });
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: backgroundColor,
+                      ),
+                    )
+                  : const Text('Save selection'),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      typeController.dispose();
+      registrationController.dispose();
+    });
   }
 
   // ============================================================
