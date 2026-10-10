@@ -2863,11 +2863,10 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // SAVE PROFILE DETAILS
   // ============================================================
 
-  Future<void> _saveProfileDetails({
+  Future<bool> _saveProfileDetails({
     required String name,
     required String workshopLocation,
     required String contactNumber,
-    required BuildContext dialogContext,
   }) async {
     final String trimmedName = name.trim();
     final String trimmedLocation = workshopLocation.trim();
@@ -2875,23 +2874,23 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
     if (trimmedName.isEmpty) {
       _showMessage('Provider name is required.');
-      return;
+      return false;
     }
 
     if (trimmedLocation.isEmpty) {
       _showMessage('Workshop location is required.');
-      return;
+      return false;
     }
 
     if (trimmedContactNumber.isNotEmpty &&
         !RegExp(r'^\+?[0-9\s()-]{7,20}$').hasMatch(trimmedContactNumber)) {
       _showMessage('Enter a valid contact number.');
-      return;
+      return false;
     }
 
     if (_providerId.isEmpty) {
       _showMessage('Unable to identify provider account.');
-      return;
+      return false;
     }
 
     setState(() {
@@ -2907,7 +2906,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       });
 
       if (!mounted) {
-        return;
+        return false;
       }
 
       setState(() {
@@ -2923,18 +2922,15 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         widget.userData['contactNumber'] = trimmedContactNumber;
       });
 
-      if (!dialogContext.mounted) return;
-      if (Navigator.canPop(dialogContext)) {
-        Navigator.pop(dialogContext);
-      }
-
       _showMessage('Profile updated successfully.');
+      return true;
     } catch (e) {
       debugPrint('Error saving provider profile: $e');
 
       if (mounted) {
         _showMessage('Failed to update profile. Please try again.');
       }
+      return false;
     } finally {
       if (mounted) {
         setState(() {
@@ -2949,6 +2945,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // ============================================================
 
   void _showEditProfileDialog() {
+    bool isSaving = false;
     final TextEditingController nameController = TextEditingController(
       text: _profileName,
     );
@@ -2958,6 +2955,9 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
     );
     final TextEditingController contactNumberController = TextEditingController(
       text: _profileContactNumber,
+    );
+    final TextEditingController emailController = TextEditingController(
+      text: _email,
     );
 
     showDialog<void>(
@@ -3061,7 +3061,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                     // ------------------------------------------------
                     TextField(
                       enabled: false,
-                      controller: TextEditingController(text: _email),
+                      controller: emailController,
                       style: const TextStyle(color: Colors.white38),
                       decoration: InputDecoration(
                         labelText: 'Email',
@@ -3090,7 +3090,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 // --------------------------------------------------
 
                 TextButton(
-                  onPressed: _isSavingProfile
+                  onPressed: isSaving
                       ? null
                       : () {
                           Navigator.pop(dialogContext);
@@ -3105,7 +3105,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 // SAVE
                 // --------------------------------------------------
                 ElevatedButton(
-                  onPressed: _isSavingProfile
+                  onPressed: isSaving
                       ? null
                       : () async {
                           final String name = nameController.text.trim();
@@ -3134,16 +3134,18 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                             return;
                           }
 
+                          isSaving = true;
                           setDialogState(() {});
-
-                          await _saveProfileDetails(
+                          final bool saved = await _saveProfileDetails(
                             name: name,
                             workshopLocation: workshopLocation,
                             contactNumber: contactNumber,
-                            dialogContext: dialogContext,
                           );
 
-                          if (mounted) {
+                          if (saved && dialogContext.mounted) {
+                            Navigator.pop(dialogContext);
+                          } else if (dialogContext.mounted) {
+                            isSaving = false;
                             setDialogState(() {});
                           }
                         },
@@ -3155,7 +3157,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isSavingProfile
+                  child: isSaving
                       ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -3178,6 +3180,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       nameController.dispose();
       workshopController.dispose();
       contactNumberController.dispose();
+      emailController.dispose();
     });
   }
 
