@@ -6,6 +6,7 @@ import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import 'insurance_claim_result_page.dart';
 import 'provider_tracking_page.dart';
 
 class AssistanceTrackingPage extends StatefulWidget {
@@ -40,6 +41,7 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
   bool _isTracking = false;
   bool _isCancelling = false;
   bool _hasNavigatedToProviderTracking = false;
+  bool _hasNavigatedToInsuranceResult = false;
 
   // ================================================================
   // ASSISTANCE REQUEST
@@ -84,6 +86,28 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
           userData: widget.userData,
           issue: widget.issue,
           providerName: providerName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _navigateToInsuranceResult(
+    Map<String, dynamic> requestData,
+  ) async {
+    if (!mounted || _hasNavigatedToInsuranceResult) return;
+    _hasNavigatedToInsuranceResult = true;
+
+    await _stopTracking();
+    await _requestSubscription?.cancel();
+    _requestSubscription = null;
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => InsuranceClaimResultPage(
+          requestData: {'id': widget.requestId, ...requestData},
+          userData: widget.userData,
+          issue: widget.issue,
         ),
       ),
     );
@@ -407,6 +431,15 @@ class _AssistanceTrackingPageState extends State<AssistanceTrackingPage>
                 _providerLongitude = null;
               }
             });
+
+            final String insuranceStatus =
+                data['insuranceStatus']?.toString().toLowerCase() ?? '';
+            if (data['insuranceClaim'] == true &&
+                (insuranceStatus == 'approved' ||
+                    insuranceStatus == 'rejected')) {
+              await _navigateToInsuranceResult(data);
+              return;
+            }
 
             if (_providerLatitude != null && _providerLongitude != null) {
               _updateProviderMarker();

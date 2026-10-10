@@ -38,6 +38,7 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
 
   // Insurance claim details
   bool _isInsuranceClaim = false;
+  bool _claimSelectedOnRequestPage = false;
 
   final TextEditingController _policyNumberController = TextEditingController();
 
@@ -59,6 +60,13 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
     super.initState();
     _selectedInsuranceCompanyId = widget.userData['_selectedInsuranceCompanyId']
         ?.toString();
+    _isInsuranceClaim = widget.userData['_startInsuranceClaim'] == true;
+    _claimSelectedOnRequestPage =
+        widget.userData['_claimSelectedOnRequestPage'] == true;
+    _policyNumberController.text =
+        widget.userData['_retryPolicyNumber']?.toString() ?? '';
+    _insuranceDescriptionController.text =
+        widget.userData['_retryInsuranceDescription']?.toString() ?? '';
     _initializeLocation();
   }
 
@@ -899,43 +907,54 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
                   ],
                 ),
               ),
-              Switch(
-                value: _isInsuranceClaim,
-                activeThumbColor: RoadRescueColors.accent,
-                onChanged: (value) {
-                  setState(() => _isInsuranceClaim = value);
-                },
-              ),
+              _claimSelectedOnRequestPage
+                  ? const Icon(
+                      Icons.check_circle_rounded,
+                      color: RoadRescueColors.accent,
+                    )
+                  : Switch(
+                      value: _isInsuranceClaim,
+                      activeThumbColor: RoadRescueColors.accent,
+                      onChanged: (value) {
+                        setState(() => _isInsuranceClaim = value);
+                      },
+                    ),
             ],
           ),
           if (_isInsuranceClaim) ...[
             const SizedBox(height: 18),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedInsuranceCompanyId,
-              isExpanded: true,
-              dropdownColor: RoadRescueColors.surface,
-              style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(
-                labelText: 'Insurance Company',
-                labelStyle: TextStyle(color: Colors.white70),
-                prefixIcon: Icon(
-                  Icons.business_outlined,
-                  color: RoadRescueColors.accent,
+            if (_claimSelectedOnRequestPage)
+              Text(
+                'Company: ${insuranceCompanyById(_selectedInsuranceCompanyId)?.name ?? 'Not selected'}',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              )
+            else
+              DropdownButtonFormField<String>(
+                initialValue: _selectedInsuranceCompanyId,
+                isExpanded: true,
+                dropdownColor: RoadRescueColors.surface,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  labelText: 'Insurance Company',
+                  labelStyle: TextStyle(color: Colors.white70),
+                  prefixIcon: Icon(
+                    Icons.business_outlined,
+                    color: RoadRescueColors.accent,
+                  ),
                 ),
+                hint: const Text('Select insurance company'),
+                items: insuranceCompanies
+                    .map(
+                      (company) => DropdownMenuItem<String>(
+                        value: company.id,
+                        child: Text(company.name),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() => _selectedInsuranceCompanyId = value);
+                },
               ),
-              hint: const Text('Select insurance company'),
-              items: insuranceCompanies
-                  .map(
-                    (company) => DropdownMenuItem<String>(
-                      value: company.id,
-                      child: Text(company.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                setState(() => _selectedInsuranceCompanyId = value);
-              },
-            ),
             _buildInsuranceTextField(
               controller: _policyNumberController,
               label: 'Policy Number',

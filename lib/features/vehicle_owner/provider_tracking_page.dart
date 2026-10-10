@@ -10,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../messaging/assistance_chat_page.dart';
 import 'driver_job_status_page.dart';
+import 'insurance_claim_result_page.dart';
 
 class ProviderTrackingPage extends StatefulWidget {
   final String requestId;
@@ -94,6 +95,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   bool _isCancelling = false;
 
   bool _hasNavigatedToDriverJobStatus = false;
+  bool _hasNavigatedToInsuranceResult = false;
 
   final Set<Marker> _markers = {};
 
@@ -268,6 +270,15 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               return;
             }
 
+            final String insuranceStatus =
+                data['insuranceStatus']?.toString().toLowerCase() ?? '';
+            if (data['insuranceClaim'] == true &&
+                (insuranceStatus == 'approved' ||
+                    insuranceStatus == 'rejected')) {
+              await _navigateToInsuranceResult(data);
+              return;
+            }
+
             setState(() {
               _providerLatitude = providerLatitude;
               _providerLongitude = providerLongitude;
@@ -326,6 +337,28 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
             debugPrint('Request tracking listener error: $error');
           },
         );
+  }
+
+  Future<void> _navigateToInsuranceResult(
+    Map<String, dynamic> requestData,
+  ) async {
+    if (!mounted || _hasNavigatedToInsuranceResult) return;
+    _hasNavigatedToInsuranceResult = true;
+
+    await _stopTracking();
+    await _requestSubscription?.cancel();
+    _requestSubscription = null;
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => InsuranceClaimResultPage(
+          requestData: {'id': widget.requestId, ...requestData},
+          userData: widget.userData,
+          issue: widget.issue,
+        ),
+      ),
+    );
   }
   // ============================================================
   // NAVIGATE TO DRIVER JOB STATUS

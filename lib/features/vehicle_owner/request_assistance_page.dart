@@ -6,8 +6,23 @@ import '../../services/insurance_company.dart';
 
 class RequestAssistancePage extends StatefulWidget {
   final Map<String, dynamic> userData;
+  final String? initialIssue;
+  final String initialCustomIssue;
+  final String? initialInsuranceCompanyId;
+  final String initialPolicyNumber;
+  final String initialInsuranceDescription;
+  final bool startInsuranceClaim;
 
-  const RequestAssistancePage({super.key, required this.userData});
+  const RequestAssistancePage({
+    super.key,
+    required this.userData,
+    this.initialIssue,
+    this.initialCustomIssue = '',
+    this.initialInsuranceCompanyId,
+    this.initialPolicyNumber = '',
+    this.initialInsuranceDescription = '',
+    this.startInsuranceClaim = false,
+  });
 
   @override
   State<RequestAssistancePage> createState() => _RequestAssistancePageState();
@@ -18,6 +33,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
 
   String? _selectedIssue;
   String? _selectedInsuranceCompanyId;
+  bool _isInsuranceClaim = false;
 
   final List<Map<String, dynamic>> _commonIssues = [
     {
@@ -43,6 +59,15 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _selectedIssue = widget.initialIssue;
+    _selectedInsuranceCompanyId = widget.initialInsuranceCompanyId;
+    _isInsuranceClaim = widget.startInsuranceClaim;
+    _customIssueController.text = widget.initialCustomIssue;
+  }
+
+  @override
   void dispose() {
     _customIssueController.dispose();
     super.dispose();
@@ -59,18 +84,27 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
   }
 
   void _submitRequest() {
-    if (_selectedIssue == null) {
+    if (_isInsuranceClaim &&
+        insuranceCompanyById(_selectedInsuranceCompanyId) == null) {
+      _showMessage('Please select your insurance company.');
+      return;
+    }
+
+    if (!_isInsuranceClaim && _selectedIssue == null) {
       _showMessage('Please select an issue first.');
       return;
     }
 
-    if (_selectedIssue == 'Custom Issue' &&
+    if (!_isInsuranceClaim &&
+        _selectedIssue == 'Custom Issue' &&
         _customIssueController.text.trim().isEmpty) {
       _showMessage('Please describe your issue.');
       return;
     }
 
-    final String issue = _selectedIssue == 'Custom Issue'
+    final String issue = _isInsuranceClaim
+        ? 'Insurance Claim'
+        : _selectedIssue == 'Custom Issue'
         ? _customIssueController.text.trim()
         : _selectedIssue!;
 
@@ -81,6 +115,10 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
           userData: {
             ...widget.userData,
             '_selectedInsuranceCompanyId': _selectedInsuranceCompanyId,
+            '_startInsuranceClaim': _isInsuranceClaim,
+            '_claimSelectedOnRequestPage': _isInsuranceClaim,
+            '_retryPolicyNumber': widget.initialPolicyNumber,
+            '_retryInsuranceDescription': widget.initialInsuranceDescription,
           },
           issue: issue,
         ),
@@ -188,86 +226,116 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
 
               const SizedBox(height: 28),
 
-              const Text(
-                'Select an issue',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              _buildInsuranceClaimCard(),
 
-              const SizedBox(height: 8),
-
-              const Text(
-                'Choose the problem you are experiencing with your vehicle.',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // Common issue cards
-              ..._commonIssues.map(
-                (issue) => _buildIssueCard(
-                  title: issue['title'] as String,
-                  subtitle: issue['subtitle'] as String,
-                  icon: issue['icon'] as IconData,
-                ),
-              ),
-
-              // Custom issue
-              _buildCustomIssueCard(),
-
-              const SizedBox(height: 30),
-
-              const Text(
-                'Insurance Company (Optional)',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedInsuranceCompanyId,
-                isExpanded: true,
-                dropdownColor: RoadRescueColors.surface,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Select insurance company',
-                  hintStyle: const TextStyle(color: Colors.white54),
-                  filled: true,
-                  fillColor: RoadRescueColors.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: BorderSide.none,
+              if (_isInsuranceClaim) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Select your insurance company',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: null,
-                    child: Text('Not insured / Not sure'),
-                  ),
-                  ...insuranceCompanies.map(
-                    (company) => DropdownMenuItem(
-                      value: company.id,
-                      child: Text(company.name),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedInsuranceCompanyId,
+                  isExpanded: true,
+                  dropdownColor: RoadRescueColors.surface,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Select insurance company',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: RoadRescueColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
                     ),
                   ),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _selectedInsuranceCompanyId = value;
-                  });
-                },
-              ),
+                  items: insuranceCompanies
+                      .map(
+                        (company) => DropdownMenuItem<String>(
+                          value: company.id,
+                          child: Text(company.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedInsuranceCompanyId = value;
+                    });
+                  },
+                ),
+              ],
 
-              const SizedBox(height: 20),
+              if (_isInsuranceClaim) ...[
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: RoadRescueColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: RoadRescueColors.accent.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: RoadRescueColors.accent,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'You do not need to select a separate roadside issue '
+                          'for an insurance claim. Add the incident details on '
+                          'the next screen.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 24),
+                const Text(
+                  'Select an issue',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Choose the problem you are experiencing with your vehicle.',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ..._commonIssues.map(
+                  (issue) => _buildIssueCard(
+                    title: issue['title'] as String,
+                    subtitle: issue['subtitle'] as String,
+                    icon: issue['icon'] as IconData,
+                  ),
+                ),
+                _buildCustomIssueCard(),
+              ],
+
+              const SizedBox(height: 30),
 
               // Request button
               SizedBox(
@@ -315,6 +383,84 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsuranceClaimCard() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isInsuranceClaim = !_isInsuranceClaim;
+          if (!_isInsuranceClaim) _selectedInsuranceCompanyId = null;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _isInsuranceClaim
+              ? RoadRescueColors.accent.withValues(alpha: 0.10)
+              : RoadRescueColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: _isInsuranceClaim
+                ? RoadRescueColors.accent
+                : Colors.white.withValues(alpha: 0.06),
+            width: _isInsuranceClaim ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: _isInsuranceClaim
+                    ? RoadRescueColors.accent
+                    : RoadRescueColors.background,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(
+                Icons.shield_outlined,
+                color: _isInsuranceClaim ? Colors.black : Colors.white70,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 15),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Insurance Claim',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Send this request to your insurance provider',
+                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              _isInsuranceClaim
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: _isInsuranceClaim
+                  ? RoadRescueColors.accent
+                  : Colors.white38,
+              size: 24,
+            ),
+          ],
         ),
       ),
     );
@@ -396,9 +542,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                     ? RoadRescueColors.accent
                     : Colors.transparent,
                 border: Border.all(
-                  color: isSelected
-                      ? RoadRescueColors.accent
-                      : Colors.white38,
+                  color: isSelected ? RoadRescueColors.accent : Colors.white38,
                   width: 2,
                 ),
               ),
