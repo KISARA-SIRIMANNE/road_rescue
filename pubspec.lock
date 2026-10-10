@@ -240,7 +240,7 @@ packages:
       sha256: de1e678209a0c974d8aa4cff39f17d61d2dc263aa64993168360f9be4efb8e91
       url: "https://pub.dev"
     source: hosted
-    version: "4.10.0"
+    version: "3.11.0"
   firebase_messaging:
     dependency: "direct main"
     description:
