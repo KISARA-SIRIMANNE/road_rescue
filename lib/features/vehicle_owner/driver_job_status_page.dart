@@ -120,6 +120,11 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
       return;
     }
 
+    final String paymentPreference =
+        widget.userData['paymentPreference']?.toString() == 'cash'
+        ? 'cash'
+        : 'card';
+
     // ----------------------------------------------------------
     // CONFIRM PAYMENT
     // ----------------------------------------------------------
@@ -134,7 +139,9 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           content: Text(
-            'Confirm payment of ${_formatAmount(_jobAmount!)} for the roadside assistance service?',
+            paymentPreference == 'cash'
+                ? 'Choose cash as your payment method for ${_formatAmount(_jobAmount!)}. The provider must confirm receipt before the request is marked paid.'
+                : 'Continue to card checkout for ${_formatAmount(_jobAmount!)}? Card checkout is currently a demo.',
             style: const TextStyle(color: Colors.white70, height: 1.5),
           ),
           actions: [
@@ -155,64 +162,40 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
                 backgroundColor: RoadRescueColors.accent,
                 foregroundColor: Colors.black,
               ),
-              child: const Text('Pay Now'),
+              child: Text(paymentPreference == 'cash' ? 'Continue' : 'Pay Now'),
             ),
           ],
         );
       },
     );
 
-    if (confirmed == true && mounted) {
-      Navigator.push(
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isPaying = true);
+    try {
+      final Object? paymentResult = await Navigator.push<Object?>(
         context,
-        MaterialPageRoute(
-          builder: (context) =>
-              PaymentPage(requestId: widget.requestId, amount: _jobAmount!),
+        MaterialPageRoute<Object?>(
+          builder: (context) => PaymentPage(
+            requestId: widget.requestId,
+            amount: _jobAmount!,
+            paymentPreference: paymentPreference,
+            billingName: widget.userData['billingName']?.toString() ?? '',
+          ),
         ),
       );
-    }
 
-    if (confirmed != true) {
-      return;
-    }
-
-    // ----------------------------------------------------------
-    // UPDATE FIRESTORE
-    // ----------------------------------------------------------
-
-    setState(() {
-      _isPaying = true;
-    });
-
-    try {
-      await _firestore
-          .collection('assistance_requests')
-          .doc(widget.requestId)
-          .update({
-            'paymentStatus': 'paid',
-            'paymentPaidBy': widget.userData['uid'],
-            'paymentPaidAt': FieldValue.serverTimestamp(),
-            'paymentUpdatedAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-
-      if (!mounted) {
-        return;
+      if (!mounted) return;
+      if (paymentResult == 'cash') {
+        _showMessage(
+          'Cash selected. Your provider must confirm receipt after payment.',
+        );
       }
-
-      _showMessage('Payment completed successfully.');
-    } catch (e) {
-      debugPrint('Payment error: $e');
-
-      if (mounted) {
-        _showMessage('Unable to complete payment.');
-      }
+    } catch (error) {
+      debugPrint('Opening payment page failed: $error');
+      if (mounted) _showMessage('Unable to open payment. Please try again.');
     } finally {
-      if (mounted) {
-        setState(() {
-          _isPaying = false;
-        });
-      }
+      if (mounted) setState(() => _isPaying = false);
     }
   }
 

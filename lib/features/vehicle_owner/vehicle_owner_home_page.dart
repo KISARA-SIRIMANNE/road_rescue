@@ -6,6 +6,7 @@ import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'request_assistance_page.dart';
+import 'driver_payment_information_page.dart';
 import 'vehicle_owner_notifications_page.dart';
 
 class VehicleOwnerHomePage extends StatefulWidget {
@@ -30,6 +31,9 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
   String _contactNumber = '';
   List<Map<String, dynamic>> _vehicles = [];
   String? _currentVehicleId;
+  String _paymentPreference = 'card';
+  String _billingName = '';
+  String _billingAddress = '';
   List<Map<String, dynamic>> _requestHistory = [];
   String? _requestHistoryError;
   Stream<QuerySnapshot<Map<String, dynamic>>>? _notificationsStream;
@@ -54,6 +58,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
   // ============================================================
 
   int _selectedIndex = 0;
+  int _requestHistoryFilterIndex = 0;
 
   // ============================================================
   // USER DATA
@@ -64,6 +69,12 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
     super.initState();
     _profilePhotoUrl = widget.userData['profilePhotoUrl']?.toString() ?? '';
     _contactNumber = widget.userData['contactNumber']?.toString() ?? '';
+    _paymentPreference =
+        widget.userData['paymentPreference']?.toString() == 'cash'
+        ? 'cash'
+        : 'card';
+    _billingName = widget.userData['billingName']?.toString() ?? '';
+    _billingAddress = widget.userData['billingAddress']?.toString() ?? '';
     _loadVehiclesFromUserData();
     if (userId.isNotEmpty) {
       _notificationsStream = _firestore
@@ -809,6 +820,159 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                               registration,
                               style: const TextStyle(color: greyColor),
                             ),
+                      trailing: IconButton(
+                        tooltip: 'Remove $type',
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final bool? confirmed =
+                                    await showDialog<bool>(
+                                      context: dialogContext,
+                                      builder: (context) => AlertDialog(
+                                        backgroundColor: cardColor,
+                                        title: const Text(
+                                          'Remove vehicle?',
+                                          style: TextStyle(
+                                            color: whiteColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: Text(
+                                          'Remove $type from your saved vehicles? '
+                                          'Past requests will keep their vehicle details.',
+                                          style: const TextStyle(
+                                            color: greyColor,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor:
+                                                  RoadRescueColors.error,
+                                            ),
+                                            child: const Text('Remove'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                if (confirmed != true || !dialogContext.mounted) {
+                                  return;
+                                }
+
+                                final List<Map<String, dynamic>> updatedVehicles =
+                                    vehicles
+                                        .where(
+                                          (vehicle) => vehicle['id'] != id,
+                                        )
+                                        .toList();
+                                final String? nextVehicleId =
+                                    selectedVehicleId == id
+                                    ? updatedVehicles.isEmpty
+                                          ? null
+                                          : updatedVehicles.first['id']
+                                                ?.toString()
+                                    : selectedVehicleId;
+                                Map<String, dynamic>? nextVehicle;
+                                for (final vehicle in updatedVehicles) {
+                                  if (vehicle['id'] == nextVehicleId) {
+                                    nextVehicle = vehicle;
+                                    break;
+                                  }
+                                }
+
+                                setDialogState(() => isSaving = true);
+                                try {
+                                  final Map<String, dynamic> update = {
+                                    'vehicles': updatedVehicles,
+                                    'currentVehicleId': nextVehicleId ?? '',
+                                    'updatedAt':
+                                        FieldValue.serverTimestamp(),
+                                  };
+                                  if (nextVehicle == null) {
+                                    update.addAll({
+                                      'vehicleType': FieldValue.delete(),
+                                      'registrationNumber':
+                                          FieldValue.delete(),
+                                      'vehicleNumber': FieldValue.delete(),
+                                    });
+                                  } else {
+                                    final Object typeValue =
+                                        nextVehicle['vehicleType'] as Object;
+                                    final String nextRegistration =
+                                        nextVehicle['registrationNumber']
+                                                ?.toString() ??
+                                            '';
+                                    update.addAll({
+                                      'vehicleType': typeValue,
+                                      'registrationNumber': nextRegistration,
+                                      'vehicleNumber': nextRegistration,
+                                    });
+                                  }
+
+                                  await _firestore
+                                      .collection('users')
+                                      .doc(userId)
+                                      .update(update);
+                                  if (!mounted || !dialogContext.mounted) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    _vehicles = updatedVehicles;
+                                    _currentVehicleId = nextVehicleId;
+                                    widget.userData['vehicles'] =
+                                        updatedVehicles;
+                                    widget.userData['currentVehicleId'] =
+                                        nextVehicleId ?? '';
+                                    if (nextVehicle == null) {
+                                      widget.userData.remove('vehicleType');
+                                      widget.userData.remove(
+                                        'registrationNumber',
+                                      );
+                                      widget.userData.remove('vehicleNumber');
+                                    } else {
+                                      widget.userData['vehicleType'] =
+                                          nextVehicle['vehicleType'];
+                                      widget.userData['registrationNumber'] =
+                                          nextVehicle['registrationNumber'] ??
+                                          '';
+                                      widget.userData['vehicleNumber'] =
+                                          nextVehicle['registrationNumber'] ??
+                                          '';
+                                    }
+                                  });
+                                  setDialogState(() {
+                                    vehicles
+                                      ..clear()
+                                      ..addAll(updatedVehicles);
+                                    selectedVehicleId = nextVehicleId;
+                                    isSaving = false;
+                                  });
+                                } catch (error) {
+                                  debugPrint(
+                                    'Removing saved vehicle failed: $error',
+                                  );
+                                  if (dialogContext.mounted) {
+                                    setDialogState(() {
+                                      isSaving = false;
+                                      formError =
+                                          'Could not remove this vehicle. Please try again.';
+                                    });
+                                  }
+                                }
+                              },
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: RoadRescueColors.error,
+                        ),
+                      ),
                     );
                   }),
                   if (isAddingVehicle) ...[
@@ -896,9 +1060,12 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
             TextButton(
               onPressed: isSaving
                   ? null
-                  : () {
-                      FocusScope.of(dialogContext).unfocus();
-                      Navigator.of(dialogContext).pop();
+                  : () async {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      await WidgetsBinding.instance.endOfFrame;
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
                     },
               child: const Text('Cancel'),
             ),
@@ -1054,6 +1221,7 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                   ...(doc.data() as Map<String, dynamic>),
                 },
               )
+              .where((request) => request['ownerHidden'] != true)
               .toList()
             ..sort((a, b) {
               DateTime? createdAt(Map<String, dynamic> request) {
@@ -1062,7 +1230,6 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                 if (value is DateTime) return value;
                 return null;
               }
-
               final aDate = createdAt(a);
               final bDate = createdAt(b);
               if (aDate == null) return bDate == null ? 0 : 1;
@@ -1085,6 +1252,86 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
         _requestHistoryError = 'Unable to load your requests right now.';
       });
       debugPrint('Recent requests load error: $e');
+    }
+  }
+
+  Future<void> _removeRequestFromHistory(
+    Map<String, dynamic> request,
+  ) async {
+    final String status = request['status']?.toString().toLowerCase() ?? '';
+    if (status != 'completed' && status != 'cancelled') {
+      _showComingSoon(
+        'Only completed or cancelled requests can be removed.',
+      );
+      return;
+    }
+
+    final String requestId =
+        request['id']?.toString() ?? request['requestId']?.toString() ?? '';
+    if (requestId.isEmpty) {
+      _showComingSoon('Could not identify this request.');
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text(
+          'Remove request?',
+          style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'This completed request will be hidden from your request list. '
+          'Its payment and conversation records will be retained.',
+          style: TextStyle(color: greyColor, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(
+              foregroundColor: RoadRescueColors.error,
+            ),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _firestore
+          .collection('assistance_requests')
+          .doc(requestId)
+          .update({
+            'ownerHidden': true,
+            'ownerHiddenAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      if (!mounted) return;
+      setState(() {
+        _requestHistory.removeWhere(
+          (item) =>
+              item['id']?.toString() == requestId ||
+              item['requestId']?.toString() == requestId,
+        );
+      });
+      _showComingSoon('Request removed from your history.');
+    } on FirebaseException catch (error) {
+      debugPrint('Removing request from history failed: ${error.code}');
+      _showComingSoon(
+        error.code == 'permission-denied'
+            ? 'You do not have permission to remove this request.'
+            : 'Could not remove this request. Please try again.',
+      );
+    } catch (error) {
+      debugPrint('Removing request from history failed: $error');
+      _showComingSoon('Could not remove this request. Please try again.');
     }
   }
 
@@ -1364,7 +1611,10 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
     });
   }
 
-  Widget _buildRecentRequests({bool showAll = false}) {
+  Widget _buildRecentRequests({
+    bool showAll = false,
+    int? statusFilterIndex,
+  }) {
     if (_isLoadingRequests) {
       return Container(
         width: double.infinity,
@@ -1448,9 +1698,41 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
       );
     }
 
-    final requests = showAll
+    final List<Map<String, dynamic>> filteredRequests =
+        statusFilterIndex == null || statusFilterIndex == 0
         ? _requestHistory
-        : _requestHistory.take(3).toList();
+        : _requestHistory.where((request) {
+            final String status =
+                request['status']?.toString().toLowerCase() ?? '';
+            final bool isPast =
+                status == 'completed' || status == 'cancelled';
+            return statusFilterIndex == 2 ? isPast : !isPast;
+          }).toList();
+    final requests = showAll
+        ? filteredRequests
+        : filteredRequests.take(3).toList();
+
+    if (requests.isEmpty) {
+      final String emptyMessage = statusFilterIndex == 2
+          ? 'Completed or cancelled requests will appear here.'
+          : statusFilterIndex == 1
+          ? 'You have no active requests right now.'
+          : 'Requests you create will appear here.';
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: borderColor),
+        ),
+        child: Text(
+          emptyMessage,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: greyColor, fontSize: 12.5),
+        ),
+      );
+    }
 
     return Column(
       children: requests.map((request) {
@@ -1542,6 +1824,17 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
                   ),
                 ),
               ),
+              if (status.toLowerCase() == 'completed' ||
+                  status.toLowerCase() == 'cancelled')
+                IconButton(
+                  tooltip: 'Remove request',
+                  onPressed: () => _removeRequestFromHistory(request),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: RoadRescueColors.error,
+                    size: 20,
+                  ),
+                ),
             ],
           ),
         );
@@ -1566,10 +1859,39 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
           children: [
             _buildPageHeader(
               title: 'My Requests',
-              subtitle: 'All roadside assistance requests you have created.',
+              subtitle: 'View active and past roadside assistance requests.',
             ),
             const SizedBox(height: 28),
-            _buildRecentRequests(showAll: true),
+            SegmentedButton<int>(
+              segments: const [
+                ButtonSegment<int>(
+                  value: 0,
+                  label: Text('All'),
+                  icon: Icon(Icons.list_alt_rounded),
+                ),
+                ButtonSegment<int>(
+                  value: 1,
+                  label: Text('Active'),
+                  icon: Icon(Icons.hourglass_top_rounded),
+                ),
+                ButtonSegment<int>(
+                  value: 2,
+                  label: Text('Past'),
+                  icon: Icon(Icons.history_rounded),
+                ),
+              ],
+              selected: {_requestHistoryFilterIndex},
+              onSelectionChanged: (selection) {
+                setState(() {
+                  _requestHistoryFilterIndex = selection.first;
+                });
+              },
+            ),
+            const SizedBox(height: 18),
+            _buildRecentRequests(
+              showAll: true,
+              statusFilterIndex: _requestHistoryFilterIndex,
+            ),
           ],
         ),
       ),
@@ -1749,6 +2071,8 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
             title: 'Email',
             value: profileEmail.isEmpty ? 'Not available' : profileEmail,
           ),
+          const SizedBox(height: 18),
+          _buildPaymentInformationCard(),
           const SizedBox(height: 22),
           SizedBox(
             width: double.infinity,
@@ -1772,6 +2096,99 @@ class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
         ],
       ),
     );
+  }
+
+  Widget _buildPaymentInformationCard() {
+    final String paymentLabel = _paymentPreference == 'cash'
+        ? 'Cash'
+        : 'Card (demo)';
+    final String billingLabel = _billingName.isEmpty
+        ? 'Billing details not added'
+        : _billingName;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.account_balance_wallet_outlined,
+                color: yellowColor,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Payment information',
+                  style: TextStyle(
+                    color: whiteColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: _openPaymentInformation,
+                child: const Text('Edit'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Preferred method: $paymentLabel',
+            style: const TextStyle(color: greyColor, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            billingLabel,
+            style: const TextStyle(color: whiteColor, fontSize: 13),
+          ),
+          if (_billingAddress.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              _billingAddress,
+              style: const TextStyle(color: greyColor, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openPaymentInformation() async {
+    if (userId.isEmpty) {
+      _showComingSoon('Unable to identify your account.');
+      return;
+    }
+
+    final Map<String, String>? result = await Navigator.of(context)
+        .push<Map<String, String>>(
+          MaterialPageRoute<Map<String, String>>(
+            builder: (context) => DriverPaymentInformationPage(
+              userId: userId,
+              paymentPreference: _paymentPreference,
+              billingName: _billingName,
+              billingAddress: _billingAddress,
+            ),
+          ),
+        );
+
+    if (!mounted || result == null) return;
+    setState(() {
+      _paymentPreference = result['paymentPreference'] ?? 'card';
+      _billingName = result['billingName'] ?? '';
+      _billingAddress = result['billingAddress'] ?? '';
+      widget.userData['paymentPreference'] = _paymentPreference;
+      widget.userData['billingName'] = _billingName;
+      widget.userData['billingAddress'] = _billingAddress;
+    });
   }
 
   // ============================================================

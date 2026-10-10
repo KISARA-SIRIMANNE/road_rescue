@@ -9,8 +9,16 @@ import 'review_rating_page.dart';
 class PaymentPage extends StatefulWidget {
   final String requestId;
   final double amount;
+  final String paymentPreference;
+  final String billingName;
 
-  const PaymentPage({super.key, required this.requestId, required this.amount});
+  const PaymentPage({
+    super.key,
+    required this.requestId,
+    required this.amount,
+    this.paymentPreference = 'card',
+    this.billingName = '',
+  });
 
   @override
   State<PaymentPage> createState() => _PaymentPageState();
@@ -32,6 +40,15 @@ class _PaymentPageState extends State<PaymentPage> {
   bool _isProcessing = false;
   bool _showCvv = false;
   bool _paymentSuccessful = false;
+  bool _cashPaymentSelected = false;
+
+  bool get _prefersCash => widget.paymentPreference == 'cash';
+
+  @override
+  void initState() {
+    super.initState();
+    _cardHolderController.text = widget.billingName;
+  }
 
   @override
   void dispose() {
@@ -112,6 +129,11 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _processPayment() async {
+    if (_prefersCash) {
+      await _selectCashPayment();
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -165,11 +187,72 @@ class _PaymentPageState extends State<PaymentPage> {
           backgroundColor: Colors.redAccent,
         ),
       );
+    } finally {
+      if (mounted) {
+        _cardNumberController.clear();
+        _expiryController.clear();
+        _cvvController.clear();
+      }
+    }
+  }
+
+  Future<void> _selectCashPayment() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _isProcessing = true);
+
+    try {
+      await _firestore
+          .collection('assistance_requests')
+          .doc(widget.requestId)
+          .update({
+            'paymentStatus': 'pending',
+            'paymentMethod': 'cash',
+            'cashPaymentSelectedAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _cashPaymentSelected = true;
+      });
+    } on FirebaseException catch (error) {
+      debugPrint('Selecting cash payment failed: ${error.code}');
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            error.code == 'permission-denied'
+                ? 'You do not have permission to update this payment.'
+                : 'Could not select cash payment. Please try again.',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } catch (error) {
+      debugPrint('Selecting cash payment failed: $error');
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not select cash payment. Please try again.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_cashPaymentSelected) {
+      return _buildCashPaymentSelectedPage();
+    }
+
+    if (_prefersCash) {
+      return _buildCashPaymentPage();
+    }
+
     if (_paymentSuccessful) {
       return _buildPaymentSuccessPage();
     }
@@ -420,6 +503,128 @@ class _PaymentPageState extends State<PaymentPage> {
                   child: Text(
                     'Demo payment • No real money will be charged',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCashPaymentPage() {
+    return Scaffold(
+      backgroundColor: RoadRescueColors.background,
+      appBar: AppBar(title: const Text('Cash Payment')),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            _buildAmountCard(),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: RoadRescueColors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: RoadRescueColors.border),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.payments_outlined,
+                    color: RoadRescueColors.accent,
+                    size: 30,
+                  ),
+                  SizedBox(height: 12),
+                  Text(
+                    'Pay your provider in cash',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'Confirm cash as your payment method. The amount remains '
+                    'due until the roadside provider confirms receipt. Do not '
+                    'confirm cash here before handing it to the provider.',
+                    style: TextStyle(
+                      color: RoadRescueColors.muted,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
+            SizedBox(
+              height: 54,
+              child: ElevatedButton(
+                onPressed: _isProcessing ? null : _processPayment,
+                child: _isProcessing
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: RoadRescueColors.background,
+                        ),
+                      )
+                    : const Text('Confirm cash payment method'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCashPaymentSelectedPage() {
+    return Scaffold(
+      backgroundColor: RoadRescueColors.background,
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.payments_outlined,
+                  color: RoadRescueColors.accent,
+                  size: 64,
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Cash payment selected',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 23,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Pay Rs. ${widget.amount.toStringAsFixed(2)} directly to '
+                  'your provider. The provider must confirm receipt before '
+                  'the request is marked paid.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: RoadRescueColors.muted,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop('cash'),
+                    child: const Text('Back to job status'),
                   ),
                 ),
               ],
