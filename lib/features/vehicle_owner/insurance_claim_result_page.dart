@@ -197,26 +197,12 @@ class InsuranceClaimResultPage extends StatelessWidget {
   }
 
   void _requestAgain(BuildContext context) {
-    final String submittedIssue =
-        requestData['issueType']?.toString().trim() ?? issue;
-    final String issueChoice =
-        const {
-          'Flat Tire',
-          'Battery Issue',
-          'Towing',
-          'Fuel Issue',
-        }.contains(submittedIssue)
-        ? submittedIssue
-        : 'Custom Issue';
-
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (context) => RequestAssistancePage(
           userData: userData,
-          initialIssue: issueChoice,
-          initialCustomIssue: issueChoice == 'Custom Issue'
-              ? submittedIssue
-              : '',
+          initialIssue: null,
+          initialCustomIssue: '',
           initialInsuranceCompanyId: requestData['insuranceCompanyId']
               ?.toString(),
           initialPolicyNumber: requestData['policyNumber']?.toString() ?? '',
