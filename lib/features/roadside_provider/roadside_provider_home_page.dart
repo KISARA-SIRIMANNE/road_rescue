@@ -2862,43 +2862,13 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // SAVE PROFILE DETAILS
   // ============================================================
 
-<<<<<<< Updated upstream
-  Future<bool> _saveProfileDetails({
-=======
   Future<String?> _saveProfileDetails({
->>>>>>> Stashed changes
     required String name,
     required String workshopLocation,
     required String contactNumber,
   }) async {
-<<<<<<< Updated upstream
-    final String trimmedName = name.trim();
-    final String trimmedLocation = workshopLocation.trim();
-    final String trimmedContactNumber = contactNumber.trim();
-
-    if (trimmedName.isEmpty) {
-      _showMessage('Provider name is required.');
-      return false;
-    }
-
-    if (trimmedLocation.isEmpty) {
-      _showMessage('Workshop location is required.');
-      return false;
-    }
-
-    if (trimmedContactNumber.isNotEmpty &&
-        !RegExp(r'^\+?[0-9\s()-]{7,20}$').hasMatch(trimmedContactNumber)) {
-      _showMessage('Enter a valid contact number.');
-      return false;
-    }
-
-    if (_providerId.isEmpty) {
-      _showMessage('Unable to identify provider account.');
-      return false;
-=======
     if (_providerId.isEmpty) {
       return 'Unable to identify provider account.';
->>>>>>> Stashed changes
     }
 
     try {
@@ -2908,46 +2878,10 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         'contactNumber': contactNumber,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-<<<<<<< Updated upstream
-
-      if (!mounted) {
-        return false;
-      }
-
-      setState(() {
-        _profileName = trimmedName;
-        _profileWorkshopLocation = trimmedLocation;
-        _profileContactNumber = trimmedContactNumber;
-
-        // Update the local userData map as well.
-        // This makes the new values available to
-        // other pages opened from this page.
-        widget.userData['name'] = trimmedName;
-        widget.userData['workshopLocation'] = trimmedLocation;
-        widget.userData['contactNumber'] = trimmedContactNumber;
-      });
-
-      _showMessage('Profile updated successfully.');
-      return true;
-    } catch (e) {
-      debugPrint('Error saving provider profile: $e');
-
-      if (mounted) {
-        _showMessage('Failed to update profile. Please try again.');
-      }
-      return false;
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSavingProfile = false;
-        });
-      }
-=======
       return null;
     } catch (e) {
       debugPrint('Error saving provider profile: $e');
       return 'Failed to update profile. Please try again.';
->>>>>>> Stashed changes
     }
   }
 
@@ -2955,12 +2889,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // EDIT PROFILE DIALOG
   // ============================================================
 
-<<<<<<< Updated upstream
-  void _showEditProfileDialog() {
-    bool isSaving = false;
-=======
   Future<void> _showEditProfileDialog() async {
->>>>>>> Stashed changes
     final TextEditingController nameController = TextEditingController(
       text: _profileName,
     );
@@ -2992,195 +2921,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
                 ),
-<<<<<<< Updated upstream
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // ------------------------------------------------
-                    // PROVIDER NAME
-                    // ------------------------------------------------
-
-                    TextField(
-                      controller: nameController,
-                      textCapitalization: TextCapitalization.words,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Provider Name',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: Icon(
-                          Icons.person_outline,
-                          color: _yellowColor,
-                        ),
-                        filled: true,
-                        fillColor: _backgroundColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // ------------------------------------------------
-                    // WORKSHOP LOCATION
-                    // ------------------------------------------------
-                    TextField(
-                      controller: workshopController,
-                      textCapitalization: TextCapitalization.words,
-                      maxLines: 2,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Workshop Location',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: Icon(
-                          Icons.home_work_outlined,
-                          color: _yellowColor,
-                        ),
-                        filled: true,
-                        fillColor: _backgroundColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    TextField(
-                      controller: contactNumberController,
-                      keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        labelText: 'Contact Number (optional)',
-                        labelStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: Icon(
-                          Icons.phone_outlined,
-                          color: _yellowColor,
-                        ),
-                        filled: true,
-                        fillColor: _backgroundColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // ------------------------------------------------
-                    // EMAIL - READ ONLY
-                    // ------------------------------------------------
-                    TextField(
-                      enabled: false,
-                      controller: emailController,
-                      style: const TextStyle(color: Colors.white38),
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        labelStyle: const TextStyle(color: Colors.white38),
-                        prefixIcon: const Icon(
-                          Icons.email_outlined,
-                          color: Colors.white38,
-                        ),
-                        filled: true,
-                        fillColor: _backgroundColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-
-              actions: [
-                // --------------------------------------------------
-                // CANCEL
-                // --------------------------------------------------
-
-                TextButton(
-                  onPressed: isSaving
-                      ? null
-                      : () {
-                          Navigator.pop(dialogContext);
-                        },
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(color: Colors.white54),
-                  ),
-                ),
-
-                // --------------------------------------------------
-                // SAVE
-                // --------------------------------------------------
-                ElevatedButton(
-                  onPressed: isSaving
-                      ? null
-                      : () async {
-                          final String name = nameController.text.trim();
-
-                          final String workshopLocation = workshopController
-                              .text
-                              .trim();
-                          final String contactNumber = contactNumberController
-                              .text
-                              .trim();
-
-                          if (name.isEmpty) {
-                            _showMessage('Please enter the provider name.');
-                            return;
-                          }
-
-                          if (workshopLocation.isEmpty) {
-                            _showMessage('Please enter the workshop location.');
-                            return;
-                          }
-
-                          if (contactNumber.isNotEmpty &&
-                              !RegExp(r'^\+?[0-9\s()-]{7,20}$')
-                                  .hasMatch(contactNumber)) {
-                            _showMessage('Enter a valid contact number.');
-                            return;
-                          }
-
-                          isSaving = true;
-                          setDialogState(() {});
-                          final bool saved = await _saveProfileDetails(
-                            name: name,
-                            workshopLocation: workshopLocation,
-                            contactNumber: contactNumber,
-                          );
-
-                          if (saved && dialogContext.mounted) {
-                            Navigator.pop(dialogContext);
-                          } else if (dialogContext.mounted) {
-                            isSaving = false;
-                            setDialogState(() {});
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _yellowColor,
-                    foregroundColor: Colors.black,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: isSaving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.black,
-=======
                 title: const Text(
                   'Edit Profile',
                   style: TextStyle(
@@ -3208,7 +2948,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: BorderSide.none,
->>>>>>> Stashed changes
                           ),
                         ),
                       ),
@@ -3390,8 +3129,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       workshopController.dispose();
       contactNumberController.dispose();
       emailController.dispose();
-<<<<<<< Updated upstream
-=======
     }
 
     if (updatedDetails == null || !mounted) {
@@ -3405,7 +3142,6 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       widget.userData['name'] = _profileName;
       widget.userData['workshopLocation'] = _profileWorkshopLocation;
       widget.userData['contactNumber'] = _profileContactNumber;
->>>>>>> Stashed changes
     });
     _showMessage('Profile updated successfully.');
   }
