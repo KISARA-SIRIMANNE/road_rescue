@@ -8,6 +8,7 @@ import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../messaging/assistance_chat_page.dart';
 import 'driver_job_status_page.dart';
 
 class ProviderTrackingPage extends StatefulWidget {
@@ -1005,7 +1006,33 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               ),
             ),
           ),
+          IconButton(
+            tooltip: 'Message provider',
+            onPressed: _openProviderChat,
+            icon: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: RoadRescueColors.accent,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _openProviderChat() {
+    final String driverName =
+        widget.userData['name']?.toString().trim().isNotEmpty == true
+        ? widget.userData['name'].toString().trim()
+        : 'Driver';
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => AssistanceChatPage(
+          requestId: widget.requestId,
+          currentUserName: driverName,
+          otherPartyName: widget.providerName,
+          title: 'Chat with provider',
+        ),
       ),
     );
   }

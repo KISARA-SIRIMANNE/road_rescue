@@ -365,6 +365,11 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
           ? widget.userData['vehicleType'].toString().trim()
           : 'Vehicle';
 
+      final String registrationNumber =
+          widget.userData['registrationNumber']?.toString().trim() ??
+          widget.userData['vehicleNumber']?.toString().trim() ??
+          '';
+
       // ------------------------------------------------------------
       // 7. Get current position
       // ------------------------------------------------------------
@@ -386,6 +391,8 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
         'userId': userId,
         'userName': userName,
         'vehicleType': vehicleType,
+        'vehicleId': widget.userData['currentVehicleId']?.toString() ?? '',
+        'registrationNumber': registrationNumber,
 
         // Assistance information
         'issueType': widget.issue,

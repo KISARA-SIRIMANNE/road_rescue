@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:road_rescue/theme/road_rescue_theme.dart';
+
+import '../messaging/assistance_chat_page.dart';
 import 'payment_page.dart';
 
 class DriverJobStatusPage extends StatefulWidget {
@@ -423,7 +425,33 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
               ],
             ),
           ),
+          IconButton(
+            tooltip: 'Message provider',
+            onPressed: _openProviderChat,
+            icon: const Icon(
+              Icons.chat_bubble_outline_rounded,
+              color: RoadRescueColors.accent,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _openProviderChat() {
+    final String driverName =
+        widget.userData['name']?.toString().trim().isNotEmpty == true
+        ? widget.userData['name'].toString().trim()
+        : 'Driver';
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => AssistanceChatPage(
+          requestId: widget.requestId,
+          currentUserName: driverName,
+          otherPartyName: _providerName,
+          title: 'Chat with provider',
+        ),
       ),
     );
   }
