@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,16 +37,16 @@ class _InsuranceProfilePageState extends State<InsuranceProfilePage> {
   // PREMIUM ROADRESCUE DESIGN SYSTEM
   // ============================================================
 
-  static const Color _background = Color(0xFF070B0D);
-  static const Color _surface = Color(0xFF11181D);
-  static const Color _surfaceLight = Color(0xFF172127);
-  static const Color _surfaceSecondary = Color(0xFF1B252C);
+  static const Color _background = RoadRescueColors.background;
+  static const Color _surface = RoadRescueColors.surface;
+  static const Color _surfaceLight = RoadRescueColors.elevatedSurface;
+  static const Color _surfaceSecondary = RoadRescueColors.surface;
 
-  static const Color _yellow = Color(0xFFFFD21C);
-  static const Color _white = Color(0xFFF5F7F8);
-  static const Color _muted = Color(0xFF9BA6AF);
-  static const Color _mutedDark = Color(0xFF68747D);
-  static const Color _border = Color(0xFF29353D);
+  static const Color _yellow = RoadRescueColors.accent;
+  static const Color _white = RoadRescueColors.foreground;
+  static const Color _muted = RoadRescueColors.muted;
+  static const Color _mutedDark = RoadRescueColors.mutedDark;
+  static const Color _border = RoadRescueColors.border;
 
   static const Color _red = Color(0xFFFF5055);
   static const Color _blue = Color(0xFF2697FF);

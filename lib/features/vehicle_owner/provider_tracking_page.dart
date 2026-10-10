@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
@@ -523,7 +524,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
             Polyline(
               polylineId: const PolylineId('provider_route'),
               points: routePoints,
-              color: const Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               width: 6,
               jointType: JointType.round,
               startCap: Cap.roundCap,
@@ -875,7 +876,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF11181C),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Cancel Request?',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -898,7 +899,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               child: const Text(
                 'Cancel Request',
                 style: TextStyle(
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -924,7 +925,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }
@@ -949,7 +950,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -986,7 +987,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      color: const Color(0xFF05090B),
+      color: RoadRescueColors.background,
       child: Row(
         children: [
           IconButton(
@@ -1045,7 +1046,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       child: Container(
         color: Colors.black.withValues(alpha: 0.45),
         child: const Center(
-          child: CircularProgressIndicator(color: Color(0xFFF6E900)),
+          child: CircularProgressIndicator(color: RoadRescueColors.accent),
         ),
       ),
     );
@@ -1062,7 +1063,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF11181C),
+          color: RoadRescueColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: const Row(
@@ -1073,7 +1074,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
               height: 12,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: Color(0xFFF6E900),
+                color: RoadRescueColors.accent,
               ),
             ),
             SizedBox(width: 7),
@@ -1098,7 +1099,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF11181C),
+          color: RoadRescueColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -1141,12 +1142,12 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
           width: 52,
           height: 52,
           decoration: BoxDecoration(
-            color: const Color(0xFF11181C),
+            color: RoadRescueColors.surface,
             borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
             Icons.my_location_rounded,
-            color: Color(0xFFF6E900),
+            color: RoadRescueColors.accent,
           ),
         ),
       ),
@@ -1165,7 +1166,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
       decoration: const BoxDecoration(
-        color: Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(26),
           topRight: Radius.circular(26),
@@ -1193,12 +1194,12 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+                  color: RoadRescueColors.accent.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(15),
                 ),
                 child: const Icon(
                   Icons.local_shipping,
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   size: 27,
                 ),
               ),
@@ -1246,14 +1247,14 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF05090B),
+                    color: RoadRescueColors.background,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
                       const Icon(
                         Icons.timer_outlined,
-                        color: Color(0xFFF6E900),
+                        color: RoadRescueColors.accent,
                         size: 22,
                       ),
                       const SizedBox(width: 10),
@@ -1289,7 +1290,7 @@ class _ProviderTrackingPageState extends State<ProviderTrackingPage> {
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF05090B),
+                    color: RoadRescueColors.background,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(

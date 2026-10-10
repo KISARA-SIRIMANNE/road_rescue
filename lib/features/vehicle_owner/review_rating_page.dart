@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import 'vehicle_owner_home_page.dart';
 
@@ -21,11 +22,11 @@ class ReviewRatingPage extends StatefulWidget {
 }
 
 class _ReviewRatingPageState extends State<ReviewRatingPage> {
-  final Color _backgroundColor = const Color(0xFF05090B);
+  final Color _backgroundColor = RoadRescueColors.background;
 
-  final Color _cardColor = const Color(0xFF11181C);
+  final Color _cardColor = RoadRescueColors.surface;
 
-  final Color _yellowColor = const Color(0xFFFFD21F);
+  final Color _yellowColor = RoadRescueColors.accent;
 
   final TextEditingController _reviewController = TextEditingController();
 

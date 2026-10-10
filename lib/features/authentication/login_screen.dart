@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import '../vehicle_owner/vehicle_owner_home_page.dart';
 import '../insurance/insurance_dashboard_page.dart';
@@ -14,48 +15,30 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  // ============================================================
-  // FIREBASE
-  // ============================================================
-
+  // Firebase
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // ============================================================
-  // CONTROLLERS
-  // ============================================================
-
+  // Controllers
   final TextEditingController _emailController = TextEditingController();
-
   final TextEditingController _passwordController = TextEditingController();
 
-  // ============================================================
-  // STATE
-  // ============================================================
-
+  // State
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // ============================================================
-  // COLORS
-  // ============================================================
-
-  static const Color backgroundColor = Color(0xFF05090B);
-  static const Color cardColor = Color(0xFF11181C);
-  static const Color yellowColor = Color(0xFFFFD21F);
-  static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color greyColor = Color(0xFFA5ADB3);
-  static const Color borderColor = Color(0xFF263036);
-
-  // ============================================================
-  // DISPOSE
-  // ============================================================
+  // Colors
+  static const Color backgroundColor = RoadRescueColors.background;
+  static const Color cardColor = RoadRescueColors.surface;
+  static const Color yellowColor = RoadRescueColors.accent;
+  static const Color whiteColor = RoadRescueColors.foreground;
+  static const Color greyColor = RoadRescueColors.muted;
+  static const Color borderColor = RoadRescueColors.border;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-
     super.dispose();
   }
 
@@ -68,10 +51,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final String email = _emailController.text.trim();
     final String password = _passwordController.text;
-
-    // ------------------------------------------------------------
-    // VALIDATION
-    // ------------------------------------------------------------
 
     if (email.isEmpty) {
       _showError('Please enter your email address.');
@@ -88,21 +67,17 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // ------------------------------------------------------------
-    // START LOADING
-    // ------------------------------------------------------------
-
     setState(() {
       _isLoading = true;
     });
 
     try {
-      // ----------------------------------------------------------
-      // FIREBASE AUTHENTICATION
-      // ----------------------------------------------------------
-
-      final UserCredential userCredential = await _auth
-          .signInWithEmailAndPassword(email: email, password: password);
+      // Authenticate with Firebase.
+      final UserCredential userCredential =
+          await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
 
       final User? user = userCredential.user;
 
@@ -111,75 +86,56 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // ----------------------------------------------------------
-      // GET USER DATA FROM FIRESTORE
-      // ----------------------------------------------------------
-
-      final DocumentSnapshot userDocument = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
+      // Retrieve the user's Firestore profile.
+      final DocumentSnapshot<Map<String, dynamic>> userDocument =
+          await _firestore.collection('users').doc(user.uid).get();
 
       if (!userDocument.exists) {
         _showError('Your account information could not be found.');
-
         await _auth.signOut();
         return;
       }
 
       final Map<String, dynamic> userData = {
-        ...(userDocument.data() as Map<String, dynamic>),
+        ...?userDocument.data(),
         'uid': user.uid,
         'email': user.email,
       };
 
-      final Object? storedRole =
-          userData['role'] ??
+      final Object? storedRole = userData['role'] ??
           userData['userRole'] ??
           userData['accountType'] ??
           userData['userType'];
-      final String role = _resolveRole(userData);
 
-      // ----------------------------------------------------------
-      // CHECK ROLE
-      // ----------------------------------------------------------
+      final String role = _resolveRole(userData);
 
       if (!mounted) return;
 
-      // ----------------------------------------------------------
-      // VEHICLE OWNER
-      // ----------------------------------------------------------
-
+      // Vehicle owner dashboard.
       if (role == 'vehicle_owner') {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => VehicleOwnerHomePage(userData: userData),
+            builder: (context) =>
+                VehicleOwnerHomePage(userData: userData),
           ),
         );
-
         return;
       }
 
-      // ----------------------------------------------------------
-      // ROADSIDE PROVIDER
-      // ----------------------------------------------------------
-
+      // Roadside assistance provider dashboard.
       if (role == 'roadside_provider') {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => RoadsideProviderHomePage(userData: userData),
+            builder: (context) =>
+                RoadsideProviderHomePage(userData: userData),
           ),
         );
-
         return;
       }
 
-      // ----------------------------------------------------------
-      // INSURANCE PROVIDER
-      // ----------------------------------------------------------
-
+      // Insurance provider dashboard.
       if (role == 'insurance_provider') {
         Navigator.pushReplacement(
           context,
@@ -187,40 +143,42 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (context) => const InsuranceDashboardPage(),
           ),
         );
-
         return;
       }
 
-      // A few accounts were created in Firebase Auth without a matching role
-      // in their Firestore profile. Let the signed-in user complete that
-      // missing profile field instead of immediately signing them out.
+      // Allow existing accounts with no role to select their account type.
       if (role.isEmpty) {
-        final selectedRole = await _chooseMissingAccountRole();
+        final String? selectedRole = await _chooseMissingAccountRole();
+
         if (selectedRole == null || !mounted) return;
 
-        await _firestore.collection('users').doc(user.uid).set({
-          'uid': user.uid,
-          'email': user.email,
-          'role': selectedRole,
-        }, SetOptions(merge: true));
+        await _firestore.collection('users').doc(user.uid).set(
+          {
+            'uid': user.uid,
+            'email': user.email,
+            'role': selectedRole,
+          },
+          SetOptions(merge: true),
+        );
 
         if (!mounted) return;
+
         userData['role'] = selectedRole;
         _navigateToRole(selectedRole, userData);
         return;
       }
 
-      // ----------------------------------------------------------
-      // UNKNOWN ROLE
-      // ----------------------------------------------------------
+      // Unknown role.
+      final String roleLabel =
+          storedRole?.toString().trim().isNotEmpty == true
+              ? storedRole.toString().trim()
+              : 'missing';
 
-      final String roleLabel = storedRole?.toString().trim().isNotEmpty == true
-          ? storedRole.toString().trim()
-          : 'missing';
       debugPrint(
         'Login role not recognized: "$roleLabel"; '
         'profile fields: ${userData.keys.join(', ')}',
       );
+
       _showError('Account role "$roleLabel" is not recognized.');
 
       await _auth.signOut();
@@ -253,7 +211,8 @@ class _LoginScreenState extends State<LoginScreen> {
           break;
 
         case 'network-request-failed':
-          message = 'Network error. Please check your internet connection.';
+          message =
+              'Network error. Please check your internet connection.';
           break;
 
         default:
@@ -262,8 +221,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       _showError(message);
     } on FirebaseException catch (e) {
-      _showError(e.message ?? 'A Firebase error occurred. Please try again.');
+      _showError(
+        e.message ?? 'A Firebase error occurred. Please try again.',
+      );
     } catch (e) {
+      debugPrint('Login error: $e');
       _showError('Something went wrong. Please try again.');
     } finally {
       if (mounted) {
@@ -274,8 +236,12 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  // ============================================================
+  // ROLE RESOLUTION
+  // ============================================================
+
   String _resolveRole(Map<String, dynamic> userData) {
-    final explicitRole = _normalizeRole(
+    final String explicitRole = _normalizeRole(
       userData['role'] ??
           userData['userRole'] ??
           userData['accountType'] ??
@@ -290,8 +256,7 @@ class _LoginScreenState extends State<LoginScreen> {
       return explicitRole;
     }
 
-    // Older user documents may not have a role field. Use the profile fields
-    // written by registration to recover the corresponding app role.
+    // Recover roles from existing registration profile fields.
     if (_hasAnyField(userData, const {
       'insuranceCompanyId',
       'companyId',
@@ -299,6 +264,7 @@ class _LoginScreenState extends State<LoginScreen> {
     })) {
       return 'insurance_provider';
     }
+
     if (_hasAnyField(userData, const {
       'workshopLocation',
       'serviceArea',
@@ -306,6 +272,7 @@ class _LoginScreenState extends State<LoginScreen> {
     })) {
       return 'roadside_provider';
     }
+
     if (_hasAnyField(userData, const {
       'vehicleType',
       'vehicleNumber',
@@ -318,11 +285,62 @@ class _LoginScreenState extends State<LoginScreen> {
     return explicitRole;
   }
 
-  bool _hasAnyField(Map<String, dynamic> data, Set<String> fields) =>
-      fields.any(
-        (field) =>
-            data[field] != null && data[field].toString().trim().isNotEmpty,
-      );
+  bool _hasAnyField(
+    Map<String, dynamic> data,
+    Set<String> fields,
+  ) {
+    return fields.any(
+      (field) =>
+          data[field] != null &&
+          data[field].toString().trim().isNotEmpty,
+    );
+  }
+
+  String _normalizeRole(Object? rawRole) {
+    final String role = rawRole
+            ?.toString()
+            .trim()
+            .toLowerCase()
+            .replaceAll(RegExp(r'[\s-]+'), '_') ??
+        '';
+
+    switch (role) {
+      case 'vehicle_owner':
+      case 'vehicleowner':
+      case 'owner':
+      case 'customer':
+      case 'motorist':
+        return 'vehicle_owner';
+
+      case 'roadside_provider':
+      case 'roadside_assistance_provider':
+      case 'roadside_assistance':
+      case 'roadsideprovider':
+      case 'serviceprovider':
+      case 'service_provider':
+      case 'provider':
+      case 'mechanic':
+      case 'workshop':
+      case 'garage':
+      case 'towing_provider':
+        return 'roadside_provider';
+
+      case 'insurance_provider':
+      case 'insurancecompany':
+      case 'insurance_company':
+      case 'insurer':
+      case 'insurance_agent':
+      case 'insurance':
+        return 'insurance_provider';
+
+      default:
+        return role;
+    }
+  }
+
+  // ============================================================
+  // MISSING ROLE DIALOG
+  // ============================================================
 
   Future<String?> _chooseMissingAccountRole() {
     return showDialog<String>(
@@ -343,7 +361,11 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(color: greyColor),
             ),
             const SizedBox(height: 12),
-            _roleChoice(dialogContext, 'Vehicle owner', 'vehicle_owner'),
+            _roleChoice(
+              dialogContext,
+              'Vehicle owner',
+              'vehicle_owner',
+            ),
             _roleChoice(
               dialogContext,
               'Roadside assistance provider',
@@ -360,26 +382,45 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _roleChoice(BuildContext context, String title, String role) {
+  Widget _roleChoice(
+    BuildContext context,
+    String title,
+    String role,
+  ) {
     return TextButton(
       onPressed: () => Navigator.pop(context, role),
-      child: Text(title, style: const TextStyle(color: yellowColor)),
+      child: Text(
+        title,
+        style: const TextStyle(color: yellowColor),
+      ),
     );
   }
 
-  void _navigateToRole(String role, Map<String, dynamic> userData) {
+  // ============================================================
+  // ROLE NAVIGATION
+  // ============================================================
+
+  void _navigateToRole(
+    String role,
+    Map<String, dynamic> userData,
+  ) {
     final Widget page;
+
     switch (role) {
       case 'vehicle_owner':
         page = VehicleOwnerHomePage(userData: userData);
         break;
+
       case 'roadside_provider':
         page = RoadsideProviderHomePage(userData: userData);
         break;
+
       case 'insurance_provider':
         page = const InsuranceDashboardPage();
         break;
+
       default:
+        _showError('Unable to open the selected account dashboard.');
         return;
     }
 
@@ -387,43 +428,6 @@ class _LoginScreenState extends State<LoginScreen> {
       context,
       MaterialPageRoute(builder: (context) => page),
     );
-  }
-
-  String _normalizeRole(Object? rawRole) {
-    final role = rawRole?.toString().trim().toLowerCase().replaceAll(
-      RegExp(r'[\s-]+'),
-      '_',
-    );
-
-    switch (role) {
-      case 'vehicle_owner':
-      case 'vehicleowner':
-      case 'owner':
-      case 'customer':
-      case 'motorist':
-        return 'vehicle_owner';
-      case 'roadside_provider':
-      case 'roadside_assistance_provider':
-      case 'roadside_assistance':
-      case 'roadsideprovider':
-      case 'serviceprovider':
-      case 'service_provider':
-      case 'provider':
-      case 'mechanic':
-      case 'workshop':
-      case 'garage':
-      case 'towing_provider':
-        return 'roadside_provider';
-      case 'insurance_provider':
-      case 'insurancecompany':
-      case 'insurance_company':
-      case 'insurer':
-      case 'insurance_agent':
-      case 'insurance':
-        return 'insurance_provider';
-      default:
-        return role ?? '';
-    }
   }
 
   // ============================================================
@@ -462,38 +466,27 @@ class _LoginScreenState extends State<LoginScreen> {
             FocusScope.of(context).unfocus();
           },
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 30),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 28,
+              vertical: 30,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildBackButton(),
-
                 const SizedBox(height: 36),
-
                 _buildLogo(),
-
                 const SizedBox(height: 42),
-
                 _buildHeader(),
-
                 const SizedBox(height: 34),
-
                 _buildEmailField(),
-
                 const SizedBox(height: 18),
-
                 _buildPasswordField(),
-
                 const SizedBox(height: 12),
-
                 _buildForgotPassword(),
-
                 const SizedBox(height: 30),
-
                 _buildLoginButton(),
-
                 const SizedBox(height: 28),
-
                 _buildRegisterText(),
               ],
             ),
@@ -512,7 +505,11 @@ class _LoginScreenState extends State<LoginScreen> {
       onPressed: () {
         Navigator.pop(context);
       },
-      icon: const Icon(Icons.arrow_back_ios_new, color: whiteColor, size: 20),
+      icon: const Icon(
+        Icons.arrow_back_ios_new,
+        color: whiteColor,
+        size: 20,
+      ),
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(),
     );
@@ -543,9 +540,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-
         const SizedBox(width: 13),
-
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -571,9 +566,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 4),
-
             const Text(
               'ALWAYS THERE FOR YOU',
               style: TextStyle(
@@ -606,12 +599,14 @@ class _LoginScreenState extends State<LoginScreen> {
             height: 1.15,
           ),
         ),
-
         SizedBox(height: 8),
-
         Text(
           'Log in to continue using RoadRescue.',
-          style: TextStyle(color: greyColor, fontSize: 14, height: 1.5),
+          style: TextStyle(
+            color: greyColor,
+            fontSize: 14,
+            height: 1.5,
+          ),
         ),
       ],
     );
@@ -633,17 +628,21 @@ class _LoginScreenState extends State<LoginScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-
         const SizedBox(height: 9),
-
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           textInputAction: TextInputAction.next,
-          style: const TextStyle(color: whiteColor, fontSize: 14),
+          style: const TextStyle(
+            color: whiteColor,
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: 'Enter your email',
-            hintStyle: const TextStyle(color: greyColor, fontSize: 14),
+            hintStyle: const TextStyle(
+              color: greyColor,
+              fontSize: 14,
+            ),
             prefixIcon: const Icon(
               Icons.email_outlined,
               color: greyColor,
@@ -665,7 +664,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(color: yellowColor, width: 1.4),
+              borderSide: const BorderSide(
+                color: yellowColor,
+                width: 1.4,
+              ),
             ),
           ),
         ),
@@ -689,18 +691,22 @@ class _LoginScreenState extends State<LoginScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-
         const SizedBox(height: 9),
-
         TextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _loginUser(),
-          style: const TextStyle(color: whiteColor, fontSize: 14),
+          style: const TextStyle(
+            color: whiteColor,
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: 'Enter your password',
-            hintStyle: const TextStyle(color: greyColor, fontSize: 14),
+            hintStyle: const TextStyle(
+              color: greyColor,
+              fontSize: 14,
+            ),
             prefixIcon: const Icon(
               Icons.lock_outline,
               color: greyColor,
@@ -736,7 +742,10 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(13),
-              borderSide: const BorderSide(color: yellowColor, width: 1.4),
+              borderSide: const BorderSide(
+                color: yellowColor,
+                width: 1.4,
+              ),
             ),
           ),
         ),
@@ -752,9 +761,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: TextButton(
-        onPressed: () {
-          _showError('Password reset will be added soon.');
-        },
+        onPressed: _resetPassword,
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
           minimumSize: Size.zero,
@@ -772,6 +779,40 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Future<void> _resetPassword() async {
+    final String email = _emailController.text.trim();
+
+    if (email.isEmpty ||
+        !RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(email)) {
+      _showError('Enter a valid email address to reset your password.');
+      return;
+    }
+
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Password reset email sent. Please check your inbox.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    } on FirebaseAuthException catch (e) {
+      _showError(
+        e.message ?? 'Unable to send the password reset email.',
+      );
+    } catch (e) {
+      debugPrint('Password reset error: $e');
+      _showError('Something went wrong. Please try again.');
+    }
+  }
+
   // ============================================================
   // LOGIN BUTTON
   // ============================================================
@@ -785,7 +826,8 @@ class _LoginScreenState extends State<LoginScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: yellowColor,
           foregroundColor: backgroundColor,
-          disabledBackgroundColor: yellowColor.withValues(alpha: 0.5),
+          disabledBackgroundColor:
+              yellowColor.withValues(alpha: 0.5),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
@@ -811,9 +853,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-
                   const SizedBox(width: 12),
-
                   Container(
                     width: 22,
                     height: 22,
@@ -844,9 +884,11 @@ class _LoginScreenState extends State<LoginScreen> {
         children: [
           const Text(
             "Don't have an account? ",
-            style: TextStyle(color: greyColor, fontSize: 13),
+            style: TextStyle(
+              color: greyColor,
+              fontSize: 13,
+            ),
           ),
-
           GestureDetector(
             onTap: () {
               Navigator.pop(context);

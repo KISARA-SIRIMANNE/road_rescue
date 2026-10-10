@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'payment_page.dart';
 
 class DriverJobStatusPage extends StatefulWidget {
@@ -126,7 +126,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF11181C),
+          backgroundColor: RoadRescueColors.surface,
           title: const Text(
             'Confirm Payment',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -150,7 +150,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
                 Navigator.pop(context, true);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF6E900),
+                backgroundColor: RoadRescueColors.accent,
                 foregroundColor: Colors.black,
               ),
               child: const Text('Pay Now'),
@@ -336,7 +336,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF05090B),
+      backgroundColor: RoadRescueColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -346,7 +346,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
               child: _isLoading
                   ? const Center(
                       child: CircularProgressIndicator(
-                        color: Color(0xFFF6E900),
+                        color: RoadRescueColors.accent,
                       ),
                     )
                   : SingleChildScrollView(
@@ -437,7 +437,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -446,12 +446,12 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withValues(alpha: 0.12),
+              color: RoadRescueColors.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(
               Icons.support_agent_rounded,
-              color: Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               size: 27,
             ),
           ),
@@ -495,7 +495,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Column(
@@ -504,12 +504,12 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
             width: 66,
             height: 66,
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E900).withValues(alpha: 0.10),
+              color: RoadRescueColors.accent.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             child: Icon(
               _statusIcon(),
-              color: const Color(0xFFF6E900),
+              color: RoadRescueColors.accent,
               size: 32,
             ),
           ),
@@ -556,7 +556,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -570,7 +570,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
                   width: 27,
                   height: 27,
                   decoration: BoxDecoration(
-                    color: active ? const Color(0xFFF6E900) : Colors.white10,
+                    color: active ? RoadRescueColors.accent : Colors.white10,
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -607,10 +607,10 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF11181C),
+        color: RoadRescueColors.surface,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: const Color(0xFFF6E900).withValues(alpha: 0.15),
+          color: RoadRescueColors.accent.withValues(alpha: 0.15),
         ),
       ),
       child: Column(
@@ -622,12 +622,12 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
                 width: 45,
                 height: 45,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF6E900).withValues(alpha: 0.10),
+                  color: RoadRescueColors.accent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
                   Icons.account_balance_wallet_outlined,
-                  color: Color(0xFFF6E900),
+                  color: RoadRescueColors.accent,
                   size: 24,
                 ),
               ),
@@ -661,7 +661,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
             width: double.infinity,
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: const Color(0xFF05090B),
+              color: RoadRescueColors.background,
               borderRadius: BorderRadius.circular(15),
             ),
             child: Column(
@@ -710,7 +710,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF6E900),
+                  backgroundColor: RoadRescueColors.accent,
                   foregroundColor: Colors.black,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
@@ -793,7 +793,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF151D21),
+        backgroundColor: RoadRescueColors.surface,
       ),
     );
   }
