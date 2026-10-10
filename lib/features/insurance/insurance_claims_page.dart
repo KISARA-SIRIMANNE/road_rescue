@@ -918,6 +918,7 @@ class _InsuranceClaimsPageState extends State<InsuranceClaimsPage> {
 
   Widget _buildClaimIcon(String issue) {
     final value = issue.toLowerCase();
+    final accent = _claimAccent(value);
 
     IconData icon = Icons.directions_car_rounded;
 
@@ -941,12 +942,28 @@ class _InsuranceClaimsPageState extends State<InsuranceClaimsPage> {
       width: 60,
       height: 60,
       decoration: BoxDecoration(
-        color: cardSecondary,
+        color: accent.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: border),
+        border: Border.all(color: accent.withValues(alpha: 0.3)),
       ),
-      child: Icon(icon, color: const Color(0xFFB8C1C8), size: 29),
+      child: Icon(icon, color: accent, size: 29),
     );
+  }
+
+  Color _claimAccent(String value) {
+    if (value.contains('battery')) return const Color(0xFF19D98B);
+    if (value.contains('bike') || value.contains('motorcycle')) {
+      return const Color(0xFFB36BFF);
+    }
+    if (value.contains('towing') || value.contains('tow')) {
+      return const Color(0xFF2697FF);
+    }
+    if (value.contains('repair')) return const Color(0xFFFF9F43);
+    if (value.contains('fire') || value.contains('home') || value.contains('property')) {
+      return const Color(0xFFFF6B6B);
+    }
+    if (value.contains('health')) return const Color(0xFFFF5055);
+    return const Color(0xFF36C9C6);
   }
 
   // ============================================================
