@@ -59,6 +59,11 @@ class _LocationConfirmationPageState extends State<LocationConfirmationPage> {
     super.initState();
     _selectedInsuranceCompanyId = widget.userData['_selectedInsuranceCompanyId']
         ?.toString();
+    _isInsuranceClaim = widget.userData['_startInsuranceClaim'] == true;
+    _policyNumberController.text =
+        widget.userData['_retryPolicyNumber']?.toString() ?? '';
+    _insuranceDescriptionController.text =
+        widget.userData['_retryInsuranceDescription']?.toString() ?? '';
     _initializeLocation();
   }
 

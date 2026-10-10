@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:road_rescue/theme/road_rescue_theme.dart';
 
 import '../messaging/assistance_chat_page.dart';
+import 'insurance_claim_result_page.dart';
 import 'payment_page.dart';
 
 class DriverJobStatusPage extends StatefulWidget {
@@ -23,6 +26,8 @@ class DriverJobStatusPage extends StatefulWidget {
 
 class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _requestSubscription;
 
   String _status = 'accepted';
 
@@ -35,6 +40,7 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
   bool _isPaying = false;
 
   bool _isLoading = true;
+  bool _hasNavigatedToInsuranceResult = false;
 
   // ============================================================
   // INIT
@@ -52,18 +58,26 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
   // ============================================================
 
   void _listenToJob() {
-    _firestore
+    _requestSubscription = _firestore
         .collection('assistance_requests')
         .doc(widget.requestId)
         .snapshots()
         .listen(
-          (DocumentSnapshot snapshot) {
+          (DocumentSnapshot<Map<String, dynamic>> snapshot) {
             if (!snapshot.exists) {
               return;
             }
 
-            final Map<String, dynamic> data =
-                snapshot.data() as Map<String, dynamic>;
+            final Map<String, dynamic> data = snapshot.data()!;
+
+            final String insuranceStatus =
+                data['insuranceStatus']?.toString().toLowerCase() ?? '';
+            if (data['insuranceClaim'] == true &&
+                (insuranceStatus == 'approved' ||
+                    insuranceStatus == 'rejected')) {
+              _navigateToInsuranceResult(data);
+              return;
+            }
 
             final dynamic amount = data['jobAmount'];
 
@@ -99,6 +113,29 @@ class _DriverJobStatusPageState extends State<DriverJobStatusPage> {
             }
           },
         );
+  }
+
+  void _navigateToInsuranceResult(Map<String, dynamic> requestData) {
+    if (!mounted || _hasNavigatedToInsuranceResult) return;
+    _hasNavigatedToInsuranceResult = true;
+
+    _requestSubscription?.cancel();
+    _requestSubscription = null;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(
+        builder: (context) => InsuranceClaimResultPage(
+          requestData: {'id': widget.requestId, ...requestData},
+          userData: widget.userData,
+          issue: widget.issue,
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _requestSubscription?.cancel();
+    super.dispose();
   }
 
   // ============================================================

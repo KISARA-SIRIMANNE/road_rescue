@@ -6,8 +6,23 @@ import '../../services/insurance_company.dart';
 
 class RequestAssistancePage extends StatefulWidget {
   final Map<String, dynamic> userData;
+  final String? initialIssue;
+  final String initialCustomIssue;
+  final String? initialInsuranceCompanyId;
+  final String initialPolicyNumber;
+  final String initialInsuranceDescription;
+  final bool startInsuranceClaim;
 
-  const RequestAssistancePage({super.key, required this.userData});
+  const RequestAssistancePage({
+    super.key,
+    required this.userData,
+    this.initialIssue,
+    this.initialCustomIssue = '',
+    this.initialInsuranceCompanyId,
+    this.initialPolicyNumber = '',
+    this.initialInsuranceDescription = '',
+    this.startInsuranceClaim = false,
+  });
 
   @override
   State<RequestAssistancePage> createState() => _RequestAssistancePageState();
@@ -41,6 +56,14 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
       'icon': Icons.local_gas_station,
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIssue = widget.initialIssue;
+    _selectedInsuranceCompanyId = widget.initialInsuranceCompanyId;
+    _customIssueController.text = widget.initialCustomIssue;
+  }
 
   @override
   void dispose() {
@@ -81,6 +104,9 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
           userData: {
             ...widget.userData,
             '_selectedInsuranceCompanyId': _selectedInsuranceCompanyId,
+            '_startInsuranceClaim': widget.startInsuranceClaim,
+            '_retryPolicyNumber': widget.initialPolicyNumber,
+            '_retryInsuranceDescription': widget.initialInsuranceDescription,
           },
           issue: issue,
         ),
@@ -396,9 +422,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                     ? RoadRescueColors.accent
                     : Colors.transparent,
                 border: Border.all(
-                  color: isSelected
-                      ? RoadRescueColors.accent
-                      : Colors.white38,
+                  color: isSelected ? RoadRescueColors.accent : Colors.white38,
                   width: 2,
                 ),
               ),
