@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../services/insurance_company.dart';
+
 class InsuranceProfilePage extends StatefulWidget {
   const InsuranceProfilePage({super.key});
 
@@ -25,6 +27,8 @@ class _InsuranceProfilePageState extends State<InsuranceProfilePage> {
   String _name = 'Insurance Officer';
   String _email = '';
   String _companyName = 'Insurance Provider';
+  String _companyId = '';
+  String _contactNumber = '';
   String _role = 'insurance_provider';
   String? _photoUrl;
   bool _isSavingPhoto = false;
@@ -90,6 +94,8 @@ class _InsuranceProfilePageState extends State<InsuranceProfilePage> {
             'companyName',
             'company',
           ], _companyName);
+          _companyId = _getValue(data, ['insuranceCompanyId'], '');
+          _contactNumber = _getValue(data, ['contactNumber'], '');
 
           _role = _getValue(data, ['role'], _role);
           _photoUrl = _getValue(data, [
@@ -177,6 +183,121 @@ class _InsuranceProfilePageState extends State<InsuranceProfilePage> {
 
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
+
+  Future<void> _editProfile() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    final nameController = TextEditingController(text: _name);
+    final contactController = TextEditingController(text: _contactNumber);
+    String? selectedCompanyId = insuranceCompanyById(_companyId)?.id;
+    if (selectedCompanyId == null) {
+      for (final company in insuranceCompanies) {
+        if (company.name == _companyName) {
+          selectedCompanyId = company.id;
+          break;
+        }
+      }
+    }
+    bool saving = false;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: _surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Edit profile', style: GoogleFonts.poppins(color: _white, fontWeight: FontWeight.w700)),
+          content: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              _editField(nameController, 'Full name', Icons.person_outline),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedCompanyId,
+                dropdownColor: _surfaceLight,
+                style: GoogleFonts.poppins(color: _white, fontSize: 12),
+                decoration: _editDecoration('Insurance company', Icons.business_outlined),
+                items: insuranceCompanies.map((company) => DropdownMenuItem(
+                  value: company.id,
+                  child: Text(company.name, overflow: TextOverflow.ellipsis),
+                )).toList(),
+                onChanged: (value) => setDialogState(() => selectedCompanyId = value),
+              ),
+              const SizedBox(height: 12),
+              _editField(contactController, 'Contact number', Icons.phone_outlined, keyboardType: TextInputType.phone),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Email and account role are read-only.',
+                  style: GoogleFonts.poppins(color: _mutedDark, fontSize: 10),
+                ),
+              ),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext, false), child: Text('Cancel', style: GoogleFonts.poppins(color: _muted))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: _yellow, foregroundColor: Colors.black),
+              onPressed: saving ? null : () async {
+                final name = nameController.text.trim();
+                final company = insuranceCompanyById(selectedCompanyId);
+                if (name.isEmpty || company == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter your name and choose a company.')));
+                  return;
+                }
+                setDialogState(() => saving = true);
+                try {
+                  await _firestore.collection('users').doc(user.uid).set({
+                    'name': name,
+                    'companyName': company.name,
+                    'insuranceCompanyId': company.id,
+                    'contactNumber': contactController.text.trim(),
+                    'updatedAt': FieldValue.serverTimestamp(),
+                  }, SetOptions(merge: true));
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    setDialogState(() => saving = false);
+                  }
+                  if (mounted) _showPhotoMessage('Unable to save profile changes.', error: true);
+                }
+              },
+              child: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black)) : Text('Save changes', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+      ),
+    );
+    final savedName = nameController.text.trim();
+    final savedContactNumber = contactController.text.trim();
+    nameController.dispose();
+    contactController.dispose();
+    if (result == true && mounted) {
+      setState(() {
+        _name = savedName;
+        _contactNumber = savedContactNumber;
+        _companyId = selectedCompanyId ?? '';
+        _companyName = insuranceCompanyById(_companyId)?.name ?? _companyName;
+      });
+      _showPhotoMessage('Profile updated.');
+    }
+  }
+
+  InputDecoration _editDecoration(String label, IconData icon) => InputDecoration(
+    labelText: label,
+    labelStyle: GoogleFonts.poppins(color: _muted, fontSize: 11),
+    prefixIcon: Icon(icon, color: _yellow, size: 18),
+    filled: true,
+    fillColor: _surfaceLight,
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _border)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _yellow)),
+  );
+
+  Widget _editField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType}) => TextField(
+    controller: controller,
+    keyboardType: keyboardType,
+    style: GoogleFonts.poppins(color: _white, fontSize: 12),
+    decoration: _editDecoration(label, icon),
+  );
 
   Future<void> _chooseProfilePhoto() async {
     if (_isSavingPhoto) return;
@@ -639,10 +760,11 @@ class _InsuranceProfilePageState extends State<InsuranceProfilePage> {
           ),
 
           _buildIconButton(
-            icon: Icons.refresh_rounded,
+            icon: Icons.edit_rounded,
             iconColor: _yellow,
-            onTap: _loadProfile,
+            onTap: _editProfile,
           ),
+
         ],
       ),
     );
@@ -929,6 +1051,15 @@ class _InsuranceProfilePageState extends State<InsuranceProfilePage> {
           iconColor: _green,
           title: 'Insurance Company',
           value: _companyName,
+        ),
+
+        _buildDivider(),
+
+        _buildInfoTile(
+          icon: Icons.phone_rounded,
+          iconColor: _green,
+          title: 'Contact Number',
+          value: _contactNumber.isEmpty ? 'Not provided' : _contactNumber,
         ),
 
         _buildDivider(),

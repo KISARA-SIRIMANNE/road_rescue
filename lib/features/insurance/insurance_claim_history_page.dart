@@ -506,11 +506,39 @@ class _InsuranceClaimHistoryPageState extends State<InsuranceClaimHistoryPage> {
       return Icons.two_wheeler_rounded;
     }
 
+    if (value.contains('fire') ||
+        value.contains('home') ||
+        value.contains('property')) {
+      return Icons.home_work_rounded;
+    }
+
+    if (value.contains('health')) {
+      return Icons.favorite_rounded;
+    }
+
     if (value.contains('truck')) {
       return Icons.local_shipping_rounded;
     }
 
     return Icons.directions_car_rounded;
+  }
+
+  Color _claimAccent(String issue) {
+    final value = issue.toLowerCase();
+
+    if (value.contains('battery')) return const Color(0xFF19D98B);
+    if (value.contains('bike') || value.contains('motorcycle')) {
+      return const Color(0xFFB36BFF);
+    }
+    if (value.contains('towing') || value.contains('tow') || value.contains('truck')) {
+      return const Color(0xFF2697FF);
+    }
+    if (value.contains('repair')) return const Color(0xFFFF9F43);
+    if (value.contains('fire') || value.contains('home') || value.contains('property')) {
+      return const Color(0xFFFF6B6B);
+    }
+    if (value.contains('health')) return const Color(0xFFFF5055);
+    return const Color(0xFF36C9C6);
   }
 
   // ============================================================
@@ -1089,13 +1117,15 @@ class _InsuranceClaimHistoryPageState extends State<InsuranceClaimHistoryPage> {
                   width: 62,
                   height: 62,
                   decoration: BoxDecoration(
-                    color: cardSecondary,
+                    color: _claimAccent(issue).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(17),
-                    border: Border.all(color: border),
+                    border: Border.all(
+                      color: _claimAccent(issue).withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Icon(
                     _claimIcon(issue),
-                    color: const Color(0xFFB9C2C9),
+                    color: _claimAccent(issue),
                     size: 30,
                   ),
                 ),
