@@ -1,15 +1,17 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:geolocator/geolocator.dart';
-
-import 'provider_directions_page.dart';
-
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../authentication/login_screen.dart';
+import 'provider_job_flow_pages.dart';
+import 'provider_directions_page.dart';
 
 class RoadsideProviderHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -32,9 +34,11 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   bool _isGettingLocation = false;
   bool _isLoadingRequests = false;
   bool _isSavingProfile = false;
+  bool _isDeletingAccount = false;
 
   String _profileName = '';
   String _profileWorkshopLocation = '';
+  String _profileContactNumber = '';
   String _profilePhotoUrl = '';
 
   bool _isUploadingProfilePhoto = false;
@@ -137,6 +141,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
     _profileWorkshopLocation =
         widget.userData['workshopLocation']?.toString() ?? 'Location not set';
+    _profileContactNumber = widget.userData['contactNumber']?.toString() ?? '';
 
     _loadProviderAvailability();
     _loadProviderStatistics();
@@ -461,6 +466,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
         if (status == 'completed' || status == 'cancelled') {
           history.add({
+            ...data,
             'requestId': document.id,
             'type': status,
             'issueType': data['issueType']?.toString() ?? 'Assistance Request',
@@ -482,6 +488,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             document.data() as Map<String, dynamic>;
 
         history.add({
+          ...data,
           'requestId': document.id,
           'type': 'denied',
           'issueType': data['issueType']?.toString() ?? 'Assistance Request',
@@ -581,7 +588,12 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
         final String status = data['status']?.toString() ?? '';
 
-        if (activeStatuses.contains(status)) {
+        final String paymentStatus =
+            data['paymentStatus']?.toString() ?? 'pending';
+        final bool awaitingPayment =
+            status == 'completed' && paymentStatus != 'paid';
+
+        if (activeStatuses.contains(status) || awaitingPayment) {
           activeDocument = document;
           break;
         }
@@ -648,8 +660,22 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             }
 
             final String status = data['status']?.toString() ?? '';
+            final String paymentStatus =
+                data['paymentStatus']?.toString() ?? 'pending';
 
             if (!mounted) {
+              return;
+            }
+
+            if (status == 'completed' && paymentStatus == 'paid') {
+              setState(() {
+                _activeRequestId = null;
+                _activeJobData = null;
+              });
+              unawaited(_activeJobSubscription?.cancel());
+              _activeJobSubscription = null;
+              unawaited(_loadProviderStatistics());
+              unawaited(_loadJobHistory());
               return;
             }
 
@@ -842,30 +868,94 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // ============================================================
 
   Future<void> _goOffline() async {
-    await _stopLocationTracking();
-    await _stopRequestListener();
-
-    try {
-      if (_providerId.isNotEmpty) {
-        await _firestore.collection('users').doc(_providerId).update({
-          'isOnline': false,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      }
-    } catch (e) {
-      debugPrint('Error going offline: $e');
-    }
-
-    if (!mounted) {
+    if (_isGettingLocation) {
       return;
     }
 
     setState(() {
-      _isOnline = false;
-      _isGettingLocation = false;
+      _isGettingLocation = true;
     });
+    try {
+      if (_providerId.isEmpty) {
+        throw StateError('Provider account could not be identified.');
+      }
+      if (await _hasJobInProgress()) {
+        if (mounted) {
+          setState(() {
+            _isGettingLocation = false;
+          });
+          _showMessage('Complete the active job before going offline.');
+        }
+        return;
+      }
 
-    _showMessage('You are now offline.');
+      await _firestore.collection('users').doc(_providerId).update({
+        'isOnline': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await _stopLocationTracking();
+      await _stopRequestListener();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isOnline = false;
+        _isGettingLocation = false;
+      });
+
+      _showMessage('You are now offline.');
+    } catch (e) {
+      debugPrint('Error going offline: $e');
+
+      if (mounted) {
+        setState(() {
+          _isGettingLocation = false;
+        });
+        _showMessage('Could not go offline. Check your connection and retry.');
+      }
+    }
+  }
+
+  Future<bool> _hasJobInProgress() async {
+    final QuerySnapshot<Map<String, dynamic>> requests = await _firestore
+        .collection('assistance_requests')
+        .where('providerId', isEqualTo: _providerId)
+        .get();
+
+    return requests.docs.any((request) {
+      final String status = request.data()['status']?.toString() ?? '';
+      return const {
+        'accepted',
+        'on_the_way',
+        'arrived',
+        'in_progress',
+      }.contains(status);
+    });
+  }
+
+  Future<bool> _hasUnsettledJob() async {
+    final QuerySnapshot<Map<String, dynamic>> requests = await _firestore
+        .collection('assistance_requests')
+        .where('providerId', isEqualTo: _providerId)
+        .get();
+
+    return requests.docs.any((request) {
+      final Map<String, dynamic> data = request.data();
+      final String status = data['status']?.toString() ?? '';
+      if (const {
+        'accepted',
+        'on_the_way',
+        'arrived',
+        'in_progress',
+      }.contains(status)) {
+        return true;
+      }
+      return status == 'completed' &&
+          (data['paymentStatus']?.toString() ?? 'pending') != 'paid';
+    });
   }
 
   // ============================================================
@@ -1153,6 +1243,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
       String requestOwnerId = '';
       String issueType = 'roadside assistance';
+      Map<String, dynamic>? acceptedRequestData;
 
       await _firestore.runTransaction((transaction) async {
         final DocumentSnapshot snapshot = await transaction.get(
@@ -1165,6 +1256,14 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
         final Map<String, dynamic> data =
             snapshot.data() as Map<String, dynamic>;
+        acceptedRequestData = {
+          ...data,
+          'status': 'accepted',
+          'providerId': _providerId,
+          'providerName': _providerName,
+          'providerLatitude': providerLatitude,
+          'providerLongitude': providerLongitude,
+        };
         requestOwnerId = data['userId']?.toString() ?? '';
         issueType = data['issueType']?.toString() ?? 'roadside assistance';
 
@@ -1218,19 +1317,16 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         });
       });
 
-      final bool driverNotified = await _createRequestDecisionNotification(
-        userId: requestOwnerId,
-        requestId: requestDocument.id,
-        issueType: issueType,
-        status: 'accepted',
-      );
-
       // ==========================================================
       // STEP 3:
       // Set this as the provider's active request
       // ==========================================================
 
-      _activeRequestId = requestDocument.id;
+      setState(() {
+        _activeRequestId = requestDocument.id;
+        _activeJobData = acceptedRequestData;
+      });
+      _startActiveJobListener();
 
       debugPrint('========================================');
 
@@ -1258,6 +1354,13 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       // STEP 5:
       // Remove request from the incoming list
       // ==========================================================
+
+      final bool driverNotified = await _createRequestDecisionNotification(
+        userId: requestOwnerId,
+        requestId: requestDocument.id,
+        issueType: issueType,
+        status: 'accepted',
+      );
 
       if (mounted) {
         setState(() {
@@ -1446,20 +1549,23 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
   Future<void> _logout() async {
     try {
-      await _stopLocationTracking();
-      await _stopRequestListener();
-
-      if (_providerId.isNotEmpty) {
-        try {
-          await _firestore.collection('users').doc(_providerId).update({
-            'isOnline': false,
-            'updatedAt': FieldValue.serverTimestamp(),
-          });
-        } catch (e) {
-          debugPrint('Error updating provider offline state: $e');
-        }
+      if (_providerId.isEmpty) {
+        throw StateError('Provider account could not be identified.');
+      }
+      if (await _hasJobInProgress()) {
+        _showMessage('Complete the active job before logging out.');
+        return;
       }
 
+      await _firestore.collection('users').doc(_providerId).update({
+        'isOnline': false,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      await _stopLocationTracking();
+      await _stopRequestListener();
+      await _activeJobSubscription?.cancel();
+      _activeJobSubscription = null;
       _activeRequestId = null;
 
       await _auth.signOut();
@@ -1468,12 +1574,246 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
         return;
       }
 
-      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
     } catch (e) {
       debugPrint('Logout error: $e');
 
       if (mounted) {
         _showMessage('Unable to logout.');
+      }
+    }
+  }
+
+  void _showDeleteAccountDialog() {
+    final TextEditingController passwordController = TextEditingController();
+
+    showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: _cardColor,
+        title: const Text(
+          'Delete provider account?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This permanently deletes your provider login and profile. '
+              'Past job records will remain for customer and payment history. '
+              'Finish active jobs and settle pending payments first.',
+              style: TextStyle(color: Colors.white70, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Current password',
+                prefixIcon: Icon(Icons.lock_outline),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: _isDeletingAccount
+                ? null
+                : () {
+                    final String password = passwordController.text;
+                    if (password.isEmpty) {
+                      _showMessage('Enter your password to continue.');
+                      return;
+                    }
+                    Navigator.pop(dialogContext, password);
+                  },
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Delete account'),
+          ),
+        ],
+      ),
+    ).then((password) {
+      passwordController.dispose();
+      if (password != null) {
+        unawaited(_deleteAccount(password));
+      }
+    });
+  }
+
+  Future<void> _deleteAccount(String password) async {
+    final User? user = _auth.currentUser;
+    if (user == null || user.uid != _providerId) {
+      _showMessage('Could not identify your signed-in account.');
+      return;
+    }
+
+    if (user.email == null ||
+        !user.providerData.any(
+          (provider) => provider.providerId == 'password',
+        )) {
+      _showMessage(
+        'Account deletion currently requires an email and password account.',
+      );
+      return;
+    }
+
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    final DocumentReference<Map<String, dynamic>> userReference = _firestore
+        .collection('users')
+        .doc(user.uid);
+    Map<String, dynamic>? profileData;
+    bool profileDeleted = false;
+    bool photoDeleted = false;
+    Uint8List? photoBackup;
+    Reference? photoReference;
+
+    try {
+      await user.reauthenticateWithCredential(
+        EmailAuthProvider.credential(email: user.email!, password: password),
+      );
+
+      if (await _hasUnsettledJob()) {
+        _showMessage(
+          'Complete your active jobs and settle all pending payments before deleting your account.',
+        );
+        return;
+      }
+
+      final DocumentSnapshot<Map<String, dynamic>> profileSnapshot =
+          await userReference.get();
+      profileData = profileSnapshot.data();
+
+      if (profileSnapshot.exists) {
+        await userReference.update({
+          'isOnline': false,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      await _stopLocationTracking();
+      await _stopRequestListener();
+      await _activeJobSubscription?.cancel();
+      _activeJobSubscription = null;
+
+      if (mounted) {
+        setState(() {
+          _isOnline = false;
+        });
+      }
+
+      final String photoUrl = profileData?['profilePhotoUrl']?.toString() ?? '';
+      if (photoUrl.isNotEmpty) {
+        photoReference = _storage.refFromURL(photoUrl);
+        photoBackup = await photoReference.getData(5 * 1024 * 1024);
+        if (photoBackup == null) {
+          throw StateError('Could not back up the provider profile photo.');
+        }
+        await photoReference.delete();
+        photoDeleted = true;
+      }
+
+      if (profileSnapshot.exists) {
+        await userReference.delete();
+        profileDeleted = true;
+      }
+
+      await user.delete();
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (error) {
+      await _restoreDeletedProviderData(
+        userReference: userReference,
+        profileData: profileData,
+        profileDeleted: profileDeleted,
+        photoReference: photoReference,
+        photoBackup: photoBackup,
+        photoDeleted: photoDeleted,
+      );
+      debugPrint('Provider account deletion error: ${error.code}');
+      if (mounted) {
+        _showMessage(
+          error.code == 'wrong-password' || error.code == 'invalid-credential'
+              ? 'Password is incorrect. Your account was not deleted.'
+              : error.code == 'requires-recent-login'
+              ? 'Please log out, sign in again, and retry account deletion.'
+              : 'Could not delete your account. Check your connection and retry.',
+        );
+      }
+    } catch (error) {
+      await _restoreDeletedProviderData(
+        userReference: userReference,
+        profileData: profileData,
+        profileDeleted: profileDeleted,
+        photoReference: photoReference,
+        photoBackup: photoBackup,
+        photoDeleted: photoDeleted,
+      );
+      debugPrint('Provider account deletion error: $error');
+      if (mounted) {
+        _showMessage(
+          'Could not delete your account. Your profile data was restored where possible.',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDeletingAccount = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _restoreDeletedProviderData({
+    required DocumentReference<Map<String, dynamic>> userReference,
+    required Map<String, dynamic>? profileData,
+    required bool profileDeleted,
+    required Reference? photoReference,
+    required Uint8List? photoBackup,
+    required bool photoDeleted,
+  }) async {
+    if (_auth.currentUser == null) {
+      return;
+    }
+
+    if (profileDeleted && profileData != null) {
+      try {
+        await userReference.set(profileData);
+      } catch (error) {
+        debugPrint(
+          'Could not restore provider profile after deletion error: $error',
+        );
+      }
+    }
+
+    if (photoDeleted && photoReference != null && photoBackup != null) {
+      try {
+        await photoReference.putData(
+          photoBackup,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+      } catch (error) {
+        debugPrint(
+          'Could not restore provider photo after deletion error: $error',
+        );
       }
     }
   }
@@ -1831,20 +2171,18 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       );
     }
 
-    if (_activeJobData == null) {
+    final Map<String, dynamic>? activeJob = _activeJobData;
+    if (activeJob == null) {
       return const SizedBox.shrink();
     }
 
     final String issueType =
-        _activeJobData!['issueType']?.toString() ?? 'Assistance Request';
-
+        activeJob['issueType']?.toString() ?? 'Assistance Request';
     final String vehicleType =
-        _activeJobData!['vehicleType']?.toString() ?? 'Vehicle';
-
+        activeJob['vehicleType']?.toString() ?? 'Vehicle';
     final String userName =
-        _activeJobData!['userName']?.toString() ?? 'Vehicle Owner';
-
-    final String status = _activeJobData!['status']?.toString() ?? 'accepted';
+        activeJob['userName']?.toString() ?? 'Vehicle Owner';
+    final String status = activeJob['status']?.toString() ?? 'accepted';
 
     return Container(
       width: double.infinity,
@@ -1886,43 +2224,34 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
               _buildActiveStatusBadge(status),
             ],
           ),
-
           const SizedBox(height: 18),
-
           _buildRequestDetailRow(Icons.build_outlined, 'Issue', issueType),
-
           const SizedBox(height: 10),
-
           _buildRequestDetailRow(
             Icons.directions_car_outlined,
             'Vehicle',
             vehicleType,
           ),
-
           const SizedBox(height: 10),
-
           _buildRequestDetailRow(Icons.person_outline, 'Customer', userName),
-
           const SizedBox(height: 18),
 
           SizedBox(
             width: double.infinity,
             height: 46,
             child: ElevatedButton(
-              onPressed: () {
-                if (_activeRequestId == null) {
-                  return;
-                }
-
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => ProviderDirectionsPage(
-                      requestId: _activeRequestId!,
-                      userData: widget.userData,
-                    ),
-                  ),
-                );
-              },
+              onPressed: _activeRequestId == null
+                  ? null
+                  : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (context) => ProviderDirectionsPage(
+                            requestId: _activeRequestId!,
+                            userData: widget.userData,
+                          ),
+                        ),
+                      );
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _yellowColor,
                 foregroundColor: Colors.black,
@@ -2286,6 +2615,30 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   // REQUEST CARD
   // ============================================================
 
+  void _openRequestDetails(QueryDocumentSnapshot requestDocument) {
+    final Map<String, dynamic> requestData =
+        requestDocument.data() as Map<String, dynamic>;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (routeContext) => Scaffold(
+          backgroundColor: _backgroundColor,
+          body: SafeArea(
+            child: ProviderRequestDetailsView(
+              requestId: requestDocument.id,
+              requestData: requestData,
+              onBack: () => Navigator.of(routeContext).pop(),
+              onNavigate: () {
+                Navigator.of(routeContext).pop();
+                unawaited(_acceptRequest(requestDocument));
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRequestCard(QueryDocumentSnapshot requestDocument) {
     final Map<String, dynamic> data =
         requestDocument.data() as Map<String, dynamic>;
@@ -2394,6 +2747,20 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             'Location',
             locationText,
           ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _openRequestDetails(requestDocument),
+              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+              label: const Text('View full request details'),
+              style: TextButton.styleFrom(
+                foregroundColor: _yellowColor,
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -2501,10 +2868,12 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
   Future<void> _saveProfileDetails({
     required String name,
     required String workshopLocation,
+    required String contactNumber,
     required BuildContext dialogContext,
   }) async {
     final String trimmedName = name.trim();
     final String trimmedLocation = workshopLocation.trim();
+    final String trimmedContactNumber = contactNumber.trim();
 
     if (trimmedName.isEmpty) {
       _showMessage('Provider name is required.');
@@ -2513,6 +2882,12 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
     if (trimmedLocation.isEmpty) {
       _showMessage('Workshop location is required.');
+      return;
+    }
+
+    if (trimmedContactNumber.isNotEmpty &&
+        !RegExp(r'^\+?[0-9\s()-]{7,20}$').hasMatch(trimmedContactNumber)) {
+      _showMessage('Enter a valid contact number.');
       return;
     }
 
@@ -2529,6 +2904,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       await _firestore.collection('users').doc(_providerId).update({
         'name': trimmedName,
         'workshopLocation': trimmedLocation,
+        'contactNumber': trimmedContactNumber,
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -2539,12 +2915,14 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
       setState(() {
         _profileName = trimmedName;
         _profileWorkshopLocation = trimmedLocation;
+        _profileContactNumber = trimmedContactNumber;
 
         // Update the local userData map as well.
         // This makes the new values available to
         // other pages opened from this page.
         widget.userData['name'] = trimmedName;
         widget.userData['workshopLocation'] = trimmedLocation;
+        widget.userData['contactNumber'] = trimmedContactNumber;
       });
 
       if (!dialogContext.mounted) return;
@@ -2580,8 +2958,11 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
     final TextEditingController workshopController = TextEditingController(
       text: _profileWorkshopLocation,
     );
+    final TextEditingController contactNumberController = TextEditingController(
+      text: _profileContactNumber,
+    );
 
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
@@ -2655,6 +3036,28 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
 
                     const SizedBox(height: 14),
 
+                    TextField(
+                      controller: contactNumberController,
+                      keyboardType: TextInputType.phone,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        labelText: 'Contact Number (optional)',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        prefixIcon: Icon(
+                          Icons.phone_outlined,
+                          color: _yellowColor,
+                        ),
+                        filled: true,
+                        fillColor: _backgroundColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
                     // ------------------------------------------------
                     // EMAIL - READ ONLY
                     // ------------------------------------------------
@@ -2712,6 +3115,9 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                           final String workshopLocation = workshopController
                               .text
                               .trim();
+                          final String contactNumber = contactNumberController
+                              .text
+                              .trim();
 
                           if (name.isEmpty) {
                             _showMessage('Please enter the provider name.');
@@ -2723,11 +3129,19 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                             return;
                           }
 
+                          if (contactNumber.isNotEmpty &&
+                              !RegExp(r'^\+?[0-9\s()-]{7,20}$')
+                                  .hasMatch(contactNumber)) {
+                            _showMessage('Enter a valid contact number.');
+                            return;
+                          }
+
                           setDialogState(() {});
 
                           await _saveProfileDetails(
                             name: name,
                             workshopLocation: workshopLocation,
+                            contactNumber: contactNumber,
                             dialogContext: dialogContext,
                           );
 
@@ -2762,7 +3176,11 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
           },
         );
       },
-    );
+    ).whenComplete(() {
+      nameController.dispose();
+      workshopController.dispose();
+      contactNumberController.dispose();
+    });
   }
 
   // ============================================================
@@ -3173,6 +3591,16 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             value: _workshopLocation,
           ),
 
+          const SizedBox(height: 10),
+
+          _buildProfileInfoCard(
+            icon: Icons.phone_outlined,
+            title: 'Contact Number',
+            value: _profileContactNumber.isEmpty
+                ? 'Not provided'
+                : _profileContactNumber,
+          ),
+
           const SizedBox(height: 22),
 
           // ========================================================
@@ -3200,7 +3628,7 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
             width: double.infinity,
             height: 52,
             child: OutlinedButton.icon(
-              onPressed: _logout,
+              onPressed: _isDeletingAccount ? null : _logout,
               icon: const Icon(Icons.logout_rounded),
               label: const Text(
                 'Logout',
@@ -3209,6 +3637,37 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
                 side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: _isDeletingAccount ? null : _showDeleteAccountDialog,
+              icon: _isDeletingAccount
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.redAccent,
+                      ),
+                    )
+                  : const Icon(Icons.delete_outline_rounded),
+              label: Text(
+                _isDeletingAccount ? 'Deleting account...' : 'Delete Account',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.redAccent,
+                side: const BorderSide(color: Colors.redAccent),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
                 ),
@@ -3253,13 +3712,20 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                       'Completion rate',
                       style: TextStyle(color: Colors.white70, fontSize: 13),
                     ),
-                    Text(
-                      '${(completionRate * 100).round()}%',
-                      style: TextStyle(
-                        color: _yellowColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _buildCompletionRateStars(completionRate),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${(completionRate * 100).round()}%',
+                          style: TextStyle(
+                            color: _yellowColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -3305,6 +3771,24 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
                 ],
               ],
             ),
+    );
+  }
+
+  Widget _buildCompletionRateStars(double completionRate) {
+    final double starRating = (completionRate.clamp(0.0, 1.0)) * 5;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List<Widget>.generate(5, (index) {
+        final double starFill = (starRating - index).clamp(0.0, 1.0);
+        final IconData icon = starFill >= 0.75
+            ? Icons.star_rounded
+            : starFill >= 0.25
+            ? Icons.star_half_rounded
+            : Icons.star_outline_rounded;
+
+        return Icon(icon, color: _yellowColor, size: 18);
+      }),
     );
   }
 
@@ -3456,110 +3940,283 @@ class _RoadsideProviderHomePageState extends State<RoadsideProviderHomePage> {
               '${date.month.toString().padLeft(2, '0')}/'
               '${date.year}';
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _showJobHistoryDetails(job),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: statusBackgroundColor.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isCompleted ? Icons.check_rounded : Icons.close_rounded,
-              color: statusColor,
-              size: 22,
-            ),
+        child: Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
           ),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  issueType,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: statusBackgroundColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
                 ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  vehicleType,
-                  style: const TextStyle(color: Colors.white54, fontSize: 11),
+                child: Icon(
+                  isCompleted ? Icons.check_rounded : Icons.close_rounded,
+                  color: statusColor,
+                  size: 22,
                 ),
+              ),
 
-                const SizedBox(height: 6),
+              const SizedBox(width: 12),
 
-                Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusBackgroundColor.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        isCompleted
-                            ? 'Completed'
-                            : isCancelled
-                            ? 'Cancelled'
-                            : 'Denied',
-                        style: TextStyle(
-                          color: statusColor,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    Text(
+                      issueType,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
 
-                    const SizedBox(width: 8),
+                    const SizedBox(height: 4),
 
                     Text(
-                      dateText,
+                      vehicleType,
                       style: const TextStyle(
-                        color: Colors.white38,
-                        fontSize: 9,
+                        color: Colors.white54,
+                        fontSize: 11,
                       ),
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusBackgroundColor.withValues(
+                              alpha: 0.10,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            isCompleted
+                                ? 'Completed'
+                                : isCancelled
+                                ? 'Cancelled'
+                                : 'Denied',
+                            style: TextStyle(
+                              color: statusColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(width: 8),
+
+                        Text(
+                          dateText,
+                          style: const TextStyle(
+                            color: Colors.white38,
+                            fontSize: 9,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-
-          if (isCompleted && amountText.isNotEmpty)
-            Text(
-              amountText,
-              style: TextStyle(
-                color: _yellowColor,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
               ),
-            ),
-        ],
+
+              if (isCompleted && amountText.isNotEmpty)
+                Text(
+                  amountText,
+                  style: TextStyle(
+                    color: _yellowColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  void _showJobHistoryDetails(Map<String, dynamic> job) {
+    final String rawStatus = job['type']?.toString() ?? 'unknown';
+    final String status = rawStatus == 'canceled'
+        ? 'Cancelled'
+        : _titleCase(rawStatus);
+    final List<(String, String?)> details = [
+      ('Request ID', job['requestId']?.toString()),
+      ('Status', status),
+      (
+        'Customer',
+        job['userName']?.toString() ?? job['customerName']?.toString(),
+      ),
+      (
+        'Customer contact',
+        job['contactNumber']?.toString() ?? job['userPhone']?.toString(),
+      ),
+      ('Service', job['issueType']?.toString()),
+      ('Vehicle', job['vehicleType']?.toString()),
+      (
+        'Registration',
+        job['registrationNumber']?.toString() ?? job['plateNumber']?.toString(),
+      ),
+      (
+        'Customer note',
+        job['customerNote']?.toString() ?? job['note']?.toString(),
+      ),
+      ('Location', _formatHistoryLocation(job)),
+      (
+        'Job amount',
+        _formatHistoryAmount(job['paidAmount'] ?? job['jobAmount']),
+      ),
+      ('Payment status', job['paymentStatus']?.toString()),
+      ('Requested', _formatHistoryDate(job['createdAt'])),
+      ('Accepted', _formatHistoryDate(job['acceptedAt'])),
+      ('Completed', _formatHistoryDate(job['completedAt'])),
+    ];
+    final List<(String, String)> visibleDetails = details
+        .where((detail) => detail.$2 != null && detail.$2!.trim().isNotEmpty)
+        .map((detail) => (detail.$1, detail.$2!))
+        .toList();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SafeArea(
+        child: Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.85,
+          ),
+          decoration: BoxDecoration(
+            color: _cardColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+                child: Row(
+                  children: [
+                    Icon(Icons.history_rounded, color: _yellowColor),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Job details',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                      color: Colors.white70,
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Colors.white12),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(20),
+                  itemCount: visibleDetails.length,
+                  separatorBuilder: (_, _) =>
+                      const Divider(height: 20, color: Colors.white10),
+                  itemBuilder: (context, index) {
+                    final (label, value) = visibleDetails[index];
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        SelectableText(
+                          value,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _titleCase(String value) {
+    if (value.isEmpty) return value;
+    return '${value[0].toUpperCase()}${value.substring(1)}';
+  }
+
+  String? _formatHistoryDate(dynamic value) {
+    final DateTime? date = switch (value) {
+      Timestamp timestamp => timestamp.toDate(),
+      DateTime dateTime => dateTime,
+      _ => null,
+    };
+    if (date == null) return null;
+    final String day = date.day.toString().padLeft(2, '0');
+    final String month = date.month.toString().padLeft(2, '0');
+    final String hour = date.hour.toString().padLeft(2, '0');
+    final String minute = date.minute.toString().padLeft(2, '0');
+    return '$day/$month/${date.year} $hour:$minute';
+  }
+
+  String? _formatHistoryLocation(Map<String, dynamic> job) {
+    final Object? address =
+        job['address'] ?? job['locationAddress'] ?? job['formattedAddress'];
+    if (address is String && address.trim().isNotEmpty) return address.trim();
+
+    final Object? latitude = job['latitude'];
+    final Object? longitude = job['longitude'];
+    if (latitude is num && longitude is num) {
+      return '${latitude.toStringAsFixed(5)}, ${longitude.toStringAsFixed(5)}';
+    }
+    return null;
+  }
+
+  String? _formatHistoryAmount(dynamic value) {
+    if (value is num) return 'Rs. ${value.toStringAsFixed(0)}';
+    if (value == null || value.toString().trim().isEmpty) return null;
+    return 'Rs. ${value.toString()}';
   }
 
   Widget _buildProfileInfoCard({
