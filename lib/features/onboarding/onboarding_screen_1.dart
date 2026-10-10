@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
+
+import '../authentication/login_screen.dart';
 
 class OnboardingScreen1 extends StatelessWidget {
   const OnboardingScreen1({super.key});
@@ -7,10 +10,10 @@ class OnboardingScreen1 extends StatelessWidget {
   // COLORS
   // ================================================================
 
-  static const Color backgroundColor = Color(0xFF08090A);
-  static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color yellowColor = Color(0xFFF6E900);
-  static const Color greyColor = Color(0xFF929AA2);
+  static const Color backgroundColor = RoadRescueColors.background;
+  static const Color whiteColor = RoadRescueColors.foreground;
+  static const Color yellowColor = RoadRescueColors.accent;
+  static const Color greyColor = RoadRescueColors.muted;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +38,6 @@ class OnboardingScreen1 extends StatelessWidget {
           // ==========================================================
           // DARK OVERLAY
           // ==========================================================
-
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -43,9 +45,9 @@ class OnboardingScreen1 extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.25),
-                    Colors.black.withOpacity(0.35),
-                    Colors.black.withOpacity(0.70),
+                    Colors.black.withValues(alpha: 0.25),
+                    Colors.black.withValues(alpha: 0.35),
+                    Colors.black.withValues(alpha: 0.70),
                   ],
                 ),
               ),
@@ -55,7 +57,6 @@ class OnboardingScreen1 extends StatelessWidget {
           // ==========================================================
           // MAIN CONTENT
           // ==========================================================
-
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -67,19 +68,16 @@ class OnboardingScreen1 extends StatelessWidget {
                   // ==================================================
                   // ROADRESCUE LOGO
                   // ==================================================
-
                   _buildLogo(),
 
                   // ==================================================
                   // SPACE
                   // ==================================================
-
                   const Spacer(),
 
                   // ==================================================
                   // MAIN TEXT
                   // ==================================================
-
                   SizedBox(
                     width: screenSize.width * 0.72,
                     child: _buildMainText(),
@@ -88,18 +86,53 @@ class OnboardingScreen1 extends StatelessWidget {
                   // ==================================================
                   // SPACE
                   // ==================================================
-
                   const Spacer(),
 
                   // ==================================================
                   // PAGE INDICATORS
                   // ==================================================
+                  Center(child: _buildPageIndicators()),
+
+                  const SizedBox(height: 12),
 
                   Center(
-                    child: _buildPageIndicators(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Already have an account?',
+                          style: TextStyle(color: greyColor, fontSize: 13),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            'Log in',
+                            style: TextStyle(
+                              color: yellowColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 14),
                 ],
               ),
             ),
@@ -132,7 +165,7 @@ class OnboardingScreen1 extends StatelessWidget {
           child: const Text(
             '⚡',
             style: TextStyle(
-              color: Color(0xFF08090A),
+              color: RoadRescueColors.background,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -144,7 +177,6 @@ class OnboardingScreen1 extends StatelessWidget {
         // ------------------------------------------------------------
         // BRAND NAME
         // ------------------------------------------------------------
-
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -243,23 +275,17 @@ class OnboardingScreen1 extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Screen 1 - Active
-        _buildIndicator(
-          isActive: true,
-        ),
+        _buildIndicator(isActive: true),
 
         const SizedBox(width: 6),
 
         // Screen 2
-        _buildIndicator(
-          isActive: false,
-        ),
+        _buildIndicator(isActive: false),
 
         const SizedBox(width: 6),
 
         // Screen 3
-        _buildIndicator(
-          isActive: false,
-        ),
+        _buildIndicator(isActive: false),
       ],
     );
   }
@@ -268,17 +294,13 @@ class OnboardingScreen1 extends StatelessWidget {
   // INDIVIDUAL INDICATOR
   // ================================================================
 
-  Widget _buildIndicator({
-    required bool isActive,
-  }) {
+  Widget _buildIndicator({required bool isActive}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       width: isActive ? 24 : 7,
       height: 7,
       decoration: BoxDecoration(
-        color: isActive
-            ? yellowColor
-            : whiteColor.withOpacity(0.45),
+        color: isActive ? yellowColor : whiteColor.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(10),
       ),
     );

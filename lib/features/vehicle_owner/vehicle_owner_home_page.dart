@@ -1,41 +1,90 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
+import 'package:image_picker/image_picker.dart';
+
 import 'request_assistance_page.dart';
+import 'driver_payment_information_page.dart';
+import 'vehicle_owner_notifications_page.dart';
 
 class VehicleOwnerHomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const VehicleOwnerHomePage({
-    super.key,
-    required this.userData,
-  });
+  const VehicleOwnerHomePage({super.key, required this.userData});
 
   @override
-  State<VehicleOwnerHomePage> createState() =>
-      _VehicleOwnerHomePageState();
+  State<VehicleOwnerHomePage> createState() => _VehicleOwnerHomePageState();
 }
 
-class _VehicleOwnerHomePageState
-    extends State<VehicleOwnerHomePage> {
+class _VehicleOwnerHomePageState extends State<VehicleOwnerHomePage> {
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
+  final ImagePicker _imagePicker = ImagePicker();
+
+  bool _isLoadingRequests = false;
+  bool _isSavingProfile = false;
+  bool _isUploadingPhoto = false;
+  String _profilePhotoUrl = '';
+  String _contactNumber = '';
+  List<Map<String, dynamic>> _vehicles = [];
+  String? _currentVehicleId;
+  String _paymentPreference = 'card';
+  String _billingName = '';
+  String _billingAddress = '';
+  List<Map<String, dynamic>> _requestHistory = [];
+  String? _requestHistoryError;
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _notificationsStream;
+
+  String get userId {
+    return widget.userData['uid']?.toString() ?? _auth.currentUser?.uid ?? '';
+  }
+
   // ============================================================
   // COLORS
   // ============================================================
 
-  static const Color backgroundColor = Color(0xFF08090A);
-  static const Color cardColor = Color(0xFF171C20);
-  static const Color yellowColor = Color(0xFFF6E900);
-  static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color greyColor = Color(0xFF929AA2);
-  static const Color borderColor = Color(0xFF394149);
+  static const Color backgroundColor = RoadRescueColors.background;
+  static const Color cardColor = RoadRescueColors.surface;
+  static const Color yellowColor = RoadRescueColors.accent;
+  static const Color whiteColor = RoadRescueColors.foreground;
+  static const Color greyColor = RoadRescueColors.muted;
+  static const Color borderColor = RoadRescueColors.border;
 
   // ============================================================
   // STATE
   // ============================================================
 
   int _selectedIndex = 0;
+  int _requestHistoryFilterIndex = 0;
 
   // ============================================================
   // USER DATA
   // ============================================================
+
+  @override
+  void initState() {
+    super.initState();
+    _profilePhotoUrl = widget.userData['profilePhotoUrl']?.toString() ?? '';
+    _contactNumber = widget.userData['contactNumber']?.toString() ?? '';
+    _paymentPreference =
+        widget.userData['paymentPreference']?.toString() == 'cash'
+        ? 'cash'
+        : 'card';
+    _billingName = widget.userData['billingName']?.toString() ?? '';
+    _billingAddress = widget.userData['billingAddress']?.toString() ?? '';
+    _loadVehiclesFromUserData();
+    if (userId.isNotEmpty) {
+      _notificationsStream = _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: userId)
+          .snapshots();
+    }
+    _loadRecentRequests();
+    _loadProfilePhoto();
+  }
 
   String get userName {
     final name = widget.userData['name'];
@@ -48,13 +97,71 @@ class _VehicleOwnerHomePageState
   }
 
   String get vehicleType {
-    final vehicle = widget.userData['vehicleType'];
+    return _currentVehicle?['vehicleType']?.toString() ?? 'Vehicle';
+  }
 
-    if (vehicle == null || vehicle.toString().trim().isEmpty) {
-      return 'Vehicle';
+  Map<String, dynamic>? get _currentVehicle {
+    for (final Map<String, dynamic> vehicle in _vehicles) {
+      if (vehicle['id'] == _currentVehicleId) return vehicle;
+    }
+    return _vehicles.isEmpty ? null : _vehicles.first;
+  }
+
+  void _loadVehiclesFromUserData() {
+    final Object? storedVehicles = widget.userData['vehicles'];
+    if (storedVehicles is List) {
+      for (int index = 0; index < storedVehicles.length; index++) {
+        final Object? item = storedVehicles[index];
+        if (item is! Map) continue;
+
+        final Map<String, dynamic> vehicle = Map<String, dynamic>.from(item);
+        final String type = vehicle['vehicleType']?.toString().trim() ?? '';
+        if (type.isEmpty) continue;
+
+        vehicle['id'] = vehicle['id']?.toString().isNotEmpty == true
+            ? vehicle['id'].toString()
+            : 'vehicle_$index';
+        vehicle['vehicleType'] = type;
+        vehicle['registrationNumber'] =
+            vehicle['registrationNumber']?.toString() ??
+            vehicle['vehicleNumber']?.toString() ??
+            vehicle['vehiclePlate']?.toString() ??
+            '';
+        _vehicles.add(vehicle);
+      }
     }
 
-    return vehicle.toString().trim();
+    if (_vehicles.isEmpty) {
+      final String legacyType =
+          widget.userData['vehicleType']?.toString().trim() ?? '';
+      if (legacyType.isNotEmpty) {
+        _vehicles.add({
+          'id': 'vehicle_default',
+          'vehicleType': legacyType,
+          'registrationNumber':
+              widget.userData['registrationNumber']?.toString() ??
+              widget.userData['vehicleNumber']?.toString() ??
+              widget.userData['vehiclePlate']?.toString() ??
+              '',
+        });
+      }
+    }
+
+    final String? storedCurrentId = widget.userData['currentVehicleId']
+        ?.toString();
+    if (_vehicles.any((vehicle) => vehicle['id'] == storedCurrentId)) {
+      _currentVehicleId = storedCurrentId;
+    } else if (_vehicles.isNotEmpty) {
+      _currentVehicleId = _vehicles.first['id']?.toString();
+    }
+  }
+
+  String get email {
+    final email = widget.userData['email'];
+    if (email == null || email.toString().trim().isEmpty) {
+      return 'Email not available';
+    }
+    return email.toString().trim();
   }
 
   // ============================================================
@@ -88,18 +195,11 @@ class _VehicleOwnerHomePageState
       color: yellowColor,
       backgroundColor: cardColor,
       onRefresh: () async {
-        await Future.delayed(
-          const Duration(milliseconds: 600),
-        );
+        await Future.delayed(const Duration(milliseconds: 600));
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(
-          22,
-          20,
-          22,
-          30,
-        ),
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 30),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -130,11 +230,7 @@ class _VehicleOwnerHomePageState
             _buildSectionTitle(
               title: 'My Vehicle',
               actionText: 'Edit',
-              onActionPressed: () {
-                _showComingSoon(
-                  'Vehicle editing will be available soon.',
-                );
-              },
+              onActionPressed: _showVehicleManager,
             ),
 
             const SizedBox(height: 14),
@@ -217,14 +313,7 @@ class _VehicleOwnerHomePageState
         const Spacer(),
 
         // Notification
-        _buildIconButton(
-          icon: Icons.notifications_none_rounded,
-          onPressed: () {
-            _showComingSoon(
-              'Notifications will be available soon.',
-            );
-          },
-        ),
+        _buildNotificationButton(),
 
         const SizedBox(width: 9),
 
@@ -241,9 +330,7 @@ class _VehicleOwnerHomePageState
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: borderColor,
-              ),
+              border: Border.all(color: borderColor),
             ),
             child: const Icon(
               Icons.person_outline_rounded,
@@ -278,10 +365,7 @@ class _VehicleOwnerHomePageState
 
         const Text(
           'How can we help you today?',
-          style: TextStyle(
-            color: greyColor,
-            fontSize: 14,
-          ),
+          style: TextStyle(color: greyColor, fontSize: 14),
         ),
       ],
     );
@@ -300,7 +384,7 @@ class _VehicleOwnerHomePageState
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: yellowColor.withOpacity(0.12),
+            color: yellowColor.withValues(alpha: 0.12),
             blurRadius: 25,
             offset: const Offset(0, 10),
           ),
@@ -315,7 +399,7 @@ class _VehicleOwnerHomePageState
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: backgroundColor.withOpacity(0.12),
+                  color: backgroundColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(13),
                 ),
                 child: const Icon(
@@ -333,17 +417,13 @@ class _VehicleOwnerHomePageState
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: backgroundColor.withOpacity(0.10),
+                  color: backgroundColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.circle,
-                      color: Color(0xFF1B5E20),
-                      size: 8,
-                    ),
+                    Icon(Icons.circle, color: Color(0xFF1B5E20), size: 8),
                     SizedBox(width: 5),
                     Text(
                       'Available 24/7',
@@ -375,7 +455,7 @@ class _VehicleOwnerHomePageState
           Text(
             'Request assistance and get help from a nearby provider.',
             style: TextStyle(
-              color: backgroundColor.withOpacity(0.65),
+              color: backgroundColor.withValues(alpha: 0.65),
               fontSize: 12.5,
               height: 1.45,
             ),
@@ -389,10 +469,10 @@ class _VehicleOwnerHomePageState
             child: ElevatedButton(
               onPressed: () {
                 Navigator.push(
-                context,
-                MaterialPageRoute(
-                builder: (context) => RequestAssistancePage(
-                  userData: widget.userData,
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => RequestAssistancePage(
+                      userData: _userDataWithCurrentVehicle(),
                     ),
                   ),
                 );
@@ -408,10 +488,7 @@ class _VehicleOwnerHomePageState
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(
-                    Icons.car_repair_rounded,
-                    size: 20,
-                  ),
+                  Icon(Icons.car_repair_rounded, size: 20),
                   SizedBox(width: 9),
                   Text(
                     'Request Assistance',
@@ -521,24 +598,15 @@ class _VehicleOwnerHomePageState
   }) {
     return GestureDetector(
       onTap: () {
-        _showComingSoon(
-          '$title assistance will be available soon.',
-        );
+        _showComingSoon('$title assistance will be available soon.');
       },
       child: Container(
-        constraints: const BoxConstraints(
-          minHeight: 112,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 13,
-        ),
+        constraints: const BoxConstraints(minHeight: 112),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 13),
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: borderColor,
-          ),
+          border: Border.all(color: borderColor),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -547,14 +615,10 @@ class _VehicleOwnerHomePageState
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: yellowColor.withOpacity(0.09),
+                color: yellowColor.withValues(alpha: 0.09),
                 borderRadius: BorderRadius.circular(11),
               ),
-              child: Icon(
-                icon,
-                color: yellowColor,
-                size: 21,
-              ),
+              child: Icon(icon, color: yellowColor, size: 21),
             ),
 
             const SizedBox(height: 9),
@@ -574,10 +638,7 @@ class _VehicleOwnerHomePageState
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: greyColor,
-                fontSize: 8.5,
-              ),
+              style: const TextStyle(color: greyColor, fontSize: 8.5),
             ),
           ],
         ),
@@ -590,15 +651,15 @@ class _VehicleOwnerHomePageState
   // ============================================================
 
   Widget _buildVehicleCard() {
+    final String registrationNumber =
+        _currentVehicle?['registrationNumber']?.toString().trim() ?? '';
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(17),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: borderColor,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -606,7 +667,7 @@ class _VehicleOwnerHomePageState
             width: 55,
             height: 55,
             decoration: BoxDecoration(
-              color: yellowColor.withOpacity(0.09),
+              color: yellowColor.withValues(alpha: 0.09),
               borderRadius: BorderRadius.circular(15),
             ),
             child: const Icon(
@@ -624,10 +685,7 @@ class _VehicleOwnerHomePageState
               children: [
                 const Text(
                   'My Vehicle',
-                  style: TextStyle(
-                    color: greyColor,
-                    fontSize: 11,
-                  ),
+                  style: TextStyle(color: greyColor, fontSize: 11),
                 ),
 
                 const SizedBox(height: 4),
@@ -645,88 +703,1142 @@ class _VehicleOwnerHomePageState
 
                 const Text(
                   'Vehicle information',
-                  style: TextStyle(
-                    color: greyColor,
-                    fontSize: 10,
-                  ),
+                  style: TextStyle(color: greyColor, fontSize: 10),
                 ),
+                if (registrationNumber.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    registrationNumber,
+                    style: const TextStyle(
+                      color: yellowColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
 
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.chevron_right_rounded,
-              color: greyColor,
-              size: 21,
-            ),
+          IconButton(
+            tooltip: 'Choose or add a vehicle',
+            onPressed: _showVehicleManager,
+            icon: const Icon(Icons.tune_rounded, color: yellowColor, size: 21),
           ),
         ],
       ),
     );
   }
 
+  Map<String, dynamic> _userDataWithCurrentVehicle() {
+    final Map<String, dynamic> data = Map<String, dynamic>.from(
+      widget.userData,
+    );
+    final Map<String, dynamic>? vehicle = _currentVehicle;
+    if (vehicle == null) return data;
+    data['vehicleType'] = vehicle['vehicleType'];
+    data['currentVehicleId'] = vehicle['id'];
+    data['registrationNumber'] = vehicle['registrationNumber'] ?? '';
+    data['vehicleNumber'] = vehicle['registrationNumber'] ?? '';
+    return data;
+  }
+
+  Future<void> _showVehicleManager() async {
+    if (userId.isEmpty) {
+      _showComingSoon('Unable to identify your account.');
+      return;
+    }
+
+    final List<Map<String, dynamic>> vehicles = _vehicles
+        .map((vehicle) => Map<String, dynamic>.from(vehicle))
+        .toList();
+    String? selectedVehicleId = _currentVehicleId;
+    final TextEditingController typeController = TextEditingController();
+    final TextEditingController registrationController =
+        TextEditingController();
+    bool isAddingVehicle = false;
+    String? formError;
+    bool isSaving = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: cardColor,
+          title: const Text(
+            'My Vehicles',
+            style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Choose the vehicle to use for your next assistance request.',
+                    style: TextStyle(color: greyColor, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  if (vehicles.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 14),
+                      child: Text(
+                        'No vehicles added yet.',
+                        style: TextStyle(color: greyColor),
+                      ),
+                    ),
+                  ...vehicles.map((vehicle) {
+                    final String id = vehicle['id'].toString();
+                    final String type =
+                        vehicle['vehicleType']?.toString() ?? 'Vehicle';
+                    final String registration =
+                        vehicle['registrationNumber']?.toString().trim() ?? '';
+                    final bool isSelected = id == selectedVehicleId;
+                    return ListTile(
+                      onTap: () {
+                        setDialogState(() {
+                          selectedVehicleId = id;
+                        });
+                      },
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        isSelected
+                            ? Icons.radio_button_checked_rounded
+                            : Icons.radio_button_unchecked_rounded,
+                        color: isSelected ? yellowColor : greyColor,
+                      ),
+                      title: Text(
+                        type,
+                        style: const TextStyle(color: whiteColor),
+                      ),
+                      subtitle: registration.isEmpty
+                          ? null
+                          : Text(
+                              registration,
+                              style: const TextStyle(color: greyColor),
+                            ),
+                      trailing: IconButton(
+                        tooltip: 'Remove $type',
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                final bool? confirmed =
+                                    await showDialog<bool>(
+                                      context: dialogContext,
+                                      builder: (context) => AlertDialog(
+                                        backgroundColor: cardColor,
+                                        title: const Text(
+                                          'Remove vehicle?',
+                                          style: TextStyle(
+                                            color: whiteColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        content: Text(
+                                          'Remove $type from your saved vehicles? '
+                                          'Past requests will keep their vehicle details.',
+                                          style: const TextStyle(
+                                            color: greyColor,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            style: TextButton.styleFrom(
+                                              foregroundColor:
+                                                  RoadRescueColors.error,
+                                            ),
+                                            child: const Text('Remove'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                if (confirmed != true || !dialogContext.mounted) {
+                                  return;
+                                }
+
+                                final List<Map<String, dynamic>> updatedVehicles =
+                                    vehicles
+                                        .where(
+                                          (vehicle) => vehicle['id'] != id,
+                                        )
+                                        .toList();
+                                final String? nextVehicleId =
+                                    selectedVehicleId == id
+                                    ? updatedVehicles.isEmpty
+                                          ? null
+                                          : updatedVehicles.first['id']
+                                                ?.toString()
+                                    : selectedVehicleId;
+                                Map<String, dynamic>? nextVehicle;
+                                for (final vehicle in updatedVehicles) {
+                                  if (vehicle['id'] == nextVehicleId) {
+                                    nextVehicle = vehicle;
+                                    break;
+                                  }
+                                }
+
+                                setDialogState(() => isSaving = true);
+                                try {
+                                  final Map<String, dynamic> update = {
+                                    'vehicles': updatedVehicles,
+                                    'currentVehicleId': nextVehicleId ?? '',
+                                    'updatedAt':
+                                        FieldValue.serverTimestamp(),
+                                  };
+                                  if (nextVehicle == null) {
+                                    update.addAll({
+                                      'vehicleType': FieldValue.delete(),
+                                      'registrationNumber':
+                                          FieldValue.delete(),
+                                      'vehicleNumber': FieldValue.delete(),
+                                    });
+                                  } else {
+                                    final Object typeValue =
+                                        nextVehicle['vehicleType'] as Object;
+                                    final String nextRegistration =
+                                        nextVehicle['registrationNumber']
+                                                ?.toString() ??
+                                            '';
+                                    update.addAll({
+                                      'vehicleType': typeValue,
+                                      'registrationNumber': nextRegistration,
+                                      'vehicleNumber': nextRegistration,
+                                    });
+                                  }
+
+                                  await _firestore
+                                      .collection('users')
+                                      .doc(userId)
+                                      .update(update);
+                                  if (!mounted || !dialogContext.mounted) {
+                                    return;
+                                  }
+                                  setState(() {
+                                    _vehicles = updatedVehicles;
+                                    _currentVehicleId = nextVehicleId;
+                                    widget.userData['vehicles'] =
+                                        updatedVehicles;
+                                    widget.userData['currentVehicleId'] =
+                                        nextVehicleId ?? '';
+                                    if (nextVehicle == null) {
+                                      widget.userData.remove('vehicleType');
+                                      widget.userData.remove(
+                                        'registrationNumber',
+                                      );
+                                      widget.userData.remove('vehicleNumber');
+                                    } else {
+                                      widget.userData['vehicleType'] =
+                                          nextVehicle['vehicleType'];
+                                      widget.userData['registrationNumber'] =
+                                          nextVehicle['registrationNumber'] ??
+                                          '';
+                                      widget.userData['vehicleNumber'] =
+                                          nextVehicle['registrationNumber'] ??
+                                          '';
+                                    }
+                                  });
+                                  setDialogState(() {
+                                    vehicles
+                                      ..clear()
+                                      ..addAll(updatedVehicles);
+                                    selectedVehicleId = nextVehicleId;
+                                    isSaving = false;
+                                  });
+                                } catch (error) {
+                                  debugPrint(
+                                    'Removing saved vehicle failed: $error',
+                                  );
+                                  if (dialogContext.mounted) {
+                                    setDialogState(() {
+                                      isSaving = false;
+                                      formError =
+                                          'Could not remove this vehicle. Please try again.';
+                                    });
+                                  }
+                                }
+                              },
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: RoadRescueColors.error,
+                        ),
+                      ),
+                    );
+                  }),
+                  if (isAddingVehicle) ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: typeController,
+                      textCapitalization: TextCapitalization.words,
+                      style: const TextStyle(color: whiteColor),
+                      decoration: const InputDecoration(
+                        labelText: 'Vehicle type / model',
+                        hintText: 'e.g. Toyota Aqua',
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: registrationController,
+                      textCapitalization: TextCapitalization.characters,
+                      style: const TextStyle(color: whiteColor),
+                      decoration: const InputDecoration(
+                        labelText: 'Registration number (optional)',
+                        hintText: 'e.g. ABC-1234',
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          final String type = typeController.text.trim();
+                          if (type.isEmpty) {
+                            setDialogState(() {
+                              formError = 'Enter the vehicle type or model.';
+                            });
+                            return;
+                          }
+
+                          final String id =
+                              'vehicle_${DateTime.now().microsecondsSinceEpoch}';
+                          setDialogState(() {
+                            vehicles.add({
+                              'id': id,
+                              'vehicleType': type,
+                              'registrationNumber': registrationController.text
+                                  .trim()
+                                  .toUpperCase(),
+                            });
+                            selectedVehicleId = id;
+                            typeController.clear();
+                            registrationController.clear();
+                            formError = null;
+                            isAddingVehicle = false;
+                          });
+                        },
+                        child: const Text('Add vehicle'),
+                      ),
+                    ),
+                  ] else
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            isAddingVehicle = true;
+                            formError = null;
+                          });
+                        },
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Add another vehicle'),
+                      ),
+                    ),
+                  if (formError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      formError!,
+                      style: const TextStyle(
+                        color: RoadRescueColors.error,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      await WidgetsBinding.instance.endOfFrame;
+                      if (dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                    },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (isAddingVehicle) {
+                        final String type = typeController.text.trim();
+                        if (type.isEmpty) {
+                          setDialogState(() {
+                            formError = 'Enter the vehicle type or model.';
+                          });
+                          return;
+                        }
+                        final String id =
+                            'vehicle_${DateTime.now().microsecondsSinceEpoch}';
+                        setDialogState(() {
+                          vehicles.add({
+                            'id': id,
+                            'vehicleType': type,
+                            'registrationNumber': registrationController.text
+                                .trim()
+                                .toUpperCase(),
+                          });
+                          selectedVehicleId = id;
+                          isAddingVehicle = false;
+                          formError = null;
+                        });
+                        return;
+                      }
+                      if (vehicles.isEmpty || selectedVehicleId == null) {
+                        setDialogState(() {
+                          formError = 'Add a vehicle before continuing.';
+                          isAddingVehicle = true;
+                        });
+                        return;
+                      }
+
+                      setDialogState(() => isSaving = true);
+                      Map<String, dynamic>? selected;
+                      for (final Map<String, dynamic> vehicle in vehicles) {
+                        if (vehicle['id'] == selectedVehicleId) {
+                          selected = vehicle;
+                          break;
+                        }
+                      }
+                      if (selected == null) {
+                        setDialogState(() {
+                          isSaving = false;
+                          formError = 'Select a vehicle to continue.';
+                        });
+                        return;
+                      }
+                      final Map<String, dynamic> selectedVehicle = selected;
+
+                      try {
+                        await _firestore.collection('users').doc(userId).update(
+                          {
+                            'vehicles': vehicles,
+                            'currentVehicleId': selectedVehicleId,
+                            'vehicleType': selectedVehicle['vehicleType'],
+                            'registrationNumber':
+                                selectedVehicle['registrationNumber'] ?? '',
+                            'vehicleNumber':
+                                selectedVehicle['registrationNumber'] ?? '',
+                            'updatedAt': FieldValue.serverTimestamp(),
+                          },
+                        );
+                        if (!mounted) return;
+                        setState(() {
+                          _vehicles = vehicles;
+                          _currentVehicleId = selectedVehicleId;
+                          widget.userData['vehicles'] = vehicles;
+                          widget.userData['currentVehicleId'] =
+                              selectedVehicleId;
+                          widget.userData['vehicleType'] =
+                              selectedVehicle['vehicleType'];
+                          widget.userData['registrationNumber'] =
+                              selectedVehicle['registrationNumber'] ?? '';
+                          widget.userData['vehicleNumber'] =
+                              selectedVehicle['registrationNumber'] ?? '';
+                        });
+                        if (dialogContext.mounted) {
+                          Navigator.pop(dialogContext);
+                        }
+                        _showComingSoon('Current vehicle saved.');
+                      } catch (error) {
+                        debugPrint('Saving vehicles failed: $error');
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            isSaving = false;
+                            formError =
+                                'Could not save vehicles. Please try again.';
+                          });
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: backgroundColor,
+                      ),
+                    )
+                  : const Text('Save selection'),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      typeController.dispose();
+      registrationController.dispose();
+    });
+  }
+
   // ============================================================
   // RECENT REQUESTS
   // ============================================================
 
-  Widget _buildRecentRequests() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: borderColor,
+  Future<void> _loadRecentRequests() async {
+    final String uid = userId;
+    if (uid.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRequests = false;
+          _requestHistoryError = 'User account could not be identified.';
+        });
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLoadingRequests = true;
+      _requestHistoryError = null;
+    });
+
+    try {
+      final QuerySnapshot snapshot = await _firestore
+          .collection('assistance_requests')
+          .where('userId', isEqualTo: uid)
+          .get();
+
+      final List<Map<String, dynamic>> history =
+          snapshot.docs
+              .map(
+                (doc) => {
+                  'id': doc.id,
+                  ...(doc.data() as Map<String, dynamic>),
+                },
+              )
+              .where((request) => request['ownerHidden'] != true)
+              .toList()
+            ..sort((a, b) {
+              DateTime? createdAt(Map<String, dynamic> request) {
+                final value = request['createdAt'];
+                if (value is Timestamp) return value.toDate();
+                if (value is DateTime) return value;
+                return null;
+              }
+              final aDate = createdAt(a);
+              final bDate = createdAt(b);
+              if (aDate == null) return bDate == null ? 0 : 1;
+              if (bDate == null) return -1;
+              return bDate.compareTo(aDate);
+            });
+
+      if (!mounted) return;
+
+      setState(() {
+        _requestHistory = history;
+        _isLoadingRequests = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoadingRequests = false;
+        _requestHistory = [];
+        _requestHistoryError = 'Unable to load your requests right now.';
+      });
+      debugPrint('Recent requests load error: $e');
+    }
+  }
+
+  Future<void> _removeRequestFromHistory(
+    Map<String, dynamic> request,
+  ) async {
+    final String status = request['status']?.toString().toLowerCase() ?? '';
+    if (status != 'completed' && status != 'cancelled') {
+      _showComingSoon(
+        'Only completed or cancelled requests can be removed.',
+      );
+      return;
+    }
+
+    final String requestId =
+        request['id']?.toString() ?? request['requestId']?.toString() ?? '';
+    if (requestId.isEmpty) {
+      _showComingSoon('Could not identify this request.');
+      return;
+    }
+
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: cardColor,
+        title: const Text(
+          'Remove request?',
+          style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
         ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: BoxDecoration(
-              color: backgroundColor,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(
-              Icons.history_rounded,
-              color: greyColor,
-              size: 27,
-            ),
+        content: const Text(
+          'This completed request will be hidden from your request list. '
+          'Its payment and conversation records will be retained.',
+          style: TextStyle(color: greyColor, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
-
-          const SizedBox(height: 12),
-
-          const Text(
-            'No recent requests',
-            style: TextStyle(
-              color: whiteColor,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(
+              foregroundColor: RoadRescueColors.error,
             ),
-          ),
-
-          const SizedBox(height: 5),
-
-          const Text(
-            'Your roadside assistance requests will appear here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: greyColor,
-              fontSize: 11.5,
-              height: 1.4,
-            ),
+            child: const Text('Remove'),
           ),
         ],
       ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _firestore
+          .collection('assistance_requests')
+          .doc(requestId)
+          .update({
+            'ownerHidden': true,
+            'ownerHiddenAt': FieldValue.serverTimestamp(),
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+
+      if (!mounted) return;
+      setState(() {
+        _requestHistory.removeWhere(
+          (item) =>
+              item['id']?.toString() == requestId ||
+              item['requestId']?.toString() == requestId,
+        );
+      });
+      _showComingSoon('Request removed from your history.');
+    } on FirebaseException catch (error) {
+      debugPrint('Removing request from history failed: ${error.code}');
+      _showComingSoon(
+        error.code == 'permission-denied'
+            ? 'You do not have permission to remove this request.'
+            : 'Could not remove this request. Please try again.',
+      );
+    } catch (error) {
+      debugPrint('Removing request from history failed: $error');
+      _showComingSoon('Could not remove this request. Please try again.');
+    }
+  }
+
+  Future<void> _loadProfilePhoto() async {
+    final String uid = userId;
+    if (uid.isEmpty) return;
+
+    try {
+      final DocumentSnapshot userDoc = await _firestore
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (!userDoc.exists || userDoc.data() == null) {
+        return;
+      }
+
+      final Map<String, dynamic> data = userDoc.data() as Map<String, dynamic>;
+      final String photoUrl = data['profilePhotoUrl']?.toString() ?? '';
+
+      if (!mounted) return;
+
+      setState(() {
+        _profilePhotoUrl = photoUrl;
+      });
+    } catch (e) {
+      debugPrint('Profile photo load error: $e');
+    }
+  }
+
+  Future<void> _uploadProfilePhoto() async {
+    final String uid = userId;
+    if (uid.isEmpty) {
+      _showComingSoon('Unable to identify your account.');
+      return;
+    }
+
+    try {
+      final XFile? picked = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+        maxWidth: 900,
+        maxHeight: 900,
+      );
+
+      if (picked == null) return;
+
+      if (!mounted) return;
+      setState(() {
+        _isUploadingPhoto = true;
+      });
+
+      final Reference ref = _storage
+          .ref()
+          .child('vehicle_owner_profile_photos')
+          .child('$uid.jpg');
+      await ref.putData(
+        await picked.readAsBytes(),
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
+      final String downloadUrl = await ref.getDownloadURL();
+
+      await _firestore.collection('users').doc(uid).update({
+        'profilePhotoUrl': downloadUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoUrl = downloadUrl;
+        _isUploadingPhoto = false;
+      });
+      _showComingSoon('Profile photo updated.');
+    } catch (e) {
+      debugPrint('Profile photo upload error: $e');
+      if (!mounted) return;
+      setState(() {
+        _isUploadingPhoto = false;
+      });
+      _showComingSoon('Unable to upload profile photo.');
+    }
+  }
+
+  Future<void> _saveProfileDetails({
+    required String name,
+    required String contactNumber,
+    required BuildContext dialogContext,
+  }) async {
+    final String trimmedName = name.trim();
+    final String trimmedContact = contactNumber.trim();
+    final String uid = userId;
+
+    if (trimmedName.isEmpty) {
+      _showComingSoon('Please enter your name.');
+      return;
+    }
+
+    if (uid.isEmpty) {
+      _showComingSoon('Unable to identify your account.');
+      return;
+    }
+
+    setState(() {
+      _isSavingProfile = true;
+    });
+
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'name': trimmedName,
+        'contactNumber': trimmedContact,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted || !dialogContext.mounted) return;
+      setState(() {
+        widget.userData['name'] = trimmedName;
+        widget.userData['contactNumber'] = trimmedContact;
+        _contactNumber = trimmedContact;
+      });
+
+      if (Navigator.canPop(dialogContext)) {
+        Navigator.pop(dialogContext);
+      }
+      _showComingSoon('Profile updated successfully.');
+    } catch (e) {
+      debugPrint('Save profile error: $e');
+      if (mounted) {
+        _showComingSoon('Failed to update profile. Please try again.');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSavingProfile = false;
+        });
+      }
+    }
+  }
+
+  void _showEditProfileDialog() {
+    final nameController = TextEditingController(
+      text: userName == 'there' ? '' : userName,
+    );
+    final contactController = TextEditingController(text: _contactNumber);
+    final emailController = TextEditingController(
+      text: email == 'Email not available' ? '' : email,
+    );
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: cardColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Edit Profile',
+            style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  textCapitalization: TextCapitalization.words,
+                  style: const TextStyle(color: whiteColor),
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    labelStyle: const TextStyle(color: greyColor),
+                    prefixIcon: const Icon(
+                      Icons.person_outline,
+                      color: yellowColor,
+                    ),
+                    filled: true,
+                    fillColor: backgroundColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: contactController,
+                  keyboardType: TextInputType.phone,
+                  style: const TextStyle(color: whiteColor),
+                  decoration: InputDecoration(
+                    labelText: 'Contact Number',
+                    labelStyle: const TextStyle(color: greyColor),
+                    prefixIcon: const Icon(
+                      Icons.phone_outlined,
+                      color: yellowColor,
+                    ),
+                    filled: true,
+                    fillColor: backgroundColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  enabled: false,
+                  controller: emailController,
+                  style: const TextStyle(color: greyColor),
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    labelStyle: const TextStyle(color: greyColor),
+                    prefixIcon: const Icon(
+                      Icons.email_outlined,
+                      color: greyColor,
+                    ),
+                    filled: true,
+                    fillColor: backgroundColor,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          actions: [
+            TextButton(
+              onPressed: _isSavingProfile
+                  ? null
+                  : () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(color: greyColor)),
+            ),
+            ElevatedButton(
+              onPressed: _isSavingProfile
+                  ? null
+                  : () async {
+                      setDialogState(() {});
+                      await _saveProfileDetails(
+                        name: nameController.text,
+                        contactNumber: contactController.text,
+                        dialogContext: dialogContext,
+                      );
+                      if (dialogContext.mounted) {
+                        setDialogState(() {});
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: yellowColor,
+                foregroundColor: backgroundColor,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _isSavingProfile
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: backgroundColor,
+                      ),
+                    )
+                  : const Text(
+                      'Save Changes',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(() {
+      nameController.dispose();
+      contactController.dispose();
+      emailController.dispose();
+    });
+  }
+
+  Widget _buildRecentRequests({
+    bool showAll = false,
+    int? statusFilterIndex,
+  }) {
+    if (_isLoadingRequests) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: borderColor),
+        ),
+        child: const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: yellowColor,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_requestHistoryError != null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: borderColor),
+        ),
+        child: Text(
+          _requestHistoryError!,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: greyColor, fontSize: 12.5),
+        ),
+      );
+    }
+
+    if (_requestHistory.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: borderColor),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 54,
+              height: 54,
+              decoration: BoxDecoration(
+                color: backgroundColor,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(
+                Icons.history_rounded,
+                color: greyColor,
+                size: 27,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No requests yet',
+              style: TextStyle(
+                color: whiteColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Requests you create will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: greyColor, fontSize: 11.5, height: 1.4),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final List<Map<String, dynamic>> filteredRequests =
+        statusFilterIndex == null || statusFilterIndex == 0
+        ? _requestHistory
+        : _requestHistory.where((request) {
+            final String status =
+                request['status']?.toString().toLowerCase() ?? '';
+            final bool isPast =
+                status == 'completed' || status == 'cancelled';
+            return statusFilterIndex == 2 ? isPast : !isPast;
+          }).toList();
+    final requests = showAll
+        ? filteredRequests
+        : filteredRequests.take(3).toList();
+
+    if (requests.isEmpty) {
+      final String emptyMessage = statusFilterIndex == 2
+          ? 'Completed or cancelled requests will appear here.'
+          : statusFilterIndex == 1
+          ? 'You have no active requests right now.'
+          : 'Requests you create will appear here.';
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(17),
+          border: Border.all(color: borderColor),
+        ),
+        child: Text(
+          emptyMessage,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: greyColor, fontSize: 12.5),
+        ),
+      );
+    }
+
+    return Column(
+      children: requests.map((request) {
+        final service =
+            request['issueType']?.toString() ??
+            request['serviceType']?.toString() ??
+            'Roadside Assistance';
+        final status = request['status']?.toString() ?? 'Pending';
+        final timestamp = request['createdAt'];
+        final requestId =
+            request['requestId']?.toString() ?? request['id']?.toString() ?? '';
+        String subtitle = requestId.isEmpty
+            ? 'Request submitted'
+            : 'Request #${requestId.substring(0, requestId.length < 8 ? requestId.length : 8)}';
+
+        if (timestamp is Timestamp) {
+          final date = timestamp.toDate();
+          subtitle = '${date.day}/${date.month}/${date.year} · $subtitle';
+        } else if (timestamp is DateTime) {
+          subtitle =
+              '${timestamp.day}/${timestamp.month}/${timestamp.year} · $subtitle';
+        }
+
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: borderColor),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: yellowColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.car_repair_rounded,
+                  color: yellowColor,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      service,
+                      style: const TextStyle(
+                        color: whiteColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: greyColor, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: status.toLowerCase() == 'completed'
+                      ? const Color(0xFF183C2A)
+                      : status.toLowerCase() == 'accepted'
+                      ? const Color(0xFF2F3C12)
+                      : const Color(0xFF2B2E35),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  status,
+                  style: TextStyle(
+                    color: status.toLowerCase() == 'completed'
+                        ? const Color(0xFF7DE0A3)
+                        : status.toLowerCase() == 'accepted'
+                        ? const Color(0xFFF3D55F)
+                        : const Color(0xFFD6DADE),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (status.toLowerCase() == 'completed' ||
+                  status.toLowerCase() == 'cancelled')
+                IconButton(
+                  tooltip: 'Remove request',
+                  onPressed: () => _removeRequestFromHistory(request),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: RoadRescueColors.error,
+                    size: 20,
+                  ),
+                ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -735,25 +1847,53 @@ class _VehicleOwnerHomePageState
   // ============================================================
 
   Widget _buildRequestsPage() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        22,
-        25,
-        22,
-        30,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPageHeader(
-            title: 'My Requests',
-            subtitle: 'Track your roadside assistance requests.',
-          ),
-
-          const SizedBox(height: 28),
-
-          _buildRecentRequests(),
-        ],
+    return RefreshIndicator(
+      color: yellowColor,
+      backgroundColor: cardColor,
+      onRefresh: _loadRecentRequests,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(22, 25, 22, 30),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildPageHeader(
+              title: 'My Requests',
+              subtitle: 'View active and past roadside assistance requests.',
+            ),
+            const SizedBox(height: 28),
+            SegmentedButton<int>(
+              segments: const [
+                ButtonSegment<int>(
+                  value: 0,
+                  label: Text('All'),
+                  icon: Icon(Icons.list_alt_rounded),
+                ),
+                ButtonSegment<int>(
+                  value: 1,
+                  label: Text('Active'),
+                  icon: Icon(Icons.hourglass_top_rounded),
+                ),
+                ButtonSegment<int>(
+                  value: 2,
+                  label: Text('Past'),
+                  icon: Icon(Icons.history_rounded),
+                ),
+              ],
+              selected: {_requestHistoryFilterIndex},
+              onSelectionChanged: (selection) {
+                setState(() {
+                  _requestHistoryFilterIndex = selection.first;
+                });
+              },
+            ),
+            const SizedBox(height: 18),
+            _buildRecentRequests(
+              showAll: true,
+              statusFilterIndex: _requestHistoryFilterIndex,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -763,153 +1903,299 @@ class _VehicleOwnerHomePageState
   // ============================================================
 
   Widget _buildProfilePage() {
-    final email =
-        widget.userData['email']?.toString() ?? '';
-
-    final contactNumber =
-        widget.userData['contactNumber']?.toString() ?? '';
+    final profileEmail = email == 'Email not available' ? '' : email;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        22,
-        25,
-        22,
-        30,
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPageHeader(
-            title: 'My Profile',
-            subtitle: 'Manage your RoadRescue account.',
+          const Text(
+            'Driver Profile',
+            style: TextStyle(
+              color: whiteColor,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-
-          const SizedBox(height: 28),
-
-          // Profile header
+          const SizedBox(height: 5),
+          const Text(
+            'Manage your personal and vehicle information',
+            style: TextStyle(color: greyColor, fontSize: 12),
+          ),
+          const SizedBox(height: 18),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: cardColor,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: borderColor,
-              ),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
               children: [
-                Container(
-                  width: 76,
-                  height: 76,
-                  decoration: BoxDecoration(
-                    color: yellowColor,
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    color: backgroundColor,
-                    size: 40,
-                  ),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Container(
+                      width: 88,
+                      height: 88,
+                      decoration: BoxDecoration(
+                        color: yellowColor.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: yellowColor.withValues(alpha: 0.35),
+                          width: 1.5,
+                        ),
+                        image: _profilePhotoUrl.isNotEmpty
+                            ? DecorationImage(
+                                image: NetworkImage(_profilePhotoUrl),
+                                fit: BoxFit.cover,
+                              )
+                            : null,
+                      ),
+                      child: _profilePhotoUrl.isEmpty
+                          ? const Icon(
+                              Icons.person_rounded,
+                              color: yellowColor,
+                              size: 44,
+                            )
+                          : null,
+                    ),
+                    if (_isUploadingPhoto)
+                      Container(
+                        width: 88,
+                        height: 88,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 26,
+                            height: 26,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              color: whiteColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-
                 const SizedBox(height: 14),
-
                 Text(
                   userName,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: whiteColor,
                     fontSize: 19,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-
                 const SizedBox(height: 5),
-
                 Text(
-                  email,
-                  style: const TextStyle(
-                    color: greyColor,
-                    fontSize: 12,
+                  profileEmail.isEmpty ? 'Email not available' : profileEmail,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: greyColor, fontSize: 11),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: _isUploadingPhoto ? null : _uploadProfilePhoto,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.camera_alt_outlined,
+                        color: yellowColor,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        _isUploadingPhoto ? 'Uploading...' : 'Change Photo',
+                        style: const TextStyle(
+                          color: yellowColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
-                const SizedBox(height: 12),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: yellowColor.withOpacity(0.09),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Vehicle Owner',
-                    style: TextStyle(
-                      color: yellowColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSavingProfile ? null : _showEditProfileDialog,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: const Text(
+                      'Edit Profile',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: yellowColor,
+                      foregroundColor: backgroundColor,
+                      disabledBackgroundColor: yellowColor.withValues(
+                        alpha: 0.4,
+                      ),
+                      disabledForegroundColor: Colors.black54,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(13),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 20),
-
+          const SizedBox(height: 16),
           _buildProfileInfoTile(
             icon: Icons.directions_car_outlined,
             title: 'Vehicle Type',
             value: vehicleType,
           ),
-
-          if (contactNumber.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            _buildProfileInfoTile(
-              icon: Icons.phone_outlined,
-              title: 'Contact Number',
-              value: contactNumber,
-            ),
-          ],
-
-          const SizedBox(height: 20),
-
-          _buildProfileAction(
-            icon: Icons.edit_outlined,
-            title: 'Edit Profile',
-            onTap: () {
-              _showComingSoon(
-                'Profile editing will be available soon.',
-              );
-            },
-          ),
-
           const SizedBox(height: 10),
-
-          _buildProfileAction(
-            icon: Icons.logout_rounded,
-            title: 'Log Out',
-            isDestructive: true,
-            onTap: () {
-              _showLogoutDialog();
-            },
+          _buildProfileInfoTile(
+            icon: Icons.phone_outlined,
+            title: 'Contact Number',
+            value: _contactNumber.isEmpty ? 'Not provided' : _contactNumber,
+          ),
+          const SizedBox(height: 10),
+          _buildProfileInfoTile(
+            icon: Icons.email_outlined,
+            title: 'Email',
+            value: profileEmail.isEmpty ? 'Not available' : profileEmail,
+          ),
+          const SizedBox(height: 18),
+          _buildPaymentInformationCard(),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: OutlinedButton.icon(
+              onPressed: _showLogoutDialog,
+              icon: const Icon(Icons.logout_rounded),
+              label: const Text(
+                'Log Out',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: whiteColor,
+                side: const BorderSide(color: Colors.white24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildPaymentInformationCard() {
+    final String paymentLabel = _paymentPreference == 'cash'
+        ? 'Cash'
+        : 'Card (demo)';
+    final String billingLabel = _billingName.isEmpty
+        ? 'Billing details not added'
+        : _billingName;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.account_balance_wallet_outlined,
+                color: yellowColor,
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Payment information',
+                  style: TextStyle(
+                    color: whiteColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: _openPaymentInformation,
+                child: const Text('Edit'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Preferred method: $paymentLabel',
+            style: const TextStyle(color: greyColor, fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            billingLabel,
+            style: const TextStyle(color: whiteColor, fontSize: 13),
+          ),
+          if (_billingAddress.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              _billingAddress,
+              style: const TextStyle(color: greyColor, fontSize: 12),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openPaymentInformation() async {
+    if (userId.isEmpty) {
+      _showComingSoon('Unable to identify your account.');
+      return;
+    }
+
+    final Map<String, String>? result = await Navigator.of(context)
+        .push<Map<String, String>>(
+          MaterialPageRoute<Map<String, String>>(
+            builder: (context) => DriverPaymentInformationPage(
+              userId: userId,
+              paymentPreference: _paymentPreference,
+              billingName: _billingName,
+              billingAddress: _billingAddress,
+            ),
+          ),
+        );
+
+    if (!mounted || result == null) return;
+    setState(() {
+      _paymentPreference = result['paymentPreference'] ?? 'card';
+      _billingName = result['billingName'] ?? '';
+      _billingAddress = result['billingAddress'] ?? '';
+      widget.userData['paymentPreference'] = _paymentPreference;
+      widget.userData['billingName'] = _billingName;
+      widget.userData['billingAddress'] = _billingAddress;
+    });
+  }
+
   // ============================================================
   // PAGE HEADER
   // ============================================================
 
-  Widget _buildPageHeader({
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _buildPageHeader({required String title, required String subtitle}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -924,13 +2210,7 @@ class _VehicleOwnerHomePageState
 
         const SizedBox(height: 7),
 
-        Text(
-          subtitle,
-          style: const TextStyle(
-            color: greyColor,
-            fontSize: 13,
-          ),
-        ),
+        Text(subtitle, style: const TextStyle(color: greyColor, fontSize: 13)),
       ],
     );
   }
@@ -950,9 +2230,7 @@ class _VehicleOwnerHomePageState
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(
-          color: borderColor,
-        ),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
@@ -960,14 +2238,10 @@ class _VehicleOwnerHomePageState
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: yellowColor.withOpacity(0.08),
+              color: yellowColor.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(11),
             ),
-            child: Icon(
-              icon,
-              color: yellowColor,
-              size: 21,
-            ),
+            child: Icon(icon, color: yellowColor, size: 21),
           ),
 
           const SizedBox(width: 13),
@@ -978,10 +2252,7 @@ class _VehicleOwnerHomePageState
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: greyColor,
-                    fontSize: 10,
-                  ),
+                  style: const TextStyle(color: greyColor, fontSize: 10),
                 ),
 
                 const SizedBox(height: 4),
@@ -1003,71 +2274,6 @@ class _VehicleOwnerHomePageState
   }
 
   // ============================================================
-  // PROFILE ACTION
-  // ============================================================
-
-  Widget _buildProfileAction({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 16,
-        ),
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(
-            color: isDestructive
-                ? const Color(0xFF4A2727)
-                : borderColor,
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isDestructive
-                  ? const Color(0xFFFF5252)
-                  : greyColor,
-              size: 21,
-            ),
-
-            const SizedBox(width: 13),
-
-            Text(
-              title,
-              style: TextStyle(
-                color: isDestructive
-                    ? const Color(0xFFFF5252)
-                    : whiteColor,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-
-            const Spacer(),
-
-            Icon(
-              Icons.chevron_right_rounded,
-              color: isDestructive
-                  ? const Color(0xFFFF5252)
-                  : greyColor,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============================================================
   // BOTTOM NAVIGATION
   // ============================================================
 
@@ -1075,58 +2281,34 @@ class _VehicleOwnerHomePageState
     return Container(
       decoration: const BoxDecoration(
         color: cardColor,
-        border: Border(
-          top: BorderSide(
-            color: borderColor,
-            width: 0.6,
-          ),
-        ),
+        border: Border(top: BorderSide(color: borderColor, width: 0.6)),
       ),
       child: NavigationBar(
         height: 68,
         backgroundColor: cardColor,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: yellowColor.withOpacity(0.12),
+        indicatorColor: yellowColor.withValues(alpha: 0.12),
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) {
           setState(() {
             _selectedIndex = index;
           });
         },
-        labelBehavior:
-            NavigationDestinationLabelBehavior.alwaysShow,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(
-            icon: Icon(
-              Icons.home_outlined,
-              color: greyColor,
-            ),
-            selectedIcon: Icon(
-              Icons.home_rounded,
-              color: yellowColor,
-            ),
+            icon: Icon(Icons.home_outlined, color: greyColor),
+            selectedIcon: Icon(Icons.home_rounded, color: yellowColor),
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons.assignment_outlined,
-              color: greyColor,
-            ),
-            selectedIcon: Icon(
-              Icons.assignment_rounded,
-              color: yellowColor,
-            ),
+            icon: Icon(Icons.assignment_outlined, color: greyColor),
+            selectedIcon: Icon(Icons.assignment_rounded, color: yellowColor),
             label: 'Requests',
           ),
           NavigationDestination(
-            icon: Icon(
-              Icons.person_outline_rounded,
-              color: greyColor,
-            ),
-            selectedIcon: Icon(
-              Icons.person_rounded,
-              color: yellowColor,
-            ),
+            icon: Icon(Icons.person_outline_rounded, color: greyColor),
+            selectedIcon: Icon(Icons.person_rounded, color: yellowColor),
             label: 'Profile',
           ),
         ],
@@ -1138,28 +2320,73 @@ class _VehicleOwnerHomePageState
   // ICON BUTTON
   // ============================================================
 
-  Widget _buildIconButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 43,
-        height: 43,
-        decoration: BoxDecoration(
-          color: cardColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: borderColor,
+  Widget _buildNotificationButton() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _notificationsStream,
+      builder: (context, snapshot) {
+        final unreadCount =
+            snapshot.data?.docs.where((document) {
+              final data = document.data();
+              return data['read'] != true && data['isRead'] != true;
+            }).length ??
+            0;
+
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const VehicleOwnerNotificationsPage(),
+              ),
+            );
+          },
+          child: Container(
+            width: 43,
+            height: 43,
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                const Icon(
+                  Icons.notifications_none_rounded,
+                  color: whiteColor,
+                  size: 22,
+                ),
+                if (unreadCount > 0)
+                  Positioned(
+                    top: -5,
+                    right: -5,
+                    child: Container(
+                      constraints: const BoxConstraints(
+                        minWidth: 17,
+                        minHeight: 17,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFFF5252),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        unreadCount > 9 ? '9+' : '$unreadCount',
+                        style: const TextStyle(
+                          color: whiteColor,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        child: Icon(
-          icon,
-          color: whiteColor,
-          size: 22,
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -1178,37 +2405,24 @@ class _VehicleOwnerHomePageState
           ),
           title: const Text(
             'Log Out',
-            style: TextStyle(
-              color: whiteColor,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(color: whiteColor, fontWeight: FontWeight.bold),
           ),
           content: const Text(
             'Are you sure you want to log out of RoadRescue?',
-            style: TextStyle(
-              color: greyColor,
-              height: 1.4,
-            ),
+            style: TextStyle(color: greyColor, height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext);
               },
-              child: const Text(
-                'Cancel',
-                style: TextStyle(
-                  color: greyColor,
-                ),
-              ),
+              child: const Text('Cancel', style: TextStyle(color: greyColor)),
             ),
             TextButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
 
-                _showComingSoon(
-                  'Logout functionality will be connected next.',
-                );
+                _showComingSoon('Logout functionality will be connected next.');
               },
               child: const Text(
                 'Log Out',

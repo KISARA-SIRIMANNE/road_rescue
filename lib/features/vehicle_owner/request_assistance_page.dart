@@ -1,24 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:road_rescue/theme/road_rescue_theme.dart';
 import 'package:road_rescue/features/vehicle_owner/location_confirmation_page.dart';
+
+import '../../services/insurance_company.dart';
 
 class RequestAssistancePage extends StatefulWidget {
   final Map<String, dynamic> userData;
+  final String? initialIssue;
+  final String initialCustomIssue;
+  final String? initialInsuranceCompanyId;
+  final String initialPolicyNumber;
+  final String initialInsuranceDescription;
+  final bool startInsuranceClaim;
 
   const RequestAssistancePage({
     super.key,
     required this.userData,
+    this.initialIssue,
+    this.initialCustomIssue = '',
+    this.initialInsuranceCompanyId,
+    this.initialPolicyNumber = '',
+    this.initialInsuranceDescription = '',
+    this.startInsuranceClaim = false,
   });
 
   @override
-  State<RequestAssistancePage> createState() =>
-      _RequestAssistancePageState();
+  State<RequestAssistancePage> createState() => _RequestAssistancePageState();
 }
 
 class _RequestAssistancePageState extends State<RequestAssistancePage> {
-  final TextEditingController _customIssueController =
-      TextEditingController();
+  final TextEditingController _customIssueController = TextEditingController();
 
   String? _selectedIssue;
+  String? _selectedInsuranceCompanyId;
+  bool _isInsuranceClaim = false;
 
   final List<Map<String, dynamic>> _commonIssues = [
     {
@@ -44,6 +59,15 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _selectedIssue = widget.initialIssue;
+    _selectedInsuranceCompanyId = widget.initialInsuranceCompanyId;
+    _isInsuranceClaim = widget.startInsuranceClaim;
+    _customIssueController.text = widget.initialCustomIssue;
+  }
+
+  @override
   void dispose() {
     _customIssueController.dispose();
     super.dispose();
@@ -60,30 +84,46 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
   }
 
   void _submitRequest() {
-    if (_selectedIssue == null) {
-    _showMessage('Please select an issue first.');
-    return;
-  }
+    if (_isInsuranceClaim &&
+        insuranceCompanyById(_selectedInsuranceCompanyId) == null) {
+      _showMessage('Please select your insurance company.');
+      return;
+    }
 
-  if (_selectedIssue == 'Custom Issue' &&
-      _customIssueController.text.trim().isEmpty) {
-    _showMessage('Please describe your issue.');
-    return;
-  }
+    if (!_isInsuranceClaim && _selectedIssue == null) {
+      _showMessage('Please select an issue first.');
+      return;
+    }
 
-  final String issue = _selectedIssue == 'Custom Issue'
-      ? _customIssueController.text.trim()
-      : _selectedIssue!;
+    if (!_isInsuranceClaim &&
+        _selectedIssue == 'Custom Issue' &&
+        _customIssueController.text.trim().isEmpty) {
+      _showMessage('Please describe your issue.');
+      return;
+    }
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => LocationConfirmationPage(
-        userData: widget.userData,
-        issue: issue,
+    final String issue = _isInsuranceClaim
+        ? 'Insurance Claim'
+        : _selectedIssue == 'Custom Issue'
+        ? _customIssueController.text.trim()
+        : _selectedIssue!;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LocationConfirmationPage(
+          userData: {
+            ...widget.userData,
+            '_selectedInsuranceCompanyId': _selectedInsuranceCompanyId,
+            '_startInsuranceClaim': _isInsuranceClaim,
+            '_claimSelectedOnRequestPage': _isInsuranceClaim,
+            '_retryPolicyNumber': widget.initialPolicyNumber,
+            '_retryInsuranceDescription': widget.initialInsuranceDescription,
+          },
+          issue: issue,
+        ),
       ),
-    ),
-  );
+    );
   }
 
   void _showMessage(String message) {
@@ -91,59 +131,19 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF24282D),
+        backgroundColor: RoadRescueColors.surface,
       ),
-    );
-  }
-
-  void _showRequestCreatedDialog(String issue) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF171C20),
-          title: const Text(
-            'Request Ready',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Text(
-            'Your assistance request for "$issue" is ready to be submitted.',
-            style: const TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  color: Color(0xFFF6E900),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final String userName =
-        widget.userData['name']?.toString() ?? 'Driver';
+    final String userName = widget.userData['name']?.toString() ?? 'Driver';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF08090A),
+      backgroundColor: RoadRescueColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF08090A),
+        backgroundColor: RoadRescueColors.background,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(
@@ -175,10 +175,10 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF171C20),
+                  color: RoadRescueColors.surface,
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
+                    color: Colors.white.withValues(alpha: 0.06),
                   ),
                 ),
                 child: Row(
@@ -187,7 +187,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                       width: 54,
                       height: 54,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF6E900),
+                        color: RoadRescueColors.accent,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Icon(
@@ -226,39 +226,114 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
 
               const SizedBox(height: 28),
 
-              const Text(
-                'Select an issue',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+              _buildInsuranceClaimCard(),
+
+              if (_isInsuranceClaim) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Select your insurance company',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 8),
-
-              const Text(
-                'Choose the problem you are experiencing with your vehicle.',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 14,
-                  height: 1.4,
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedInsuranceCompanyId,
+                  isExpanded: true,
+                  dropdownColor: RoadRescueColors.surface,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    hintText: 'Select insurance company',
+                    hintStyle: const TextStyle(color: Colors.white54),
+                    filled: true,
+                    fillColor: RoadRescueColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  items: insuranceCompanies
+                      .map(
+                        (company) => DropdownMenuItem<String>(
+                          value: company.id,
+                          child: Text(company.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedInsuranceCompanyId = value;
+                    });
+                  },
                 ),
-              ),
+              ],
 
-              const SizedBox(height: 18),
-
-              // Common issue cards
-              ..._commonIssues.map(
-                (issue) => _buildIssueCard(
-                  title: issue['title'] as String,
-                  subtitle: issue['subtitle'] as String,
-                  icon: issue['icon'] as IconData,
+              if (_isInsuranceClaim) ...[
+                const SizedBox(height: 18),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: RoadRescueColors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: RoadRescueColors.accent.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: RoadRescueColors.accent,
+                      ),
+                      SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'You do not need to select a separate roadside issue '
+                          'for an insurance claim. Add the incident details on '
+                          'the next screen.',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                            height: 1.45,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-
-              // Custom issue
-              _buildCustomIssueCard(),
+              ] else ...[
+                const SizedBox(height: 24),
+                const Text(
+                  'Select an issue',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Choose the problem you are experiencing with your vehicle.',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ..._commonIssues.map(
+                  (issue) => _buildIssueCard(
+                    title: issue['title'] as String,
+                    subtitle: issue['subtitle'] as String,
+                    icon: issue['icon'] as IconData,
+                  ),
+                ),
+                _buildCustomIssueCard(),
+              ],
 
               const SizedBox(height: 30),
 
@@ -269,7 +344,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 child: ElevatedButton(
                   onPressed: _submitRequest,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF6E900),
+                    backgroundColor: RoadRescueColors.accent,
                     foregroundColor: Colors.black,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -279,10 +354,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.send_rounded,
-                        size: 21,
-                      ),
+                      Icon(Icons.send_rounded, size: 21),
                       SizedBox(width: 10),
                       Text(
                         'Request Assistance',
@@ -316,6 +388,84 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
     );
   }
 
+  Widget _buildInsuranceClaimCard() {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isInsuranceClaim = !_isInsuranceClaim;
+          if (!_isInsuranceClaim) _selectedInsuranceCompanyId = null;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _isInsuranceClaim
+              ? RoadRescueColors.accent.withValues(alpha: 0.10)
+              : RoadRescueColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: _isInsuranceClaim
+                ? RoadRescueColors.accent
+                : Colors.white.withValues(alpha: 0.06),
+            width: _isInsuranceClaim ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: _isInsuranceClaim
+                    ? RoadRescueColors.accent
+                    : RoadRescueColors.background,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Icon(
+                Icons.shield_outlined,
+                color: _isInsuranceClaim ? Colors.black : Colors.white70,
+                size: 26,
+              ),
+            ),
+            const SizedBox(width: 15),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Insurance Claim',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Send this request to your insurance provider',
+                    style: TextStyle(color: Colors.white54, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              _isInsuranceClaim
+                  ? Icons.check_circle_rounded
+                  : Icons.radio_button_unchecked_rounded,
+              color: _isInsuranceClaim
+                  ? RoadRescueColors.accent
+                  : Colors.white38,
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIssueCard({
     required String title,
     required String subtitle,
@@ -331,13 +481,13 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF171C20),
+              ? RoadRescueColors.accent.withValues(alpha: 0.10)
+              : RoadRescueColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFF6E900)
-                : Colors.white.withOpacity(0.06),
+                ? RoadRescueColors.accent
+                : Colors.white.withValues(alpha: 0.06),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -348,8 +498,8 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               height: 50,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? const Color(0xFFF6E900)
-                    : const Color(0xFF24282D),
+                    ? RoadRescueColors.accent
+                    : RoadRescueColors.surface,
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(
@@ -367,7 +517,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                     title,
                     style: TextStyle(
                       color: isSelected
-                          ? const Color(0xFFF6E900)
+                          ? RoadRescueColors.accent
                           : Colors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -376,10 +526,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                 ],
               ),
@@ -392,21 +539,15 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected
-                    ? const Color(0xFFF6E900)
+                    ? RoadRescueColors.accent
                     : Colors.transparent,
                 border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFFF6E900)
-                      : Colors.white38,
+                  color: isSelected ? RoadRescueColors.accent : Colors.white38,
                   width: 2,
                 ),
               ),
               child: isSelected
-                  ? const Icon(
-                      Icons.check,
-                      size: 15,
-                      color: Colors.black,
-                    )
+                  ? const Icon(Icons.check, size: 15, color: Colors.black)
                   : null,
             ),
           ],
@@ -425,13 +566,13 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF171C20),
+              ? RoadRescueColors.accent.withValues(alpha: 0.10)
+              : RoadRescueColors.surface,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
-                ? const Color(0xFFF6E900)
-                : Colors.white.withOpacity(0.06),
+                ? RoadRescueColors.accent
+                : Colors.white.withValues(alpha: 0.06),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -444,8 +585,8 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   height: 50,
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? const Color(0xFFF6E900)
-                        : const Color(0xFF24282D),
+                        ? RoadRescueColors.accent
+                        : RoadRescueColors.surface,
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Icon(
@@ -470,10 +611,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                       SizedBox(height: 4),
                       Text(
                         'Describe another problem',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: Colors.white54, fontSize: 13),
                       ),
                     ],
                   ),
@@ -491,17 +629,12 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 controller: _customIssueController,
                 maxLines: 4,
                 minLines: 3,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Describe your issue...',
-                  hintStyle: const TextStyle(
-                    color: Colors.white38,
-                  ),
+                  hintStyle: const TextStyle(color: Colors.white38),
                   filled: true,
-                  fillColor: const Color(0xFF08090A),
+                  fillColor: RoadRescueColors.elevatedSurface,
                   contentPadding: const EdgeInsets.all(16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -510,15 +643,13 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
-                      color: Colors.white.withOpacity(0.06),
+                      color: Colors.white.withValues(alpha: 0.06),
                     ),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(
-                      Radius.circular(14),
-                    ),
+                    borderRadius: BorderRadius.all(Radius.circular(14)),
                     borderSide: BorderSide(
-                      color: Color(0xFFF6E900),
+                      color: RoadRescueColors.accent,
                       width: 1.5,
                     ),
                   ),

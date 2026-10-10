@@ -5,18 +5,17 @@ import 'firebase_options.dart';
 import 'features/onboarding/onboarding_screen_1.dart';
 import 'features/onboarding/onboarding_screen_2.dart';
 import 'features/onboarding/onboarding_screen_3.dart';
-
-
-
+import 'services/notification_service.dart';
+import 'theme/road_rescue_theme.dart';
 
 Future<void> main() async {
   // Make sure Flutter is initialized before Firebase.
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase.
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await NotificationService.instance.initialize();
 
   // Start the application.
   runApp(const RoadRescueApp());
@@ -36,26 +35,11 @@ class RoadRescueApp extends StatelessWidget {
 
       title: 'RoadRescue',
 
-      // ============================================================== 
+      // ==============================================================
       // THEME
       // ==============================================================
 
-      theme: ThemeData(
-        useMaterial3: true,
-
-        scaffoldBackgroundColor: const Color(0xFF08090A),
-
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFFF6E900),
-          brightness: Brightness.dark,
-          surface: const Color(0xFF171C20),
-          outline: const Color(0xFF394149),
-        ),
-      ),
-
-      // ============================================================== 
-      // TEMPORARY GOOGLE MAP TEST
-      // ==============================================================
+      theme: RoadRescueTheme.dark,
 
       home: const OnboardingPage(),
     );
@@ -97,7 +81,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF08090A),
+      backgroundColor: RoadRescueColors.background,
 
       body: PageView(
         controller: _pageController,
