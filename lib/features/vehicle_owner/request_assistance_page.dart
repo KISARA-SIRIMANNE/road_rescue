@@ -1,24 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:road_rescue/features/vehicle_owner/location_confirmation_page.dart';
 
+import '../../services/insurance_company.dart';
+
 class RequestAssistancePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const RequestAssistancePage({
-    super.key,
-    required this.userData,
-  });
+  const RequestAssistancePage({super.key, required this.userData});
 
   @override
-  State<RequestAssistancePage> createState() =>
-      _RequestAssistancePageState();
+  State<RequestAssistancePage> createState() => _RequestAssistancePageState();
 }
 
 class _RequestAssistancePageState extends State<RequestAssistancePage> {
-  final TextEditingController _customIssueController =
-      TextEditingController();
+  final TextEditingController _customIssueController = TextEditingController();
 
   String? _selectedIssue;
+  String? _selectedInsuranceCompanyId;
 
   final List<Map<String, dynamic>> _commonIssues = [
     {
@@ -61,29 +59,32 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
 
   void _submitRequest() {
     if (_selectedIssue == null) {
-    _showMessage('Please select an issue first.');
-    return;
-  }
+      _showMessage('Please select an issue first.');
+      return;
+    }
 
-  if (_selectedIssue == 'Custom Issue' &&
-      _customIssueController.text.trim().isEmpty) {
-    _showMessage('Please describe your issue.');
-    return;
-  }
+    if (_selectedIssue == 'Custom Issue' &&
+        _customIssueController.text.trim().isEmpty) {
+      _showMessage('Please describe your issue.');
+      return;
+    }
 
-  final String issue = _selectedIssue == 'Custom Issue'
-      ? _customIssueController.text.trim()
-      : _selectedIssue!;
+    final String issue = _selectedIssue == 'Custom Issue'
+        ? _customIssueController.text.trim()
+        : _selectedIssue!;
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => LocationConfirmationPage(
-        userData: widget.userData,
-        issue: issue,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LocationConfirmationPage(
+          userData: {
+            ...widget.userData,
+            '_selectedInsuranceCompanyId': _selectedInsuranceCompanyId,
+          },
+          issue: issue,
+        ),
       ),
-    ),
-  );
+    );
   }
 
   void _showMessage(String message) {
@@ -91,59 +92,19 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
       SnackBar(
         content: Text(message),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: const Color(0xFF24282D),
+        backgroundColor: const Color(0xFF151D21),
       ),
-    );
-  }
-
-  void _showRequestCreatedDialog(String issue) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xFF171C20),
-          title: const Text(
-            'Request Ready',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          content: Text(
-            'Your assistance request for "$issue" is ready to be submitted.',
-            style: const TextStyle(
-              color: Colors.white70,
-              height: 1.5,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'OK',
-                style: TextStyle(
-                  color: Color(0xFFF6E900),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final String userName =
-        widget.userData['name']?.toString() ?? 'Driver';
+    final String userName = widget.userData['name']?.toString() ?? 'Driver';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF08090A),
+      backgroundColor: const Color(0xFF05090B),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF08090A),
+        backgroundColor: const Color(0xFF05090B),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(
@@ -175,10 +136,10 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF171C20),
+                  color: const Color(0xFF11181C),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
+                    color: Colors.white.withValues(alpha: 0.06),
                   ),
                 ),
                 child: Row(
@@ -262,6 +223,51 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
 
               const SizedBox(height: 30),
 
+              const Text(
+                'Insurance Company (Optional)',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedInsuranceCompanyId,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF191C20),
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Select insurance company',
+                  hintStyle: const TextStyle(color: Colors.white54),
+                  filled: true,
+                  fillColor: const Color(0xFF191C20),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                items: [
+                  const DropdownMenuItem<String>(
+                    value: null,
+                    child: Text('Not insured / Not sure'),
+                  ),
+                  ...insuranceCompanies.map(
+                    (company) => DropdownMenuItem(
+                      value: company.id,
+                      child: Text(company.name),
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedInsuranceCompanyId = value;
+                  });
+                },
+              ),
+
+              const SizedBox(height: 20),
+
               // Request button
               SizedBox(
                 width: double.infinity,
@@ -279,10 +285,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        Icons.send_rounded,
-                        size: 21,
-                      ),
+                      Icon(Icons.send_rounded, size: 21),
                       SizedBox(width: 10),
                       Text(
                         'Request Assistance',
@@ -331,13 +334,13 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF171C20),
+              ? const Color(0xFFF6E900).withValues(alpha: 0.10)
+              : const Color(0xFF11181C),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFFF6E900)
-                : Colors.white.withOpacity(0.06),
+                : Colors.white.withValues(alpha: 0.06),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -349,7 +352,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFFF6E900)
-                    : const Color(0xFF24282D),
+                    : const Color(0xFF151D21),
                 borderRadius: BorderRadius.circular(15),
               ),
               child: Icon(
@@ -376,10 +379,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 13,
-                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 13),
                   ),
                 ],
               ),
@@ -395,18 +395,12 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                     ? const Color(0xFFF6E900)
                     : Colors.transparent,
                 border: Border.all(
-                  color: isSelected
-                      ? const Color(0xFFF6E900)
-                      : Colors.white38,
+                  color: isSelected ? const Color(0xFFF6E900) : Colors.white38,
                   width: 2,
                 ),
               ),
               child: isSelected
-                  ? const Icon(
-                      Icons.check,
-                      size: 15,
-                      color: Colors.black,
-                    )
+                  ? const Icon(Icons.check, size: 15, color: Colors.black)
                   : null,
             ),
           ],
@@ -425,13 +419,13 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFFF6E900).withOpacity(0.10)
-              : const Color(0xFF171C20),
+              ? const Color(0xFFF6E900).withValues(alpha: 0.10)
+              : const Color(0xFF11181C),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected
                 ? const Color(0xFFF6E900)
-                : Colors.white.withOpacity(0.06),
+                : Colors.white.withValues(alpha: 0.06),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -445,7 +439,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFFF6E900)
-                        : const Color(0xFF24282D),
+                        : const Color(0xFF151D21),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: Icon(
@@ -470,10 +464,7 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                       SizedBox(height: 4),
                       Text(
                         'Describe another problem',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: Colors.white54, fontSize: 13),
                       ),
                     ],
                   ),
@@ -491,17 +482,12 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                 controller: _customIssueController,
                 maxLines: 4,
                 minLines: 3,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Describe your issue...',
-                  hintStyle: const TextStyle(
-                    color: Colors.white38,
-                  ),
+                  hintStyle: const TextStyle(color: Colors.white38),
                   filled: true,
-                  fillColor: const Color(0xFF08090A),
+                  fillColor: const Color(0xFF10171B),
                   contentPadding: const EdgeInsets.all(16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -510,13 +496,11 @@ class _RequestAssistancePageState extends State<RequestAssistancePage> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide(
-                      color: Colors.white.withOpacity(0.06),
+                      color: Colors.white.withValues(alpha: 0.06),
                     ),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderRadius: BorderRadius.all(
-                      Radius.circular(14),
-                    ),
+                    borderRadius: BorderRadius.all(Radius.circular(14)),
                     borderSide: BorderSide(
                       color: Color(0xFFF6E900),
                       width: 1.5,

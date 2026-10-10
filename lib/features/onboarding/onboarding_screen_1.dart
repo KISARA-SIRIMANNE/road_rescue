@@ -7,10 +7,10 @@ class OnboardingScreen1 extends StatelessWidget {
   // COLORS
   // ================================================================
 
-  static const Color backgroundColor = Color(0xFF08090A);
+  static const Color backgroundColor = Color(0xFF05090B);
   static const Color whiteColor = Color(0xFFF5F7F8);
-  static const Color yellowColor = Color(0xFFF6E900);
-  static const Color greyColor = Color(0xFF929AA2);
+  static const Color yellowColor = Color(0xFFFFD21F);
+  static const Color greyColor = Color(0xFFA5ADB3);
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +35,6 @@ class OnboardingScreen1 extends StatelessWidget {
           // ==========================================================
           // DARK OVERLAY
           // ==========================================================
-
           Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
@@ -43,9 +42,9 @@ class OnboardingScreen1 extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.25),
-                    Colors.black.withOpacity(0.35),
-                    Colors.black.withOpacity(0.70),
+                    Colors.black.withValues(alpha: 0.25),
+                    Colors.black.withValues(alpha: 0.35),
+                    Colors.black.withValues(alpha: 0.70),
                   ],
                 ),
               ),
@@ -55,7 +54,6 @@ class OnboardingScreen1 extends StatelessWidget {
           // ==========================================================
           // MAIN CONTENT
           // ==========================================================
-
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -67,19 +65,16 @@ class OnboardingScreen1 extends StatelessWidget {
                   // ==================================================
                   // ROADRESCUE LOGO
                   // ==================================================
-
                   _buildLogo(),
 
                   // ==================================================
                   // SPACE
                   // ==================================================
-
                   const Spacer(),
 
                   // ==================================================
                   // MAIN TEXT
                   // ==================================================
-
                   SizedBox(
                     width: screenSize.width * 0.72,
                     child: _buildMainText(),
@@ -88,16 +83,12 @@ class OnboardingScreen1 extends StatelessWidget {
                   // ==================================================
                   // SPACE
                   // ==================================================
-
                   const Spacer(),
 
                   // ==================================================
                   // PAGE INDICATORS
                   // ==================================================
-
-                  Center(
-                    child: _buildPageIndicators(),
-                  ),
+                  Center(child: _buildPageIndicators()),
 
                   const SizedBox(height: 24),
                 ],
@@ -132,7 +123,7 @@ class OnboardingScreen1 extends StatelessWidget {
           child: const Text(
             '⚡',
             style: TextStyle(
-              color: Color(0xFF08090A),
+              color: Color(0xFF05090B),
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -144,7 +135,6 @@ class OnboardingScreen1 extends StatelessWidget {
         // ------------------------------------------------------------
         // BRAND NAME
         // ------------------------------------------------------------
-
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -243,23 +233,17 @@ class OnboardingScreen1 extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         // Screen 1 - Active
-        _buildIndicator(
-          isActive: true,
-        ),
+        _buildIndicator(isActive: true),
 
         const SizedBox(width: 6),
 
         // Screen 2
-        _buildIndicator(
-          isActive: false,
-        ),
+        _buildIndicator(isActive: false),
 
         const SizedBox(width: 6),
 
         // Screen 3
-        _buildIndicator(
-          isActive: false,
-        ),
+        _buildIndicator(isActive: false),
       ],
     );
   }
@@ -268,17 +252,13 @@ class OnboardingScreen1 extends StatelessWidget {
   // INDIVIDUAL INDICATOR
   // ================================================================
 
-  Widget _buildIndicator({
-    required bool isActive,
-  }) {
+  Widget _buildIndicator({required bool isActive}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       width: isActive ? 24 : 7,
       height: 7,
       decoration: BoxDecoration(
-        color: isActive
-            ? yellowColor
-            : whiteColor.withOpacity(0.45),
+        color: isActive ? yellowColor : whiteColor.withValues(alpha: 0.45),
         borderRadius: BorderRadius.circular(10),
       ),
     );
